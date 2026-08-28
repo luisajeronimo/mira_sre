@@ -34,6 +34,18 @@ install:
 	@$(VENV_PYTHON) -m pip install -r requirements.txt
 	@echo "Dependencias instaladas."
 
+xano-install:
+	@echo "Verificando Node.js..."
+	@node --version
+	@echo "Verificando npm..."
+	@npm --version
+	@echo "Instalando Xano CLI..."
+	@npm install -g @xano/cli
+	@echo "Xano CLI instalado:"
+	@xano --version
+	@echo ""
+	@echo "Execute 'xano auth' para autenticar esta maquina."
+
 
 simulator:
 	@echo "Iniciando Simulator..."

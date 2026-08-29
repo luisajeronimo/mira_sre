@@ -1,0 +1,215 @@
+schema: spec-driven
+
+context: |
+  Project: MIRA
+
+  Authoritative functional baseline:
+  - Treat MIRA documentation v2.4/v2.5 as the current baseline.
+  - Older versions are historical when they conflict with the current baseline.
+  - The current heartbeat rule is more than 15 minutes without telemetry -> asset Offline.
+  - Do not restore the older 5-minute rule.
+
+  Main stack:
+  - Frontend: Reflex (Python)
+  - Backend and database: Xano
+  - Backend-as-code: XanoScript
+  - Automation scripts: Python
+  - AI development agent: OpenAI Codex
+  - Xano documentation and validation: Xano Developer MCP
+  - Specification-driven development: OpenSpec
+  - Local task automation: GNU Make
+
+  Existing domain model:
+  - lojas: id, nome, endereco, regiao, status
+  - usuarios: id, nome, email, senha, perfil
+  - ativos_referencia: id, nome_ativo, tipo, loja_id, status_atual
+  - telemetria_equipamentos: id, ativos_referencia_id, uso_cpu, uso_memoria,
+    temperatura, status_rede, evento_timestamp
+  - categorias_servico: id, nome, tipo_itil, sla_horas
+  - chamados: id, titulo, status, prioridade, usuario_id, tecnico_id,
+    ativo_id, categoria_id, criado_em
+  - interacoes_chamado: id, chamado_id, autor_id, mensagem, criado_em
+
+  Existing responsibilities:
+  - Gerente: views assets from the unit, opens manual tickets for physical/operational
+    problems, and follows ticket progress.
+  - Tecnico: views the queue, assumes tickets, consults asset/store/telemetry,
+    records diagnosis and work logs, uses Aguardando Terceiro when applicable,
+    records the solution and resolves the ticket.
+  - Diretoria: views global dashboards and indicators including availability,
+    SLA, MTTD, MTTR and recurrence.
+  - Simulator Python: generates mock telemetry for assets already registered in Xano.
+    It does not create tickets and does not decide Offline.
+  - Fiscal Python: periodically calls GET /verificar-falhas. It does not decide
+    Offline and does not create tickets directly.
+  - Xano: owns persistence, APIs, authentication, aggregations and business rules.
+  - Reflex: owns the web Service Desk and dashboards.
+
+  Existing SLA rules:
+  - categorias_servico.sla_horas is the current configurable SLA parameter.
+  - chamados.categoria_id references categorias_servico so the applicable SLA can be derived.
+  - SLA compliance is an existing indicator.
+  - The technical queue is expected to support ordering by priority and SLA.
+  - Do not invent fixed P1/P2/P3/P4 SLA durations.
+  - Do not invent an impact x urgency matrix unless an approved OpenSpec change defines it.
+  - Rules such as "near SLA breach" or SLA pause are not defined yet.
+
+  Existing monitoring rules:
+  - Simulator telemetry uses evento_timestamp as the temporal reference.
+  - Simulator normal telemetry interval is 7 minutes per asset.
+  - Fiscal periodically calls GET /verificar-falhas.
+  - Xano compares the latest evento_timestamp with the current time.
+  - More than 15 minutes without telemetry marks the asset Offline.
+  - If no equivalent incident is open, Xano creates a Novo/Urgente incident.
+  - Duplicate open incidents for the same monitoring failure must not be created.
+
+  Existing manual ticket flow:
+  - Manager opens the MIRA ticket screen.
+  - Selects store and asset.
+  - Selects service category.
+  - Describes the problem and adds useful context such as perceived time.
+  - Xano creates the ticket and it enters the technical queue.
+  - Technician assumes and handles it.
+  - Manager follows ticket status.
+
+  Existing technical process:
+  - Open technical queue.
+  - Order by priority and SLA.
+  - Open ticket.
+  - Assume ticket.
+  - Consult asset and store.
+  - Consult telemetry history in its own screen.
+  - Record diagnosis.
+  - Add work log.
+  - Use Aguardando Terceiro when applicable.
+  - Execute correction.
+  - Record solution.
+  - Resolve.
+  - Validate asset normalization when applicable.
+
+  New approved direction that still requires OpenSpec specification:
+  - Add a technical quick view "Atribuidos a mim" based on chamados.tecnico_id
+    and the authenticated technician.
+  - Add a "Nao atribuidos" view for tickets without a responsible technician.
+  - Add controlled combinable filters inspired by ServiceNow lists.
+  - Candidate filters may use existing fields/relations such as technician,
+    status, priority, category, asset, store, region, SLA and created_at.
+  - AND/OR combinations must be controlled and safe, not an unrestricted query language.
+
+  Important unresolved points:
+  - The manual flow requires a problem description, but the current chamados model
+    does not define a description field. OpenSpec must decide persistence.
+  - Manual vs monitoring ticket origin exists conceptually, but the current model
+    does not define an origin field. OpenSpec must decide persistence before reliable
+    filtering by origin.
+  - The prioridade field exists, but the rule for calculating manual ticket priority
+    is not defined.
+  - The status field exists, Novo is defined for automatic incidents,
+    Aguardando Terceiro appears in technical treatment, and resolving is part of the
+    process; a complete state machine is not yet approved.
+  - tecnico_id already exists and supports assignment, but detailed authorization
+    for assignment/reassignment still needs specification.
+  - The manager is functionally associated with the unit, but the current documented
+    model does not define an explicit usuario-loja relationship.
+  - Diagnosis and solution are required technical activities, but their persistence
+    as dedicated fields is not defined in the current model.
+
+  Existing dashboards:
+  - General/director dashboard: global availability, online/offline totals,
+    open and urgent incidents, SLA compliance, MTTD, MTTR, incidents by day/week,
+    availability by store, ranking of assets with more failures,
+    filters by period, region, store and status.
+  - Store dashboard: unit totals, online/offline assets, last heartbeat,
+    store availability, recent CPU/memory/temperature, unit incidents and time filter.
+  - Asset dashboard: identification/store, current status/last heartbeat,
+    CPU/memory/temperature over time, network status, offline periods and related incidents.
+  - ITSM indicators: availability, MTTD, MTTR, incidents per asset/store,
+    SLA compliance and ticket volume by category.
+
+  Existing APIs:
+  - POST /telemetria
+  - GET /verificar-falhas
+  - GET /ativos
+  - GET /lojas
+  - GET /telemetria
+  - GET /indicadores
+  - POST /chamados
+  - GET /chamados
+  - PUT/PATCH /chamados/{id}
+  - POST /chamados/{id}/interacoes
+
+
+  Proposed service-category catalog (must be approved before final data load):
+  - Hardware - Tela/Touchscreen (Incident Management)
+  - Hardware - Perifericos (Incident Management)
+  - Energia/Alimentacao (Incident Management)
+  - Rede/Conectividade (Incident Management)
+  - Software/Aplicacao (Incident Management)
+  - Desempenho/Temperatura (Incident Management)
+  - Suprimentos/Reposicao (Request Fulfilment)
+  - Manutencao preventiva (Request Fulfilment)
+  - Outros problemas operacionais (Incident Management)
+  - These are new rows in categorias_servico, not a new table or schema change.
+  - sla_horas values must be explicitly approved; do not invent them.
+
+  Proposed data-model changes that require OpenSpec approval before implementation:
+  - usuarios.loja_id (nullable FK) to enforce manager store scope in Xano.
+  - chamados.descricao to persist the detailed problem description already required by the manual flow.
+  - chamados.origem to distinguish MANUAL from MONITORAMENTO.
+  - chamados.atualizado_em for operational ordering/follow-up.
+  - chamados.resolvido_em for MTTR and SLA compliance calculations.
+  - interacoes_chamado.tipo to distinguish WORK_LOG, DIAGNOSTICO, SOLUCAO, STATUS and ATRIBUICAO.
+  - Do not add chamados.loja_id because store can be derived through ativo_id -> ativos_referencia.loja_id.
+  - Do not add impacto/urgencia or fixed priority-based SLA mappings unless a future approved change requires them.
+
+  Development principles:
+  - Specification comes before implementation.
+  - Preserve already documented behavior unless an approved change explicitly modifies it.
+  - Do not silently create fields or business rules because they are common in ITSM systems.
+  - Do not introduce Docker or Grafana.
+  - Keep Simulator, Fiscal and Xano responsibilities separated.
+  - Use Xano Developer MCP to validate XanoScript.
+  - Use Xano CLI for controlled synchronization with the Xano workspace.
+  - Never perform destructive Xano pushes automatically.
+
+rules:
+  proposal:
+    - State which requirements are already part of the MIRA baseline and which are new.
+    - Do not present unresolved points as existing functionality.
+    - Do not invent SLA durations, impact/urgency matrices or status values.
+    - Identify data-model changes explicitly.
+
+  design:
+    - Preserve categorias_servico.sla_horas as the current source of SLA.
+    - Distinguish Reflex, Xano, Simulator and Fiscal responsibilities.
+    - Reuse existing fields and relationships before proposing new ones.
+    - If a new field is required, explain why the current model cannot support the behavior.
+    - Define authorization explicitly when adding assignment or filtered views.
+
+  specs:
+    - Describe observable behavior and validation scenarios.
+    - Include success, failure and authorization scenarios.
+    - For technical filters, define supported fields, operators and AND/OR behavior.
+    - For status changes, define only states and transitions approved by the change.
+    - For SLA behavior, use category sla_horas and explicitly define any new derived state.
+
+  tasks:
+    - Separate Reflex, XanoScript and Python work.
+    - Include data-model migration only when approved by the spec.
+    - Keep tasks small and traceable to requirements.
+    - Do not create tasks for Docker or Grafana.
+
+operations:
+  apply:
+    guidance:
+      - Follow the approved specification without silently expanding scope.
+      - Validate XanoScript with Xano Developer MCP.
+      - Do not change the 15-minute heartbeat rule unless the approved change says so.
+      - Do not replace category-based SLA with fixed priority-based SLA.
+      - Do not perform destructive Xano workspace operations automatically.
+
+  archive:
+    guidance:
+      - Consolidate only behavior that was actually approved and implemented.
+      - Preserve relevant business-rule and architecture decisions.
+      - Do not archive proposed but unimplemented behavior as if it were current functionality.

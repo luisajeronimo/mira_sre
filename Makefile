@@ -11,7 +11,7 @@ else
 endif
 
 
-.PHONY: setup install simulator fiscal
+.PHONY: setup install xano-install openspec-install simulator fiscal
 
 
 setup:
@@ -46,6 +46,10 @@ xano-install:
 	@echo ""
 	@echo "Execute 'xano auth' para autenticar esta maquina."
 
+openspec-install:
+	@echo "Instalando OpenSpec..."
+	@npm install -g @fission-ai/openspec@latest
+	@openspec --version
 
 simulator:
 	@echo "Iniciando Simulator..."

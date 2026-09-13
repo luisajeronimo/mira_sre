@@ -1,6 +1,7 @@
 // Edit categorias_servico record
 query "categorias_servico/{categorias_servico_id}" verb=PATCH {
   api_group = "APIS from table categorias_servico"
+  auth = "usuarios"
 
   input {
     int categorias_servico_id? filters=min:1
@@ -10,6 +11,10 @@ query "categorias_servico/{categorias_servico_id}" verb=PATCH {
   }
 
   stack {
+    function.run "autorizacao/negar_mutacao_generica" {
+      input = {usuarios_id: $auth.id}
+    } as $negado
+
     util.get_raw_input {
       encoding = "json"
       exclude_middleware = false

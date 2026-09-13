@@ -1,6 +1,7 @@
 // Edit chamados record
 query "chamados/{chamados_id}" verb=PATCH {
   api_group = "APIS from table chamados"
+  auth = "usuarios"
 
   input {
     int chamados_id? filters=min:1
@@ -10,6 +11,10 @@ query "chamados/{chamados_id}" verb=PATCH {
   }
 
   stack {
+    function.run "autorizacao/negar_mutacao_generica" {
+      input = {usuarios_id: $auth.id}
+    } as $negado
+
     util.get_raw_input {
       encoding = "json"
       exclude_middleware = false

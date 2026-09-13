@@ -1,6 +1,7 @@
 // Edit telemetria_equipamentos record
 query "telemetria_equipamentos/{telemetria_equipamentos_id}" verb=PATCH {
   api_group = "APIS from table telemetria_equipamentos"
+  auth = "usuarios"
 
   input {
     int telemetria_equipamentos_id? filters=min:1
@@ -10,6 +11,10 @@ query "telemetria_equipamentos/{telemetria_equipamentos_id}" verb=PATCH {
   }
 
   stack {
+    function.run "autorizacao/negar_mutacao_generica" {
+      input = {usuarios_id: $auth.id}
+    } as $negado
+
     util.get_raw_input {
       encoding = "json"
       exclude_middleware = false

@@ -1,6 +1,6 @@
 // Identidade e autorização básica
 table usuarios {
-  auth = false
+  auth = true
 
   schema {
     int id
@@ -13,17 +13,23 @@ table usuarios {
     enum role? {
       values = [
         "gerente"
-        "diretor"
-        "tecnico_n1"
-        "tecnico_n2"
-        "tecnico_n3"
-        "admin"
+        "tecnico"
+        "diretoria"
       ]
+    }
+
+    password? senha? {
+      sensitive = true
+    }
+
+    int? lojas_id? {
+      table = "lojas"
     }
   }
 
   index = [
     {type: "primary", field: [{name: "id"}]}
+    {type: "btree|unique", field: [{name: "email"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
   ]
 

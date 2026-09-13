@@ -1,6 +1,7 @@
 // Add interacoes_chamado record
 query interacoes_chamado verb=POST {
   api_group = "APIS from table interacoes_chamado"
+  auth = "usuarios"
 
   input {
     dblink {
@@ -9,6 +10,10 @@ query interacoes_chamado verb=POST {
   }
 
   stack {
+    function.run "autorizacao/negar_mutacao_generica" {
+      input = {usuarios_id: $auth.id}
+    } as $negado
+
     db.add interacoes_chamado {
       enforce_hidden_fields = false
       data = {created_at: "now"}

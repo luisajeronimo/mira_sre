@@ -1,6 +1,7 @@
 // Edit ativos_referencia record
 query "ativos_referencia/{ativos_referencia_id}" verb=PATCH {
   api_group = "APIS from table ativos_referencia"
+  auth = "usuarios"
 
   input {
     int ativos_referencia_id? filters=min:1
@@ -10,6 +11,10 @@ query "ativos_referencia/{ativos_referencia_id}" verb=PATCH {
   }
 
   stack {
+    function.run "autorizacao/negar_mutacao_generica" {
+      input = {usuarios_id: $auth.id}
+    } as $negado
+
     util.get_raw_input {
       encoding = "json"
       exclude_middleware = false

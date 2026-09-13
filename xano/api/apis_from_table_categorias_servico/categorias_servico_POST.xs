@@ -1,6 +1,7 @@
 // Add categorias_servico record
 query categorias_servico verb=POST {
   api_group = "APIS from table categorias_servico"
+  auth = "usuarios"
 
   input {
     dblink {
@@ -9,6 +10,10 @@ query categorias_servico verb=POST {
   }
 
   stack {
+    function.run "autorizacao/negar_mutacao_generica" {
+      input = {usuarios_id: $auth.id}
+    } as $negado
+
     db.add categorias_servico {
       enforce_hidden_fields = false
       data = {created_at: "now"}

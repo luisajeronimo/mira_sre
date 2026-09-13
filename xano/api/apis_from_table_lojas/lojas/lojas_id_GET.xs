@@ -1,12 +1,21 @@
 // Get lojas record
 query "lojas/{lojas_id}" verb=GET {
   api_group = "APIS from table lojas"
+  auth = "usuarios"
 
   input {
     int lojas_id? filters=min:1
   }
 
   stack {
+    function.run "autorizacao/exigir_escopo_loja" {
+      input = {
+        usuarios_id: $auth.id,
+        lojas_id: $input.lojas_id,
+        diretoria: true
+      }
+    } as $usuario
+
     db.get lojas {
       field_name = "id"
       field_value = $input.lojas_id

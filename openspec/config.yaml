@@ -37,6 +37,10 @@ context: |
     - O SLA é configurado pela categoria de serviço por meio de sla_horas.
     - Não inventar tempos fixos de SLA, matriz de impacto e urgência, novos status ou novas regras sem change aprovada.
     - Regras de autorização devem ser aplicadas no Xano.
+     - O projeto deve utilizar somente recursos disponíveis no plano Free do Xano.
+    - Não utilizar funcionalidades, políticas, add-ons ou recursos que exijam planos pagos do Xano.
+    - Antes de adotar uma funcionalidade do Xano cuja disponibilidade por plano não esteja clara, validar a compatibilidade com o plano Free na documentação oficial ou no Xano Developer MCP.
+    - Se um requisito não puder ser atendido integralmente com recursos do plano Free, registrar a limitação técnica e submeter qualquer alteração de requisito ou arquitetura à revisão humana antes da implementação.
 
   Desenvolvimento:
     - Desenvolver de forma incremental utilizando OpenSpec.
@@ -60,9 +64,11 @@ rules:
 operations:
   apply:
     guidance:
-      - Implementar somente o que estiver aprovado na change.
-      - Validar XanoScript com o Xano Developer MCP quando aplicável.
-
+        - Implementar somente o que estiver aprovado na change.
+        - Validar XanoScript com o Xano Developer MCP quando aplicável.
+        - Utilizar somente recursos compatíveis com o plano Free do Xano.
+        - Validar a disponibilidade no plano Free antes de introduzir qualquer novo recurso, política ou mecanismo do Xano.
+        - Não propor upgrade de plano como solução técnica sem decisão humana explícita.
   archive:
     guidance:
       - Confirmar que a implementação corresponde à especificação antes de arquivar.

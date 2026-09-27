@@ -32,6 +32,18 @@ class XanoNaoAutorizado(XanoErro):
     """O Xano reconheceu a sessão, mas negou a operação."""
 
 
+class XanoNaoEncontrado(XanoErro):
+    """O recurso solicitado não existe."""
+
+
+class XanoConflito(XanoErro):
+    """A operação perdeu uma disputa concorrente."""
+
+
+class XanoEntradaInvalida(XanoErro):
+    """O Xano rejeitou os dados funcionais enviados."""
+
+
 class XanoContratoInvalido(XanoErro):
     """A resposta não corresponde ao contrato consolidado."""
 
@@ -78,15 +90,17 @@ class XanoCliente:
         base_url: str,
         timeout_segundos: float = TIMEOUT_PADRAO_SEGUNDOS,
         transport: httpx.AsyncBaseTransport | None = None,
+        nome_configuracao: str = "XANO_AUTH_BASE_URL",
     ) -> None:
         base_url = base_url.strip().rstrip("/")
         placeholders = {
             "url_da_api_do_xano",
             "url_do_grupo_de_autenticacao_do_xano",
+            "url_do_grupo_de_service_desk_do_xano",
         }
         if not base_url or base_url in placeholders:
             raise XanoContratoInvalido(
-                "XANO_AUTH_BASE_URL não configurada."
+                f"{nome_configuracao} não configurada."
             )
         if timeout_segundos <= 0:
             raise XanoContratoInvalido(
@@ -109,7 +123,6 @@ class XanoCliente:
         cabecalhos: dict[str, str] = {}
         if token:
             cabecalhos["Authorization"] = f"Bearer {token}"
-
         try:
             async with httpx.AsyncClient(
                 base_url=self._base_url,
@@ -137,6 +150,12 @@ class XanoCliente:
             raise XanoNaoAutenticado("Sessão não autenticada.")
         if resposta.status_code == 403:
             raise XanoNaoAutorizado("Acesso não autorizado.")
+        if resposta.status_code == 404:
+            raise XanoNaoEncontrado("Recurso não encontrado.")
+        if resposta.status_code == 409:
+            raise XanoConflito("O chamado foi assumido por outro Técnico.")
+        if resposta.status_code == 422:
+            raise XanoEntradaInvalida("Os dados informados são inválidos.")
         if resposta.status_code >= 500:
             raise XanoIndisponivel("O Xano está indisponível temporariamente.")
         if resposta.is_error:

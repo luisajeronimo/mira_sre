@@ -2,8 +2,18 @@
 
 import reflex as rx
 
-from app.pages import diretoria, gerente, index, login, tecnico
+from app.pages import (
+    detalhe_chamado,
+    detalhe_chamado_tecnico,
+    diretoria,
+    gerente,
+    index,
+    login,
+    novo_chamado,
+    tecnico_chamados,
+)
 from app.states.auth import AuthState
+from app.states.chamados import ChamadosGerenteState, ChamadosTecnicoState
 
 
 app = rx.App(theme=rx.theme(appearance="light", accent_color="blue"))
@@ -19,13 +29,31 @@ app.add_page(
     gerente,
     route="/gerente",
     title="Gerente | MIRA",
-    on_load=AuthState.carregar_gerente,
+    on_load=ChamadosGerenteState.carregar_lista,
 )
 app.add_page(
-    tecnico,
+    detalhe_chamado,
+    route="/gerente/chamados/[chamado_id]",
+    title="Chamado | MIRA",
+    on_load=ChamadosGerenteState.carregar_detalhe,
+)
+app.add_page(
+    novo_chamado,
+    route="/gerente/chamados/novo",
+    title="Novo chamado | MIRA",
+    on_load=ChamadosGerenteState.carregar_formulario,
+)
+app.add_page(
+    tecnico_chamados,
     route="/tecnico",
-    title="Técnico | MIRA",
-    on_load=AuthState.carregar_tecnico,
+    title="Fila técnica | MIRA",
+    on_load=ChamadosTecnicoState.carregar_fila,
+)
+app.add_page(
+    detalhe_chamado_tecnico,
+    route="/tecnico/chamados/[chamado_id]",
+    title="Chamado técnico | MIRA",
+    on_load=ChamadosTecnicoState.carregar_detalhe_tecnico,
 )
 app.add_page(
     diretoria,

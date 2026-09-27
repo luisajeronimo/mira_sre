@@ -335,8 +335,10 @@ Na abertura manual, o Gerente escolhe diretamente a prioridade. O MIRA não util
 - alterações posteriores no SLA da Categoria não modificam retroativamente Chamados existentes;
 - a contagem inicia na criação do Chamado;
 - `Aguardando Solicitante` e `Aguardando Mudança` não pausam o SLA;
-- `Resolvido`, `Encerrado` e `Cancelado` interrompem a contagem enquanto o chamado estiver nesses estados;
-- o comportamento da contagem após uma `Solução Rejeitada` deverá ser explicitado na spec de ciclo de vida/SLA antes da implementação.
+- `Resolvido` interrompe a contagem;
+- ao entrar em `Solução Rejeitada`, a contagem retoma a partir do saldo acumulado imediatamente antes de `Resolvido`;
+- o período em `Resolvido` não consome SLA;
+- `Encerrado` e `Cancelado` interrompem a contagem sem retomada.
 
 #### Atribuição
 
@@ -396,7 +398,9 @@ Os status aprovados para o domínio são:
 - `Resolvido` significa que a solução técnica foi aplicada e o serviço foi considerado restaurado;
 - enquanto `Resolvido`, o solicitante pode aceitar ou rejeitar a solução;
 - a aceitação leva o sistema a `Encerrado`;
-- se não houver rejeição ou outra ação aplicável durante três dias após a resolução, o sistema altera automaticamente o Chamado para `Encerrado`;
+- se não houver rejeição durante três dias em `Resolvido`, o sistema deve alterar automaticamente o Chamado para `Encerrado`;
+- um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade e efetiva o encerramento;
+- o retorno de telemetria não participa do encerramento automático;
 - para rejeitar uma resolução, o solicitante deve registrar comentário obrigatório; o sistema altera então o status para `Solução Rejeitada`;
 - a rejeição não altera atribuição, prioridade, Categoria ou demais dados funcionais do Chamado; o comentário e a última atualização são registrados;
 - se um problema reaparecer depois de `Encerrado` ou `Cancelado`, deve ser aberto um novo Chamado.
@@ -465,8 +469,10 @@ Permitir acompanhamento do tempo consumido e identificação de risco de violaç
 ### Regras estruturais
 
 - a referência inicial é a criação do Chamado;
-- estados intermediários não pausam a contagem;
-- `Resolvido`, `Encerrado` e `Cancelado` interrompem a contagem conforme regra funcional vigente;
+- `Aguardando Solicitante` e `Aguardando Mudança` não pausam a contagem;
+- `Resolvido` interrompe a contagem;
+- ao entrar em `Solução Rejeitada`, a contagem retoma a partir do saldo acumulado imediatamente antes de `Resolvido`, sem contabilizar o período em `Resolvido`;
+- `Encerrado` e `Cancelado` interrompem a contagem sem retomada;
 - para o indicador de risco, o percentual consumido compara tempo contabilizado com o SLA aplicado;
 - referência acadêmica inicial de visualização: abaixo de 70% = normal; de 70% a 90% = risco; acima de 90% = crítico; acima de 100% = violado;
 - regras adicionais de apresentação ou comportamento devem ser definidas nas specs dos dashboards e da tratativa.

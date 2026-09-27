@@ -1,48 +1,48 @@
 # Modelo de Domínio — MIRA
 
-## 1. Objetivo
+## 1. Objetivo e escopo
 
-Este documento descreve os conceitos fundamentais do domínio do MIRA e os relacionamentos entre eles.
+Este documento descreve os conceitos fundamentais do domínio do MIRA, suas responsabilidades, relacionamentos e regras estruturais.
 
-O objetivo é permitir que pessoas e agentes de IA compreendam **quais elementos existem no sistema e como se relacionam**, sem transformar este arquivo em um modelo físico do banco de dados ou em uma documentação de API.
+Ele representa a **visão de domínio aprovada para orientar as próximas changes do OpenSpec**. As changes já arquivadas permanecem como histórico e não devem ser reescritas. Quando uma regra deste modelo ainda não estiver refletida nas specs consolidadas ou na implementação atual, sua adoção deve ocorrer por uma nova change antes de qualquer alteração funcional.
+
+Este documento **não define endpoints, payloads, códigos HTTP, detalhes físicos de tabelas, componentes de interface ou algoritmos de implementação**. Esses detalhes pertencem às specs, designs e changes do OpenSpec.
+
+Registros históricos podem não possuir informações introduzidas por mudanças posteriores. O sistema não deve inventar valores históricos nem executar backfill sem uma change aprovada.
 
 ## 2. Visão conceitual
 
-O MIRA organiza uma rede de restaurantes que possui totens de autoatendimento. Esses ativos produzem telemetria, podem ficar indisponíveis e podem estar relacionados a chamados de atendimento.
+O MIRA acompanha uma rede de restaurantes que possui Totens de autoatendimento. Os Totens produzem telemetria, podem ficar indisponíveis e podem originar chamados de atendimento.
 
-Os usuários do sistema atuam conforme seu perfil:
-
-- **Gerente** acompanha os ativos da unidade, abre chamados manuais e acompanha a tratativa;
-- **Técnico** trabalha na fila de chamados, assume atendimentos, registra informações da tratativa e resolve chamados;
-- **Diretoria** consulta dashboards e indicadores consolidados.
-
-A relação central do domínio pode ser resumida assim:
+Os principais conceitos do domínio são:
 
 ```text
 Loja
- └── Ativo
+ ├── Usuário Gerente
+ └── Totem
       ├── Telemetria
       └── Chamado
            ├── Categoria de Serviço
-           └── Interações
-
-Usuário
- ├── abre/acompanha Chamados
- ├── pode assumir/tratar Chamados
- └── registra Interações
+           ├── Solicitante
+           ├── Técnico responsável, quando atribuído
+           └── Interações / Histórico
 ```
 
+O MIRA monitora somente **Totens**. O termo "ativo" pode aparecer na implementação e em registros existentes, mas, no domínio do projeto, todo ativo monitorado é um Totem.
+
 ## 3. Loja
+
+### Descrição
 
 Representa uma unidade da rede de restaurantes.
 
 ### Responsabilidade
 
-Organizar os ativos e permitir análises operacionais por unidade e região.
+Organizar os Totens, Gerentes e chamados vinculados à unidade e permitir análises operacionais por Loja e região.
 
-### Principais informações conceituais
+### Informações conceituais
 
-- identificação da unidade;
+- identificação;
 - nome;
 - localização/endereço;
 - região;
@@ -50,221 +50,545 @@ Organizar os ativos e permitir análises operacionais por unidade e região.
 
 ### Relacionamentos
 
-- uma loja pode possuir vários ativos;
-- chamados relacionados a um ativo podem ser associados à respectiva loja por meio desse ativo;
-- indicadores podem ser agregados por loja e região.
+- uma Loja pode possuir vários Totens;
+- uma Loja pode possuir usuários com perfil Gerente;
+- cada Gerente pertence a uma Loja;
+- cada novo chamado pertence à Loja do Totem relacionado;
+- indicadores podem ser agregados por Loja e região.
 
-## 4. Usuário
+### Regras estruturais
+
+- Gerentes só podem atuar sobre dados e chamados da própria Loja;
+- o Administrador do Sistema pode cadastrar e manter Lojas;
+- os dados obrigatórios do cadastro devem ser informados na criação, conforme a spec administrativa correspondente.
+
+## 4. Usuário e papéis
+
+### Descrição
 
 Representa uma pessoa autorizada a utilizar o MIRA.
 
 ### Responsabilidade
 
-Identificar quem acessa o sistema e qual papel essa pessoa exerce no fluxo operacional.
+Identificar quem acessa o sistema, seu papel e o escopo de atuação permitido.
 
-### Principais informações conceituais
+### Informações conceituais
 
 - identificação;
 - nome;
 - e-mail;
-- perfil de acesso.
+- papel de acesso;
+- Loja, obrigatória quando o papel for Gerente.
 
-### Perfis
+### Relacionamentos
+
+- um Gerente pertence a uma Loja;
+- um usuário humano pode atuar como solicitante de chamados;
+- Técnico, Diretoria e Administrador podem ser responsáveis por chamados;
+- usuários podem registrar interações conforme suas permissões.
+
+### Regras estruturais
 
 #### Gerente
 
-- visualiza os ativos da unidade;
-- abre chamados manuais para problemas físicos ou operacionais;
-- acompanha o andamento dos chamados.
+- pertence obrigatoriamente a uma Loja;
+- abre chamados manuais sobre Totens da própria Loja;
+- consulta todos os chamados da própria Loja, inclusive históricos;
+- não acessa chamados de outras Lojas;
+- pode comentar nos próprios chamados e rejeitar uma resolução, mas não altera diretamente o status.
 
 #### Técnico
 
-- visualiza a fila de atendimento;
-- assume chamados;
-- consulta informações do ativo e da telemetria;
-- registra diagnóstico e work logs;
-- registra solução e resolve chamados.
+- possui escopo global sobre os chamados;
+- consulta chamados atribuídos, não atribuídos e atribuídos a outros Técnicos;
+- pode assumir, liberar, atribuir e reatribuir chamados não terminais;
+- pode alterar o status de chamados não terminais;
+- pode registrar comentários gerais ou privados;
+- pode consultar e filtrar chamados por critérios definidos nas respectivas specs.
 
 #### Diretoria
 
-- consulta dashboards e indicadores consolidados;
-- acompanha disponibilidade, SLA, MTTD, MTTR, incidentes e recorrência.
+- possui as mesmas capacidades operacionais do Técnico;
+- possui escopo global;
+- consulta e interage com dashboards e indicadores consolidados.
 
-### Autenticação
+#### Administrador do Sistema
 
-A autenticação e a autorização são responsabilidades do Xano.
+- possui todas as capacidades dos demais papéis;
+- possui escopo global;
+- cadastra e mantém Lojas, Totens e usuários;
+- ao cadastrar um Gerente, deve associá-lo a uma Loja;
+- a política de criação e troca inicial de senha será definida em change própria.
 
-### Relacionamentos
+Filtros escolhidos em listas são preferências do usuário e devem persistir entre sessões até que o próprio usuário execute a ação de limpar filtros. Os detalhes de cada filtro e de sua apresentação pertencem às specs das respectivas telas.
 
-- um usuário pode abrir chamados como solicitante;
-- um usuário técnico pode assumir chamados;
-- um usuário pode registrar interações em chamados.
+## 5. Totem
 
-## 5. Ativo
+### Descrição
 
-Representa um totem de autoatendimento cadastrado no sistema.
+Representa o equipamento de autoatendimento monitorado pelo MIRA.
 
 ### Responsabilidade
 
-Ser o elemento monitorado pelo MIRA e o ponto de associação entre telemetria, disponibilidade e chamados.
+Ser o elemento monitorado pelo sistema e o ponto de associação entre Loja, telemetria, disponibilidade e chamados.
 
-### Principais informações conceituais
+### Informações conceituais
 
-- identificação do ativo;
+- identificação;
 - nome;
-- tipo;
-- loja onde está instalado;
-- status atual.
+- Loja onde está instalado;
+- status operacional atual.
 
 ### Relacionamentos
 
-- cada ativo pertence a uma loja;
-- um ativo pode possuir muitos eventos de telemetria;
-- um ativo pode possuir vários chamados ao longo do tempo.
+- cada Totem pertence a uma Loja;
+- um Totem pode possuir muitos eventos de telemetria;
+- um Totem pode possuir vários chamados ao longo do tempo.
+
+### Regras estruturais
+
+- todo ativo monitorado pelo MIRA é um Totem;
+- os estados operacionais considerados são `Online` e `Offline`;
+- todo novo chamado do MIRA está relacionado a exatamente um Totem;
+- quando o mesmo problema afetar vários Totens, deve existir um chamado para cada Totem afetado;
+- registros históricos anteriores à formalização dessas regras podem permanecer incompletos, sem backfill automático;
+- um Totem já `Offline` não deve gerar nova ação automática de indisponibilidade apenas pela continuidade da ausência de heartbeat;
+- o recebimento posterior de telemetria pode permitir que o Totem volte a `Online`.
 
 ## 6. Telemetria
 
-Representa um evento técnico produzido por um ativo.
+### Descrição
+
+Representa um evento técnico produzido por um Totem.
 
 ### Responsabilidade
 
-Registrar informações de saúde e comunicação do totem para acompanhamento operacional e detecção de indisponibilidade.
+Registrar informações de saúde e comunicação usadas para acompanhamento operacional e detecção de indisponibilidade.
 
-### Principais informações conceituais
+### Informações conceituais
 
-- ativo de origem;
+- Totem de origem;
 - uso de CPU;
 - uso de memória;
 - temperatura;
 - status de rede;
-- `evento_timestamp`.
+- momento do evento (`evento_timestamp`).
+
+### Relacionamentos
+
+- cada evento pertence a um Totem existente;
+- vários eventos formam o histórico técnico do Totem.
 
 ### Regras estruturais
 
-- cada evento de telemetria pertence a um ativo existente;
 - `evento_timestamp` é a referência temporal do evento;
-- o Simulator produz telemetria para ativos já cadastrados;
-- a telemetria é persistida no Xano.
+- o Simulator produz telemetria somente para Totens já cadastrados;
+- a telemetria é persistida no Xano;
+- um Totem que nunca enviou telemetria permanece sem alteração automática de disponibilidade até que exista uma primeira telemetria válida.
 
-## 7. Categoria de Serviço
+## 7. Monitoramento de heartbeat e disponibilidade
 
-Representa a classificação de um chamado.
+### Descrição
+
+O heartbeat é uma regra operacional baseada na sequência temporal da telemetria e não uma entidade independente.
 
 ### Responsabilidade
 
-Organizar os tipos de atendimento e fornecer o parâmetro de SLA aplicável ao chamado.
+Detectar ausência de comunicação de um Totem e iniciar o fluxo automático de indisponibilidade quando aplicável.
 
-### Principais informações conceituais
+### Informações conceituais
 
-- nome da categoria;
-- classificação ITIL utilizada pelo projeto;
-- parâmetro de SLA em horas.
+- última telemetria conhecida;
+- momento da detecção;
+- estado operacional do Totem;
+- categoria usada pelo incidente automático.
 
 ### Relacionamentos
 
-- uma categoria pode classificar vários chamados;
-- cada chamado referencia uma categoria para determinar a classificação e o SLA aplicável.
+- depende da Telemetria do Totem;
+- pode alterar o estado operacional do Totem;
+- pode originar um Chamado automático.
 
-## 8. Chamado
+### Regras estruturais
 
-Representa um incidente ou uma requisição tratada pelo Service Desk.
+- o Fiscal apenas dispara periodicamente a verificação;
+- o Xano decide sobre indisponibilidade e criação de chamado;
+- mais de 15 minutos sem telemetria caracteriza indisponibilidade para um Totem que estava `Online`;
+- um Totem que já está `Offline` não deve gerar novo chamado apenas porque continua sem heartbeat;
+- antes de criar um chamado automático, o sistema verifica se já existe chamado equivalente para o mesmo Totem e a mesma Categoria;
+- chamados `Encerrado` ou `Cancelado` não bloqueiam a criação de um novo incidente equivalente;
+- qualquer outro status ainda é considerado relevante para evitar duplicidade do mesmo incidente;
+- o retorno da telemetria pode levar o Totem de volta a `Online`, mas **não resolve, cancela nem encerra o chamado automaticamente**;
+- após a recuperação técnica do Totem, a tratativa do chamado continua dependendo de ação humana.
+
+## 8. Categoria de Serviço
+
+### Descrição
+
+Representa a classificação funcional de um chamado.
 
 ### Responsabilidade
 
-Registrar e acompanhar uma necessidade de atendimento relacionada à operação dos totens.
+Organizar os tipos de atendimento, distinguir Incidentes e Requisições e fornecer o parâmetro de SLA aplicável.
 
-### Origem funcional
+### Informações conceituais
 
-Um chamado pode surgir de duas formas já previstas no MIRA:
+- nome;
+- classificação: `Incidente` ou `Requisição`;
+- parâmetro de SLA em horas;
+- elegibilidade para abertura manual.
 
-- **manual**, quando o gerente identifica um problema físico ou operacional;
-- **automática**, quando o Xano identifica uma indisponibilidade por ausência de heartbeat e cria um incidente quando não existe outro equivalente aberto.
+### Relacionamentos
 
-A distinção funcional entre esses dois fluxos já existe. A forma de persistir essa origem deve seguir a especificação aprovada correspondente.
+- uma Categoria pode classificar vários chamados;
+- cada Chamado possui uma Categoria.
 
-### Principais informações conceituais já consolidadas
+### Regras estruturais
 
-- identificação;
+- uma Categoria pode permitir ou impedir abertura manual;
+- a Categoria fornece o SLA aplicável no momento da criação do Chamado;
+- para análises de causa e recorrência, a Categoria é a classificação de referência do MIRA.
+
+## 9. Chamado
+
+### Descrição
+
+Representa um Incidente ou uma Requisição tratada pelo Service Desk do MIRA.
+
+### Responsabilidade
+
+Registrar e acompanhar uma necessidade de atendimento relacionada a um Totem.
+
+### Informações conceituais
+
+- identificação/número;
 - título;
+- descrição;
+- origem;
 - status;
 - prioridade;
 - solicitante;
-- técnico responsável, quando atribuído;
-- ativo relacionado;
-- categoria de serviço;
-- momento de criação.
-
-A documentação também exige que o gerente descreva o problema durante a abertura manual, mas a persistência dessa descrição deve seguir a change que formalizar essa evolução do modelo.
+- Loja;
+- Totem relacionado;
+- Categoria de Serviço;
+- Técnico responsável, quando houver;
+- momento de criação;
+- momento da última atualização;
+- momento da atribuição, quando houver;
+- SLA aplicado no momento da criação.
 
 ### Relacionamentos
 
-- um chamado pode estar relacionado a um ativo;
-- um chamado possui uma categoria de serviço;
-- um chamado possui um solicitante;
-- um chamado pode possuir um técnico responsável;
-- um chamado pode possuir várias interações.
+- cada novo Chamado pertence a exatamente uma Loja;
+- cada novo Chamado pertence a exatamente um Totem;
+- cada Chamado possui uma Categoria;
+- um Chamado possui um solicitante humano ou de sistema;
+- um Chamado pode não possuir Técnico responsável;
+- um Chamado pode possuir muitas Interações ao longo do tempo.
 
-## 9. Interação de Chamado
+### Regras estruturais
 
-Representa um registro feito durante o acompanhamento ou a tratativa de um chamado.
+#### Origem
+
+Um Chamado possui uma origem funcional:
+
+- `manual`: aberto por um Gerente;
+- `automático`: criado pelo sistema a partir do monitoramento.
+
+#### Abertura manual
+
+Todo novo Chamado manual deve possuir:
+
+- título;
+- descrição;
+- Totem;
+- Categoria;
+- prioridade;
+- Loja;
+- usuário solicitante.
+
+Um Chamado manual não pode ser criado com ausência dessas informações.
+
+#### Abertura automática
+
+- é criada pelo sistema quando a regra de heartbeat determina a necessidade;
+- utiliza solicitante de sistema, conceitualmente identificado como **Bot de Fiscalização**;
+- o Bot de Fiscalização não é um usuário autenticável;
+- utiliza prioridade `Urgente`;
+- respeita a regra de prevenção de duplicidade do heartbeat.
+
+#### Prioridade
+
+Os valores canônicos são:
+
+- `Baixa`;
+- `Média`;
+- `Alta`;
+- `Urgente`.
+
+Na abertura manual, o Gerente escolhe diretamente a prioridade. O MIRA não utiliza matriz de impacto × urgência como regra de priorização.
+
+#### SLA aplicado
+
+- o SLA da Categoria é copiado para o Chamado no momento da criação;
+- o Chamado preserva esse valor durante toda a sua existência;
+- alterações posteriores no SLA da Categoria não modificam retroativamente Chamados existentes;
+- a contagem inicia na criação do Chamado;
+- `Aguardando Solicitante` e `Aguardando Mudança` não pausam o SLA;
+- `Resolvido`, `Encerrado` e `Cancelado` interrompem a contagem enquanto o chamado estiver nesses estados;
+- o comportamento da contagem após uma `Solução Rejeitada` deverá ser explicitado na spec de ciclo de vida/SLA antes da implementação.
+
+#### Atribuição
+
+- um Chamado pode existir sem Técnico responsável;
+- assumir um Chamado registra o Técnico e o momento da atribuição;
+- assumir não altera automaticamente o status `Novo`;
+- repetir a assunção pelo mesmo Técnico não cria uma nova atribuição;
+- Técnicos, Diretoria e Administrador podem atribuir ou reatribuir Chamados não `Encerrado` e não `Cancelado`;
+- a ação `Assumir` é aplicável quando o Chamado não possui responsável;
+- um Técnico pode retirar sua própria atribuição;
+- retirar atribuição mantém o status atual, inclusive quando estiver `Em Atendimento`;
+- toda atribuição, reatribuição ou liberação deve gerar registro no histórico.
+
+## 10. Ciclo de vida do Chamado
+
+### Descrição
+
+Representa os estados funcionais utilizados para acompanhar a evolução de um Chamado.
 
 ### Responsabilidade
 
-Preservar work logs e comunicação associados ao atendimento.
+Permitir que o Service Desk represente o momento operacional de cada atendimento e preserve seu histórico de evolução.
 
-### Principais informações conceituais
+### Informações conceituais
 
-- chamado relacionado;
-- autor;
-- conteúdo/mensagem;
-- momento do registro.
+Os status aprovados para o domínio são:
+
+- `Novo`;
+- `Em Atendimento`;
+- `Aguardando Solicitante`;
+- `Aguardando Mudança`;
+- `Resolvido`;
+- `Solução Rejeitada`;
+- `Encerrado`;
+- `Cancelado`.
+
+`Aguardando Terceiro` não faz parte do ciclo de vida pretendido do MIRA e deverá ser retirado do comportamento vigente por change própria, sem alteração do histórico de changes arquivadas.
 
 ### Relacionamentos
 
-- cada interação pertence a um chamado;
-- cada interação possui um autor;
-- um chamado pode possuir várias interações ordenadas ao longo do tempo.
+- cada Chamado possui um status atual;
+- alterações de status geram Interações estruturadas no histórico.
 
-O técnico já possui como atividades registrar diagnóstico, work log e solução. A forma de persistir diagnóstico e solução além dos registros já existentes deve ser definida pela respectiva change antes de qualquer alteração do modelo.
+### Regras estruturais
 
-## 10. Monitoramento de Heartbeat
+- o solicitante não altera o status diretamente;
+- Técnico, Diretoria e Administrador podem alterar o status de Chamados não terminais;
+- nenhuma alteração de status ocorre automaticamente ao assumir um Chamado;
+- o Técnico deve definir manualmente `Em Atendimento` quando iniciar efetivamente a tratativa;
+- toda alteração de status exige comentário associado;
+- alterações para `Resolvido`, `Aguardando Solicitante` e `Cancelado` exigem comentário de visibilidade geral;
+- `Aguardando Solicitante` é definido por Técnico, Diretoria ou Administrador; o solicitante visualiza o novo status, mas não recebe notificação obrigatória pelo domínio;
+- comentário posterior do solicitante não altera automaticamente `Aguardando Solicitante`; Técnico, Diretoria ou Administrador decide quando retornar a `Em Atendimento`;
+- `Aguardando Mudança` é definido por Técnico, Diretoria ou Administrador e somente sai desse estado por nova alteração manual de um desses papéis;
+- `Cancelado` é terminal: não pode ser reaberto nem receber novas edições ou interações;
+- `Encerrado` é terminal: não pode ser reaberto nem receber novas edições ou interações;
+- `Resolvido` significa que a solução técnica foi aplicada e o serviço foi considerado restaurado;
+- enquanto `Resolvido`, o solicitante pode aceitar ou rejeitar a solução;
+- a aceitação leva o sistema a `Encerrado`;
+- se não houver rejeição ou outra ação aplicável durante três dias após a resolução, o sistema altera automaticamente o Chamado para `Encerrado`;
+- para rejeitar uma resolução, o solicitante deve registrar comentário obrigatório; o sistema altera então o status para `Solução Rejeitada`;
+- a rejeição não altera atribuição, prioridade, Categoria ou demais dados funcionais do Chamado; o comentário e a última atualização são registrados;
+- se um problema reaparecer depois de `Encerrado` ou `Cancelado`, deve ser aberto um novo Chamado.
 
-O heartbeat não é uma entidade independente do domínio, mas uma regra operacional baseada nos eventos de telemetria.
+O domínio não impõe uma matriz rígida de transições intermediárias além das restrições acima. Técnico, Diretoria e Administrador podem escolher o status operacional adequado para Chamados não terminais.
 
-O fluxo consolidado é:
+## 11. Interação e histórico do Chamado
 
-1. o Simulator envia telemetria dos ativos cadastrados;
-2. o Fiscal dispara periodicamente a verificação;
-3. o Xano consulta a telemetria mais recente;
-4. se houver mais de 15 minutos sem telemetria, o Xano pode marcar o ativo como Offline;
-5. o Xano verifica se já existe incidente equivalente aberto;
-6. quando necessário, cria um incidente `Novo/Urgente` sem duplicidade.
+### Descrição
 
-O Fiscal não decide o status do ativo e não cria o chamado diretamente.
+Representa uma entrada na linha do tempo do Chamado, incluindo comentários e eventos operacionais relevantes.
 
-## 11. SLA
+### Responsabilidade
 
-O SLA é associado à categoria de serviço.
+Preservar comunicação, contexto e histórico auditável da tratativa.
 
-A categoria fornece o parâmetro `sla_horas`, e o chamado referencia sua categoria para determinar o SLA aplicável.
+### Informações conceituais
 
-O projeto não possui tempos fixos de SLA por níveis P1/P2/P3/P4 definidos como regra oficial. Também não existe uma matriz de impacto e urgência aprovada no modelo atual.
+- Chamado relacionado;
+- autor;
+- momento do registro;
+- conteúdo;
+- visibilidade;
+- natureza do evento, quando associada a uma alteração operacional;
+- estado anterior e novo estado, quando a interação representar mudança de status.
 
-## 12. Relações consolidadas
+### Relacionamentos
+
+- cada Interação pertence a um Chamado;
+- cada Interação possui um autor humano ou de sistema;
+- um Chamado pode possuir várias Interações ordenadas no tempo.
+
+### Regras estruturais
+
+- todo comentário atualiza o momento da última atualização do Chamado;
+- comentários do solicitante são sempre de visibilidade geral;
+- Técnico, Diretoria e Administrador podem registrar comentários gerais ou privados;
+- comentário geral pode ser visualizado pelo solicitante e pelos papéis internos autorizados;
+- comentário privado é visível somente para Técnico, Diretoria e Administrador;
+- eventos de status, atribuição, reatribuição e liberação devem aparecer na mesma linha do tempo, mas manter dados estruturados suficientes para auditoria;
+- alterações para `Resolvido`, `Aguardando Solicitante` e `Cancelado` não permitem comentário privado;
+- Chamados `Encerrado` e `Cancelado` possuem histórico bloqueado para novas interações.
+
+## 12. SLA
+
+### Descrição
+
+Representa o prazo de atendimento aplicável a um Chamado.
+
+### Responsabilidade
+
+Permitir acompanhamento do tempo consumido e identificação de risco de violação.
+
+### Informações conceituais
+
+- SLA aplicado ao Chamado;
+- momento inicial da contagem;
+- tempo contabilizado;
+- situação de consumo do SLA.
+
+### Relacionamentos
+
+- deriva da Categoria no momento da criação;
+- fica preservado no Chamado como valor aplicado.
+
+### Regras estruturais
+
+- a referência inicial é a criação do Chamado;
+- estados intermediários não pausam a contagem;
+- `Resolvido`, `Encerrado` e `Cancelado` interrompem a contagem conforme regra funcional vigente;
+- para o indicador de risco, o percentual consumido compara tempo contabilizado com o SLA aplicado;
+- referência acadêmica inicial de visualização: abaixo de 70% = normal; de 70% a 90% = risco; acima de 90% = crítico; acima de 100% = violado;
+- regras adicionais de apresentação ou comportamento devem ser definidas nas specs dos dashboards e da tratativa.
+
+## 13. Dados necessários para indicadores
+
+Esta seção registra somente os **conceitos e dados mínimos necessários** para viabilizar indicadores futuros. A composição visual, filtros e comportamento dos dashboards pertencem ao `project-overview.md` e às respectivas specs.
+
+### Disponibilidade Geral da Rede
+
+Deve ser possível determinar, por Totem e período, quanto tempo ficou `Online` e `Offline`, agregando depois por Loja e rede.
+
+Dados mínimos:
+
+- Totem;
+- Loja;
+- eventos de telemetria com timestamp;
+- momentos em que a indisponibilidade é detectada e em que o Totem retorna a `Online`.
+
+A disponibilidade representa a proporção do período observado em que o Totem esteve operacional.
+
+### MTTD — Tempo Médio de Detecção
+
+Deve ser possível medir o tempo entre o início operacionalmente identificável da indisponibilidade e sua detecção pelo MIRA.
+
+Dados mínimos:
+
+- última telemetria válida antes da indisponibilidade;
+- momento em que a indisponibilidade é detectada;
+- Totem e Loja.
+
+A definição exata do marco inicial usado pelo MIRA deve ser consolidada na spec do indicador antes da implementação.
+
+### MTTR — Tempo Médio de Recuperação
+
+No MIRA, MTTR será tratado como **tempo médio de recuperação do Totem**, e não como tempo de encerramento do Chamado.
+
+Dados mínimos:
+
+- início da indisponibilidade;
+- momento em que o Totem volta a `Online`;
+- Totem e Loja.
+
+O Chamado pode permanecer aberto mesmo após a recuperação do Totem.
+
+### Volumetria de Chamados por Status
+
+Dados mínimos:
+
+- status atual;
+- data de criação;
+- data da última atualização;
+- Loja;
+- Categoria.
+
+### Termômetro de SLA
+
+Dados mínimos:
+
+- data de criação;
+- SLA aplicado;
+- status atual;
+- tempo contabilizado segundo as regras de SLA.
+
+### Top 5 Lojas com Maior Volume de Incidentes
+
+Dados mínimos:
+
+- Loja;
+- classificação da Categoria;
+- data de criação do Chamado.
+
+Somente Chamados classificados como `Incidente` participam dessa análise.
+
+### Maiores Causas de Indisponibilidade — Pareto
+
+No MIRA, a **Categoria do Chamado** é a referência para causa operacional nos dashboards.
+
+Dados mínimos:
+
+- Categoria;
+- classificação;
+- Totem;
+- Loja;
+- data de criação.
+
+### Análise de Recorrência
+
+A recorrência é analisada a partir da repetição de Chamados da mesma Categoria, podendo ser segmentada por Totem, Loja e período.
+
+Dados mínimos:
+
+- Categoria;
+- Totem;
+- Loja;
+- data de criação;
+- identificação do Chamado.
+
+Critérios de janela temporal e apresentação devem ser definidos na spec do dashboard, sem necessidade de uma nova entidade de "causa" neste momento.
+
+## 14. Relações consolidadas do domínio-alvo
 
 ```text
-Loja 1 ─── N Ativo
+Loja 1 ─── N Gerente
+Loja 1 ─── N Totem
 
-Ativo 1 ─── N Telemetria
-Ativo 1 ─── N Chamado
+Totem 1 ─── N Telemetria
+Totem 1 ─── N Chamado
 
 Categoria de Serviço 1 ─── N Chamado
 
-Usuário 1 ─── N Chamado como solicitante
-Usuário 1 ─── N Chamado como técnico responsável
-
+Chamado 1 ─── 1 Solicitante humano ou de sistema
+Chamado N ─── 0..1 Técnico responsável
 Chamado 1 ─── N Interação
+
 Usuário 1 ─── N Interação como autor
 ```
 
-Essas relações representam o domínio consolidado. Alterações futuras devem ser formalizadas por meio de uma change do OpenSpec antes de serem tratadas como parte do comportamento vigente.
+## 15. Evolução pelo OpenSpec
+
+Este modelo expressa a visão de domínio aprovada para a evolução do MIRA.
+
+As specs consolidadas continuam representando o comportamento efetivamente consolidado do sistema em cada momento. Quando este modelo introduzir uma regra ainda não implementada — como novo papel, novo status, novas permissões ou novos comportamentos de tratativa — a diferença deve ser formalizada em uma nova change antes de alterar código ou dados.
+
+Changes arquivadas não devem ser reescritas para aparentar que decisões posteriores já existiam no passado.

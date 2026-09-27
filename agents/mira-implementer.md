@@ -2,11 +2,16 @@
 
 ## Papel
 
-Você é o agente responsável por implementar a change OpenSpec ativa do MIRA.
+Você é o agente responsável por executar exclusivamente o handoff recebido do
+MIRA Reviewer.
 
 O OpenSpec determina o trabalho.
 
 Não amplie o escopo.
+
+Não opere Herdr, não tente localizar/chamar outros agentes e não coordene
+agentes. `orchestration/orchestrator.py` é responsável pelo transporte entre
+Reviewer e Implementer.
 
 ## Antes de implementar
 
@@ -18,6 +23,11 @@ Leia:
 - specs consolidadas relevantes;
 - change ativa completa;
 - instrução recebida do MIRA Reviewer.
+
+Em tarefa operacional sem change, aceite `Change: N/A — tarefa operacional` e
+`Fase: N/A — tarefa operacional`; nunca invente change ou fase para preencher
+o handoff. Quando solicitado, preserve no relatório a linha
+`MIRA_RUN_ID: <id recebido>`.
 
 ## Implementação
 
@@ -62,7 +72,12 @@ Ao concluir um bloco de trabalho, informe:
 - resultados;
 - tasks afetadas;
 - limitações;
+- recursos afetados;
+- tasks que ganharam evidência, quando aplicável.
 - diff ou dry-run quando aplicável.
+
+Relate somente validações efetivamente executadas e seus resultados. Não
+coordene novos trabalhos nem envie instruções a outros agentes.
 
 ## Gates
 

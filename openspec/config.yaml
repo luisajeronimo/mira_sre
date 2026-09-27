@@ -1,74 +1,91 @@
 schema: spec-driven
 
 context: |
-  Projeto: MIRA
+  Projeto: MIRA.
 
   Domínio:
     Plataforma acadêmica de Service Desk e observabilidade para totens de
-    autoatendimento de uma rede de restaurantes.
+    autoatendimento de uma rede de restaurantes. Todos os ativos monitorados
+    pelo MIRA são totens.
 
-  Usuários:
-    - Gerente: acompanha ativos da unidade, abre chamados manuais e acompanha a tratativa.
-    - Técnico: trabalha na fila, assume e trata chamados.
-    - Diretoria: consulta dashboards e indicadores consolidados.
+  Perfis:
+    Os perfis humanos do sistema são Gerente, Técnico, Diretoria e
+    Administrador do Sistema. Responsabilidades, escopos e regras funcionais
+    detalhadas pertencem ao modelo de domínio e às specs vigentes.
 
-  Tecnologias:
-    - Frontend: Reflex.
-    - Backend, banco de dados, autenticação e regras de negócio: Xano / XanoScript.
-    - Automação: Python para Simulator e Fiscal.
-    - Especificação: OpenSpec.
-    - Agente de desenvolvimento: OpenAI Codex.
-    - Apoio XanoScript: Xano Developer MCP.
-    - Sincronização com o workspace: Xano CLI.
-    - Automação local: GNU Make.
+  Stack:
+    Frontend em Reflex.
+    Backend, persistência, autenticação, autorização, APIs, agregações e regras
+    de negócio em Xano/XanoScript.
+    Simulator e Fiscal em Python.
+    OpenSpec para evolução incremental do projeto.
 
   Arquitetura:
-    - Reflex concentra a aplicação web, o Service Desk e os dashboards.
-    - Xano concentra persistência, autenticação, autorização, APIs, agregações e regras de negócio.
-    - Simulator apenas gera telemetria para ativos já cadastrados.
-    - Fiscal apenas dispara periodicamente a verificação de heartbeat.
-    - A decisão de Offline e a criação de incidente automático permanecem no Xano.
+    O Reflex é a interface da aplicação e não substitui controles de segurança
+    do backend.
+    O Xano é a autoridade para persistência, autenticação, autorização e regras
+    de negócio.
+    O Simulator somente produz telemetria para totens já cadastrados.
+    O Fiscal somente dispara a verificação periódica de heartbeat.
+    Regras de negócio não devem ser deslocadas entre esses componentes sem uma
+    change aprovada.
 
-  Regras críticas:
-    - evento_timestamp é a referência temporal da telemetria.
-    - Mais de 15 minutos sem telemetria permite marcar o ativo como Offline.
-    - Incidentes automáticos equivalentes não podem ser duplicados enquanto houver um aberto.
-    - A abertura manual de chamado pelo gerente permanece independente do monitoramento automático.
-    - O SLA é configurado pela categoria de serviço por meio de sla_horas.
-    - Não inventar tempos fixos de SLA, matriz de impacto e urgência, novos status ou novas regras sem change aprovada.
-    - Regras de autorização devem ser aplicadas no Xano.
-     - O projeto deve utilizar somente recursos disponíveis no plano Free do Xano.
-    - Não utilizar funcionalidades, políticas, add-ons ou recursos que exijam planos pagos do Xano.
-    - Antes de adotar uma funcionalidade do Xano cuja disponibilidade por plano não esteja clara, validar a compatibilidade com o plano Free na documentação oficial ou no Xano Developer MCP.
-    - Se um requisito não puder ser atendido integralmente com recursos do plano Free, registrar a limitação técnica e submeter qualquer alteração de requisito ou arquitetura à revisão humana antes da implementação.
+  Restrições:
+    O projeto deve utilizar somente recursos disponíveis no plano Free do Xano.
+    Quando a disponibilidade de um recurso por plano não estiver clara, ela deve
+    ser verificada na documentação oficial ou no Xano Developer MCP antes da
+    adoção.
+    Se um requisito não puder ser atendido integralmente no plano Free, a
+    limitação deve ser registrada e qualquer mudança de requisito ou arquitetura
+    deve passar por revisão humana antes da implementação.
+    Regras de autorização devem ser aplicadas no backend.
+    Credenciais, tokens e segredos não devem ser versionados.
 
   Desenvolvimento:
-    - Desenvolver de forma incremental utilizando OpenSpec.
-    - Mudanças relevantes de regra de negócio, API, modelo de dados ou arquitetura devem ser especificadas antes da implementação.
-    - Preservar o comportamento e o modelo existentes quando a change atual não determinar alteração.
-    - Escrever documentação e artefatos OpenSpec em português brasileiro.
+    O projeto evolui incrementalmente por meio do OpenSpec.
+    Mudanças relevantes de comportamento, regra de negócio, autorização, modelo
+    de dados ou arquitetura devem ser especificadas antes da implementação.
+    Não inventar regras para preencher lacunas; quando uma decisão necessária
+    não estiver definida, registrá-la para revisão.
+    Changes arquivadas preservam o histórico e não devem ser reescritas para
+    refletir decisões posteriores.
+    A visão global do projeto está em docs/project-overview.md e
+    docs/domain-model.md; o comportamento consolidado está em openspec/specs/.
+    Documentação do projeto e artefatos OpenSpec devem ser escritos em português
+    brasileiro.
 
 rules:
   proposal:
-    - Descrever claramente problema, objetivo e escopo.
-    - Diferenciar comportamento existente de mudança nova.
+    - Descrever claramente o problema, o objetivo, o escopo e o que ficará fora do escopo quando relevante.
+    - Diferenciar o comportamento já consolidado da mudança proposta.
+    - Explicitar decisões humanas ainda necessárias antes do Apply.
 
   specs:
     - Escrever requisitos observáveis e verificáveis.
     - Incluir cenários de sucesso, erro e autorização quando relevantes.
+    - Não transformar detalhes de implementação em requisitos funcionais sem necessidade.
+
+  design:
+    - Justificar decisões técnicas relevantes e demonstrar compatibilidade com a arquitetura vigente.
+    - Identificar limitações técnicas conhecidas e dependências externas relevantes.
 
   tasks:
-    - Dividir a implementação em tarefas pequenas e verificáveis.
-    - Separar tarefas de Reflex, XanoScript e Python quando aplicável.
+    - Dividir o trabalho em tarefas pequenas, verificáveis e rastreáveis às specs.
+    - Incluir as verificações necessárias para demonstrar a conclusão das tarefas.
 
 operations:
   apply:
     guidance:
-        - Implementar somente o que estiver aprovado na change.
-        - Validar XanoScript com o Xano Developer MCP quando aplicável.
-        - Utilizar somente recursos compatíveis com o plano Free do Xano.
-        - Validar a disponibilidade no plano Free antes de introduzir qualquer novo recurso, política ou mecanismo do Xano.
-        - Não propor upgrade de plano como solução técnica sem decisão humana explícita.
+      - Implementar somente o que estiver aprovado na change atual.
+      - Interromper e solicitar revisão quando surgir decisão não especificada que altere comportamento, autorização, modelo de dados ou arquitetura.
+      - Executar as verificações relevantes antes de considerar uma tarefa concluída.
+      - Quando houver alteração XanoScript, utilizar o Xano Developer MCP para consulta ou validação quando necessário.
+      - Utilizar somente recursos compatíveis com o plano Free do Xano e verificar a disponibilidade por plano quando houver dúvida.
+      - Não propor upgrade de plano como solução técnica sem decisão humana explícita.
+
   archive:
     guidance:
-      - Confirmar que a implementação corresponde à especificação antes de arquivar.
+      - Confirmar que a implementação corresponde às specs da change.
+      - Confirmar que tasks e evidências estão reconciliadas e que limitações ou validações não executadas estão registradas explicitamente.
+      - Consolidar as delta specs aplicáveis antes do archive, salvo decisão humana explícita em contrário.
+      - Não alterar retroativamente changes já arquivadas.

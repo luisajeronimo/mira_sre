@@ -1,112 +1,180 @@
 # AGENTS.md — MIRA
 
-## Finalidade
+## Escopo
 
-Este arquivo define como agentes de Inteligência Artificial devem trabalhar no projeto MIRA.
+Este arquivo contém instruções permanentes para agentes que trabalham no repositório MIRA.
+Ele é um **guia operacional do repositório**, não uma especificação funcional e não substitui o OpenSpec.
 
-Antes de realizar alterações relevantes, consulte:
+Este `AGENTS.md` na raiz vale para todo o repositório. Se uma área passar a exigir regras próprias, prefira um `AGENTS.md` mais próximo dessa área em vez de transformar este arquivo em um manual monolítico.
 
-- `docs/project-overview.md`;
-- `docs/domain-model.md`;
-- `openspec/config.yaml`;
-- a especificação consolidada vigente do projeto;
-- a change do OpenSpec relacionada à tarefa atual, quando existir.
+Não copie requisitos detalhados para cá. Mantenha comportamento funcional nas specs e nas changes do OpenSpec.
 
-Não transforme este arquivo em uma cópia dos requisitos funcionais. Regras específicas de uma funcionalidade devem permanecer nas respectivas especificações e changes.
+## Agentes especializados
 
-## Arquitetura
+O projeto possui papéis especializados em `agents/` para separar revisão/orquestração de implementação.
 
-Respeite as responsabilidades já definidas:
+- `agents/mira-reviewer.md` — instruções do **MIRA Reviewer**, responsável por revisar evidências, coerência OpenSpec, diffs, testes, riscos e gates. O Reviewer não implementa funcionalidades.
+- `agents/mira-implementer.md` — instruções do **MIRA Implementer**, responsável por executar somente o trabalho aprovado na change ativa e devolver evidências para revisão.
+- `agents/handoff-template.md` — formato preferencial de passagem de contexto entre Reviewer e Implementer, quando aplicável.
+- `agents/README.md` — visão geral dos papéis e do fluxo de agentes.
 
-- **Reflex** é responsável pela aplicação web, incluindo Service Desk, navegação e dashboards.
-- **Xano** é responsável pelo backend, persistência, autenticação, autorização, APIs, agregações e regras de negócio.
-- **Simulator Python** gera telemetria para ativos já cadastrados no Xano.
-- **Fiscal Python** apenas dispara periodicamente a verificação de heartbeat.
-- A decisão de marcar um ativo como Offline, verificar incidentes existentes e criar incidente automático pertence ao Xano.
+As instruções especializadas complementam este `AGENTS.md`; não substituem o OpenSpec nem criam uma segunda fonte de requisitos. Em caso de divergência, aplique a precedência definida neste arquivo e reporte o conflito.
 
-Não transfira regras de negócio do Xano para o Reflex, Simulator ou Fiscal.
+Ao atuar como Reviewer, leia `agents/mira-reviewer.md` antes da revisão. Ao atuar como Implementer, leia `agents/mira-implementer.md` antes de executar a change.
 
-## Frontend
+## Onde buscar contexto
 
-O frontend deve ser implementado com Reflex.
+Antes de alterar código ou documentação relevante, consulte o que se aplicar:
 
-Utilize os mecanismos próprios do Reflex para:
+- `openspec/config.yaml` — restrições globais e orientação do processo OpenSpec;
+- `docs/project-overview.md` — visão do produto, arquitetura e escopo atual/futuro;
+- `docs/domain-model.md` — conceitos, entidades, relacionamentos e invariantes do domínio;
+- `openspec/specs/` — comportamento aprovado e consolidado;
+- `openspec/changes/<change-ativa>/` — delta em desenvolvimento, quando existir;
+- código e testes afetados;
+- `git status` e o diff relevante.
 
-- componentes;
-- `State`;
-- variáveis de estado;
-- eventos;
-- páginas;
-- rotas;
-- consumo das APIs do Xano.
+Changes arquivadas são histórico e evidência. Não as trate como documentação funcional vigente quando houver specs consolidadas mais novas.
 
-As Agent Skills do Reflex são material de apoio ao agente e não substituem os documentos de contexto nem o OpenSpec.
+## Precedência para comportamento do produto
 
-## Backend e dados
+Quando fontes divergirem, use esta ordem:
 
-Preserve o modelo e os relacionamentos já existentes antes de propor novas estruturas.
+1. decisão humana explícita para o trabalho atual;
+2. change OpenSpec ativa e aprovada, somente no que ela altera;
+3. specs consolidadas em `openspec/specs/`;
+4. documentação estável de domínio e visão do projeto;
+5. implementação existente.
 
-Não crie novos campos, entidades, estados ou regras apenas por serem comuns em sistemas de Service Desk.
+Código existente não vira requisito apenas por já existir.
 
-Quando uma mudança exigir alteração do modelo de dados ou de uma regra de negócio, registre e revise essa decisão na change correspondente antes da implementação.
+Se houver conflito real entre fontes autoritativas, pare e reporte a inconsistência; não escolha silenciosamente uma versão.
 
-A autenticação e a autorização são responsabilidades do Xano. Não implemente autorização apenas escondendo elementos no frontend.
+## Mapa do repositório
 
-## Usuários e autenticação
+- `agents/` — instruções dos papéis especializados de revisão/orquestração e implementação.
+- `app/` — aplicação Reflex, navegação, UI, State e consumo das APIs.
+- `xano/` — schemas, funções, APIs e regras de backend em Xano/XanoScript.
+- `simulator/` — geração de telemetria para ativos existentes.
+- `fiscal/` — suporte operacional à verificação de heartbeat.
+- `tests/` — testes automatizados e harnesses.
+- `docs/` — documentação de produto, arquitetura e domínio.
+- `openspec/specs/` — specs consolidadas.
+- `openspec/changes/` — changes ativas.
+- `openspec/changes/archive/` — histórico de changes concluídas.
 
-O domínio possui usuários com perfis de **Gerente**, **Técnico** e **Diretoria**.
+## Limites arquiteturais
 
-A documentação existente representa a autenticação como responsabilidade do Xano. Não trate senha como dado de negócio a ser manipulado pelo Reflex ou por scripts Python. Quando detalhes de credenciais forem necessários, utilize os mecanismos de autenticação do Xano e não introduza uma solução paralela sem uma change aprovada.
+- **Reflex**: interface web, navegação, apresentação de estado e chamadas aos contratos do backend.
+- **Xano**: persistência, autenticação, autorização, APIs e regras de negócio.
+- **Simulator**: gera telemetria; não é autoridade para ativos, chamados ou decisões de negócio.
+- **Fiscal**: apoio operacional ao heartbeat; decisões de negócio continuam no Xano.
 
-## Regras funcionais permanentes
+Não mova autorização ou regra de negócio para o frontend apenas para fazer um fluxo funcionar.
+Não introduza mecanismo paralelo de autenticação, persistência ou regras sem change aprovada.
 
-- A referência temporal da telemetria é `evento_timestamp`.
-- Mais de 15 minutos sem telemetria caracteriza indisponibilidade do ativo e permite que o Xano o marque como Offline.
-- A criação automática de incidente deve evitar duplicidade para a mesma falha enquanto houver incidente equivalente aberto.
-- A abertura manual de chamado pelo gerente permanece independente do monitoramento automático.
-- O SLA é definido pela categoria de serviço por meio do parâmetro `sla_horas`.
-- Não invente tempos fixos de SLA, matriz de impacto e urgência, novos status ou transições que ainda não estejam aprovados.
+## Fluxo OpenSpec
 
-## OpenSpec
+Mudanças relevantes de produto, API, modelo de dados ou arquitetura seguem:
 
-Mudanças relevantes devem seguir o processo incremental do OpenSpec.
+1. **Explore** — investigar sem implementar;
+2. **Propose** — proposal, specs, design e tasks;
+3. **Revisão humana** — resolver decisões que exigem aprovação;
+4. **Apply** — implementar somente o que foi aprovado;
+5. **Archive** — consolidar specs e arquivar após revisão final.
 
-Fluxo de trabalho:
+Durante o Apply:
 
-1. Explore;
-2. Propose;
-3. revisão humana;
-4. Apply;
-5. Archive.
+- não amplie o escopo implicitamente;
+- não invente regra, campo, status, transição, permissão ou fallback;
+- se surgir decisão nova de negócio, arquitetura, autorização ou modelo de dados, pare e volte para revisão;
+- trate `tasks.md` como checklist executável: uma task só está concluída quando seus critérios possuem evidência.
 
-Durante o `Explore`, investigue e proponha alternativas sem implementar código.
+## Xano
 
-Durante o `Apply`, implemente somente o que estiver aprovado na change atual. Se surgir uma decisão não especificada que altere regra de negócio, modelo de dados, autorização ou arquitetura, interrompa a implementação e proponha a revisão da change.
+Respeite as restrições de plano definidas em `openspec/config.yaml`. O MIRA não deve depender de recurso pago do Xano sem decisão humana explícita.
 
-## XanoScript e sincronização
+Quando a disponibilidade por plano ou o comportamento de um recurso Xano não estiver claro, valide na documentação oficial e/ou no Xano Developer MCP antes de desenhar a solução em torno dele.
 
-Quando necessário, utilize o Xano Developer MCP para consultar documentação e validar XanoScript.
+Antes de push real ao Xano:
 
-Utilize o Xano CLI para sincronização operacional com o workspace Xano.
+- valide o XanoScript afetado;
+- execute `xano workspace push --dry-run`;
+- revise o diff completo;
+- não use opções destrutivas nem remova recursos remotos sem aprovação explícita.
 
-Revise alterações antes de executar operações destrutivas ou sincronizações que removam recursos existentes.
+Após o push, execute novo dry-run e verifique se não restaram alterações não aprovadas.
 
-O projeto deve respeitar as restrições de plano definidas em `openspec/config.yaml`; recursos pagos do Xano não devem ser introduzidos sem decisão humana explícita.
+## Disciplina de mudança
 
-## Código
+- Faça alterações focadas na tarefa/change atual.
+- Não refatore código alheio ao escopo apenas por conveniência.
+- Preserve comportamento público fora do delta aprovado.
+- Não faça limpeza, exclusão, backfill, fechamento ou reescrita de dados históricos sem requisito explícito.
+- Não edite changes arquivadas para “corrigir” o presente; evolua comportamento/documentação por uma nova change quando necessário.
+- Preserve recursos remotos fora do escopo em sincronizações seletivas.
 
-- Reutilize código existente quando apropriado.
-- Evite duplicação.
-- Não altere funcionalidades não relacionadas à tarefa atual sem justificativa.
-- Prefira soluções simples e compatíveis com o escopo acadêmico.
-- Mantenha as responsabilidades de Reflex, Xano, Simulator e Fiscal separadas.
+Prefira soluções simples e compatíveis com o escopo acadêmico, sem enfraquecer requisitos aprovados silenciosamente.
 
-## Configuração e segredos
+## Validação
 
-Credenciais, tokens e valores específicos de ambiente devem permanecer fora do versionamento.
+Use os comandos já definidos pelo projeto; não invente um fluxo alternativo de build/teste sem necessidade.
 
-Use `.env` para valores locais e `.env.example` apenas como referência das variáveis necessárias.
+Conforme a área alterada, valide:
+
+- testes Python relevantes e, para mudanças transversais, a suíte completa;
+- compilação/validação Reflex para alterações de frontend;
+- XanoScript com Xano Developer MCP para alterações Xano;
+- `git diff --check`;
+- OpenSpec strict para a change ativa;
+- dry-run Xano antes de qualquer sincronização real.
+
+Em validações runtime, diferencie claramente: **passou**, **falhou**, **não executado**, **bloqueado por ambiente/ferramenta/credencial** e **limitação aceita**.
+Nunca registre “não executado” como “passou”.
+
+## Segurança e ambiente
+
+- Mantenha credenciais, tokens, senhas e segredos fora do versionamento.
+- Use `.env` para valores locais e `.env.example` somente para variáveis necessárias e valores seguros/placeholders.
+- Não registre tokens, senhas ou headers `Authorization` em logs/evidências.
+- Não altere usuários, roles ou dados persistidos apenas para fazer um teste passar sem autorização explícita.
+
+## Responsabilidade dos documentos
+
+- `AGENTS.md` — regras gerais e permanentes de trabalho no repositório.
+- `agents/` — instruções especializadas por papel; não contém requisitos funcionais do produto.
+- `openspec/config.yaml` — restrições globais do projeto/processo.
+- `docs/project-overview.md` — visão do produto, arquitetura e estado atual/futuro.
+- `docs/domain-model.md` — conceitos e invariantes estáveis do domínio.
+- `openspec/specs/` — comportamento aprovado.
+- change ativa — comportamento em alteração.
+- archive — histórico.
+
+Evite duplicar a mesma regra em vários arquivos. Se documentação e código divergirem, reporte a deriva antes de “corrigir” uma fonte por inferência.
+
+## Git e handoff
+
+Quando houver passagem entre Reviewer e Implementer, prefira o formato de `agents/handoff-template.md`. O handoff deve carregar somente o contexto necessário da rodada, sem duplicar integralmente a change ou criar um backlog paralelo.
+
+Antes de entregar trabalho para revisão:
+
+- confirme a branch atual;
+- inspecione `git status` e o diff;
+- identifique arquivos não versionados relevantes;
+- confirme que não há mudança fora do escopo misturada ao patch.
+
+Não reescreva histórico, descarte trabalho do usuário ou execute operações Git destrutivas sem solicitação explícita.
+
+Ao final de cada rodada, informe:
+
+- o que mudou;
+- arquivos/recursos afetados;
+- validações realmente executadas e resultados;
+- tasks que ganharam evidência;
+- limitações, bloqueios ou decisões humanas pendentes;
+- próximo gate do OpenSpec.
 
 ## Idioma
 
 Escreva documentação, artefatos OpenSpec e explicações do projeto em português brasileiro.
+Mantenha identificadores de código, APIs e schema consistentes com a base existente e com os contratos aprovados.

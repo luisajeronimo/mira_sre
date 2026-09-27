@@ -19,12 +19,10 @@ O OpenSpec é a fonte de verdade para planejamento e evolução funcional.
 Utilize a seguinte precedência:
 
 1. decisão humana explícita;
-2. specs consolidadas em `openspec/specs/`;
-3. change OpenSpec ativa aprovada;
-4. `openspec/config.yaml`;
-5. `AGENTS.md`;
-6. documentação de domínio;
-7. implementação existente.
+2. change OpenSpec ativa aprovada, somente no que ela altera;
+3. specs consolidadas em `openspec/specs/`;
+4. documentação estável de domínio e visão do projeto;
+5. implementação existente.
 
 Código existente não substitui requisito aprovado.
 

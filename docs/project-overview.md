@@ -200,7 +200,7 @@ Na abertura manual, a prioridade é escolhida diretamente pelo Gerente. O projet
 
 No momento da criação do chamado, o SLA aplicável é obtido da categoria e preservado no próprio chamado. Alterações posteriores da categoria não modificam retroativamente o SLA já aplicado ao chamado.
 
-A contagem de SLA continua nos estados de espera. `Resolvido`, `Encerrado` e `Cancelado` interrompem a contagem conforme as regras do projeto. O comportamento de retomada do SLA quando uma solução é rejeitada deverá ser formalizado na especificação correspondente antes da implementação dessa etapa.
+A contagem de SLA continua nos estados de espera. `Resolvido` interrompe a contagem. Quando o chamado entra em `Solução Rejeitada`, a contagem é retomada a partir do saldo acumulado imediatamente antes de `Resolvido`; o período em `Resolvido` não consome SLA. `Encerrado` e `Cancelado` interrompem a contagem sem retomada.
 
 ### 6.6 Atribuição e tratativa
 
@@ -245,7 +245,7 @@ Técnico, Diretoria e Administrador podem alterar o status de chamados não term
 - `Resolvido`: a solução técnica foi aplicada e o serviço foi considerado restaurado;
 - `Encerrado`: a resolução foi aceita ou o prazo de fechamento automático expirou.
 
-Após três dias em `Resolvido`, o sistema pode alterar automaticamente o chamado para `Encerrado`, desde que a solução não tenha sido rejeitada.
+Após três dias em `Resolvido`, sem rejeição da solução, o sistema deve alterar automaticamente o chamado para `Encerrado`. Um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade e efetiva a alteração do chamado. O retorno de telemetria não participa dessa regra.
 
 Quando um solicitante humano entende que o problema persiste, pode rejeitar a resolução. A rejeição exige comentário obrigatório e altera o status para `Solução Rejeitada`, sem alterar automaticamente os demais dados do chamado.
 

@@ -91,3 +91,63 @@ O sistema DEVE (MUST) fornecer `POST /tecnico/chamados/{chamados_id}/assumir` se
 
 #### Scenario: Repetição pelo mesmo Técnico
 - **WHEN** o mesmo Técnico repete a assunção de chamado já atribuído a ele
+- **THEN** a operação é idempotente, retorna o estado atual com sucesso e não altera novamente `tecnico_id` ou `atribuido_em`
+
+#### Scenario: Outro Técnico já assumiu
+- **WHEN** outro Técnico efetiva a assunção antes da requisição atual
+- **THEN** o Xano não sobrescreve `tecnico_id` nem `atribuido_em` e responde HTTP 409
+
+#### Scenario: Dois Técnicos concorrem
+- **WHEN** dois Técnicos tentam assumir simultaneamente o mesmo chamado não atribuído
+- **THEN** o sistema tenta validar a ausência antes da edição, executa as operações gratuitas em transação e relê o chamado após a edição; quando uma atribuição já estiver observável, a outra requisição recebe HTTP 409 sem sobrescrever o estado observado
+- **AND** a documentação da capacidade registra que o plano Free não fornece evidência de compare-and-set ou isolamento forte suficiente para garantir matematicamente um único vencedor em uma simultaneidade exata
+
+#### Scenario: Chamado inelegível para assunção
+- **WHEN** o chamado possui status diferente de `Novo` ou status nulo
+- **THEN** o Xano responde HTTP 422, sem inventar transição ou criar efeito parcial
+
+#### Scenario: Chamado atribuído a outro Técnico
+- **WHEN** o chamado possui `status = "Novo"` e `tecnico_id` pertence a outro Técnico
+- **THEN** o Xano responde HTTP 409, sem sobrescrever `tecnico_id` ou `atribuido_em`
+
+#### Scenario: Campos sob autoridade do Xano
+- **WHEN** o cliente envia `tecnico_id`, `status` ou `atribuido_em` com valores próprios
+- **THEN** esses valores são ignorados ou rejeitados pelo contrato e não substituem os valores derivados pelo Xano
+
+### Requirement: Autorização e erros da jornada técnica são estáveis
+Todos os contratos técnicos DEVEM (MUST) exigir autenticação de `usuarios`, autorizar exclusivamente `tecnico` e preservar a negação dos CRUDs genéricos. As falhas DEVEM (MUST) ser classificadas como 401 para sessão ausente ou inválida, 403 para perfil sem permissão, 404 para chamado inexistente, 409 para conflito de assunção, 422 para visão ou operação incompatível e 5xx para falha interna ou indisponibilidade.
+
+#### Scenario: Sessão ausente
+- **WHEN** uma rota técnica recebe requisição sem token válido
+- **THEN** o Xano responde HTTP 401 sem consultar ou alterar chamados
+
+#### Scenario: Gerente ou Diretoria tenta usar rota técnica
+- **WHEN** um Gerente ou usuário da Diretoria chama qualquer contrato técnico
+- **THEN** o Xano responde HTTP 403 sem expor dados ou executar assunção
+
+#### Scenario: CRUD genérico continua negado
+- **WHEN** um usuário tenta alterar `chamados` pelo CRUD genérico
+- **THEN** a negação por padrão permanece aplicada e nenhum chamado é modificado
+
+### Requirement: Reflex oferece a jornada técnica mínima
+O Reflex DEVE (MUST) transformar `/tecnico` em fila técnica, criar `/tecnico/chamados/{chamado_id}` e reutilizar a sessão backend-only e `XANO_SERVICE_DESK_BASE_URL`. A interface DEVE (MUST) exibir as duas visões aprovadas, permitir abrir o detalhe e mostrar a ação `Assumir` somente quando o chamado estiver elegível e não atribuído.
+
+#### Scenario: Técnico carrega a fila
+- **WHEN** um Técnico autenticado acessa `/tecnico`
+- **THEN** o Reflex consulta a visão selecionada no Xano e apresenta estados de carregamento, vazio, sucesso e erro sem filtrar somente no cliente
+
+#### Scenario: Assunção bem-sucedida
+- **WHEN** o Técnico confirma `Assumir` em chamado com `status = "Novo"` e Técnico atual ausente, independentemente de `atribuido_em`, e o Xano responde sucesso
+- **THEN** o Reflex atualiza o State e o chamado passa a aparecer em `Atribuídos a mim`, mantendo status `Novo`
+
+#### Scenario: Conflito de assunção
+- **WHEN** o Xano responde HTTP 409 porque outro Técnico assumiu
+- **THEN** o Reflex informa o conflito sem substituir dados e recarrega lista ou detalhe
+
+#### Scenario: Sessão ou autorização rejeitada
+- **WHEN** uma rota técnica responde 401 ou 403
+- **THEN** o Reflex encerra a sessão em 401, preserva a sessão em 403 e não trata proteção visual como autorização
+
+#### Scenario: Jornada permanece somente leitura além da assunção
+- **WHEN** o Técnico consulta fila ou detalhe
+- **THEN** a interface não oferece mudança de status, work log, diagnóstico, solução, resolução, reatribuição, liberação ou cancelamento

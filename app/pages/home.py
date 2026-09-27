@@ -38,13 +38,9 @@ def _pagina_protegida(
 
 
 def gerente() -> rx.Component:
-    return _pagina_protegida(
-        "gerente",
-        "Início do Gerente",
-        "Sua sessão está autenticada para o perfil Gerente.",
-        "/gerente",
-        AuthState.carregar_gerente,
-    )
+    from app.pages.chamados import gerente_chamados
+
+    return gerente_chamados()
 
 
 def tecnico() -> rx.Component:

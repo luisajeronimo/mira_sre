@@ -44,6 +44,27 @@ def casca_autenticada(
     descricao: str,
     destino_inicio: str,
 ) -> rx.Component:
+    return casca_conteudo(
+        rx.card(
+            rx.vstack(
+                rx.heading(titulo, size="7"),
+                rx.text(descricao, color="gray", text_align="center"),
+                rx.text(
+                    "A navegação funcional será adicionada em changes futuras.",
+                    size="2",
+                    color="gray",
+                ),
+                align="center",
+                spacing="4",
+            ),
+            max_width="38rem",
+            width="100%",
+        ),
+        destino_inicio,
+    )
+
+
+def casca_conteudo(conteudo: rx.Component, destino_inicio: str) -> rx.Component:
     return rx.vstack(
         rx.hstack(
             rx.vstack(
@@ -68,21 +89,7 @@ def casca_autenticada(
             border_bottom="1px solid var(--gray-5)",
         ),
         rx.center(
-            rx.card(
-                rx.vstack(
-                    rx.heading(titulo, size="7"),
-                    rx.text(descricao, color="gray", text_align="center"),
-                    rx.text(
-                        "A navegação funcional será adicionada em changes futuras.",
-                        size="2",
-                        color="gray",
-                    ),
-                    align="center",
-                    spacing="4",
-                ),
-                max_width="38rem",
-                width="100%",
-            ),
+            conteudo,
             flex="1",
             width="100%",
             padding="2rem",

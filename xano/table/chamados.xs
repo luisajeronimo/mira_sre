@@ -9,9 +9,15 @@ table chamados {
     }
   
     text titulo? filters=trim
+    text? descricao? filters=trim
     text status? filters=trim
     text prioridade? filters=trim
+    enum? origem? {
+      values = ["manual", "automatico"]
+    }
+
     timestamp? criado_em?
+    decimal? sla_horas_aplicado?
     int solicitante_id? {
       table = "usuarios"
     }
@@ -27,6 +33,8 @@ table chamados {
     int ativos_referencia_id? {
       table = "ativos_referencia"
     }
+
+    timestamp atribuido_em?
   }
 
   index = [

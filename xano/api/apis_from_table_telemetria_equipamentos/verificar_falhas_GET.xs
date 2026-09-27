@@ -72,6 +72,9 @@ query "verificar-falhas" verb=GET {
                     titulo               : "Totem sem heartbeat"
                     status               : "Novo"
                     prioridade           : "Urgente"
+                    origem               : "automatico"
+                    criado_em            : "now"
+                    sla_horas_aplicado   : $categoria_heartbeat.sla_horas
                     ativos_referencia_id : $item.id
                     categorias_servico_id: $categoria_heartbeat.id
                     created_at           : "now"

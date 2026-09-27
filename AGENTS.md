@@ -91,6 +91,8 @@ Utilize o Xano CLI para sincronização operacional com o workspace Xano.
 
 Revise alterações antes de executar operações destrutivas ou sincronizações que removam recursos existentes.
 
+O projeto deve respeitar as restrições de plano definidas em `openspec/config.yaml`; recursos pagos do Xano não devem ser introduzidos sem decisão humana explícita.
+
 ## Código
 
 - Reutilize código existente quando apropriado.

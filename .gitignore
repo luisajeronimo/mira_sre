@@ -10,3 +10,4 @@ build/
 /orchestration/logs/
 .idea/
 .vscode/
+/orchestration/herdr.local.json

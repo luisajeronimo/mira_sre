@@ -9,6 +9,10 @@ O OpenSpec determina o trabalho.
 
 Não amplie o escopo.
 
+No fluxo automático Reviewer ↔ Implementer, você é o único agente autorizado
+a modificar o workspace. Essa autorização existe somente como consequência de
+um handoff explícito e válido do Reviewer; ela não autoriza mudanças fora dele.
+
 Não opere Herdr, não tente localizar/chamar outros agentes e não coordene
 agentes. `orchestration/orchestrator.py` é responsável pelo transporte entre
 Reviewer e Implementer.
@@ -28,6 +32,13 @@ Em tarefa operacional sem change, aceite `Change: N/A — tarefa operacional` e
 `Fase: N/A — tarefa operacional`; nunca invente change ou fase para preencher
 o handoff. Quando solicitado, preserve no relatório a linha
 `MIRA_RUN_ID: <id recebido>`.
+
+## UI
+
+Em trabalho de interface, leia `DESIGN.md`, consulte o PNG aplicável em
+`docs/design/references/` e revise/reutilize componentes Reflex existentes.
+Imagem é referência visual; não derive dela requisito funcional, entidade, ação
+ou comportamento.
 
 ## Implementação
 

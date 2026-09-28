@@ -26,6 +26,8 @@ Ao atuar como Reviewer, leia `agents/mira-reviewer.md` antes da revisão. Ao atu
 
 Antes de alterar código ou documentação relevante, consulte o que se aplicar:
 
+- `DESIGN.md` e o PNG relacionado em `docs/design/references/` para alterações
+  de UI; PNG é referência visual e não define funcionalidade;
 - `openspec/config.yaml` — restrições globais e orientação do processo OpenSpec;
 - `docs/project-overview.md` — visão do produto, arquitetura e escopo atual/futuro;
 - `docs/domain-model.md` — conceitos, entidades, relacionamentos e invariantes do domínio;

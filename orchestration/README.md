@@ -14,6 +14,13 @@ dois agentes, gera um `MIRA_RUN_ID` exclusivo e interpreta somente marcadores
 associados a ele. O Reviewer decide e revisa independentemente; o Implementer
 executa apenas o handoff recebido.
 
+Antes e depois de cada rodada do Reviewer, o orquestrador calcula um
+fingerprint do status, índice e conteúdo dos arquivos rastreados e não
+rastreados. Se houver qualquer diferença, encerra com
+`PROTOCOL_VIOLATION`, não interpreta `MIRA_DECISION` e não envia handoff ao
+Implementer. Alterações que já existiam antes da rodada compõem apenas o
+fingerprint inicial e não são tratadas como violação.
+
 ## Execução
 
 Forneça exatamente uma fonte de objetivo:
@@ -32,6 +39,11 @@ python3 orchestration/orchestrator.py --max-rounds 3 "objetivo"
 `CONTINUE` e `FIX_REQUIRED` levam o handoff ao Implementer. `DONE` encerra o
 fluxo. `HUMAN_DECISION_REQUIRED`, `READY_FOR_PUSH` e `READY_FOR_ARCHIVE` são
 gates humanos e encerram sem executar a operação correspondente.
+
+Em `CONTINUE` ou `FIX_REQUIRED`, o handoff deve conter o `MIRA_RUN_ID` atual
+entre `MIRA_HANDOFF_BEGIN` e `MIRA_HANDOFF_END`; após o bloco, o Reviewer
+repete o identificador ao emitir a decisão. O orquestrador recusa handoffs sem
+esse identificador interno.
 
 ## Logs
 

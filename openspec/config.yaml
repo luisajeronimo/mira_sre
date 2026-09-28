@@ -43,6 +43,8 @@ context: |
 
   Desenvolvimento:
     O projeto evolui incrementalmente por meio do OpenSpec.
+    Para alterações de UI, `DESIGN.md` é a referência visual transversal e não
+    substitui requisitos funcionais aprovados.
     Mudanças relevantes de comportamento, regra de negócio, autorização, modelo
     de dados ou arquitetura devem ser especificadas antes da implementação.
     Não inventar regras para preencher lacunas; quando uma decisão necessária

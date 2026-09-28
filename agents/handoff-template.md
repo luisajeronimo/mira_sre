@@ -1,5 +1,21 @@
 # Handoff Reviewer → Implementer
 
+Todo handoff automático deve iniciar dentro do seguinte envelope. O
+`MIRA_RUN_ID` interno identifica a delegação ao Implementer e deve ser o da
+execução atual; após `MIRA_HANDOFF_END`, o Reviewer emite novamente esse mesmo
+identificador junto da decisão `CONTINUE` ou `FIX_REQUIRED`.
+
+```text
+MIRA_HANDOFF_BEGIN
+MIRA_RUN_ID: <id recebido>
+
+<conteúdo abaixo>
+MIRA_HANDOFF_END
+
+MIRA_RUN_ID: <id recebido>
+MIRA_DECISION: CONTINUE | FIX_REQUIRED
+```
+
 ## Change
 
 Informar a change OpenSpec real quando existir:

@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -41,6 +43,44 @@ def run_command(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 def command_error(result: subprocess.CompletedProcess[str]) -> str:
     return (result.stderr or result.stdout or "sem detalhes").strip()
+
+
+def fingerprint_file(path: Path, digest: "hashlib._Hash") -> None:
+    """Inclui tipo, metadados relevantes e conteúdo do arquivo no digest."""
+    relative_path = os.fsencode(path.relative_to(ROOT))
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        digest.update(b"missing\0" + relative_path + b"\0")
+        return
+    digest.update(f"{metadata.st_mode:o}".encode() + b"\0" + relative_path + b"\0")
+    if path.is_symlink():
+        digest.update(os.fsencode(os.readlink(path)) + b"\0")
+        return
+    if not path.is_file():
+        digest.update(b"non-regular\0")
+        return
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    digest.update(b"\0")
+
+
+def workspace_fingerprint() -> str:
+    """Retorna um retrato do índice e do conteúdo rastreado/não rastreado."""
+    status = run_command(["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"])
+    index = run_command(["git", "ls-files", "--stage", "-z"])
+    paths = run_command(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"])
+    for result, name in ((status, "status"), (index, "índice"), (paths, "arquivos")):
+        if result.returncode:
+            raise OrchestrationError(f"Não foi possível obter fingerprint do workspace ({name}): {command_error(result)}")
+
+    digest = hashlib.sha256()
+    digest.update(b"status\0" + status.stdout.encode("utf-8", "surrogateescape"))
+    digest.update(b"index\0" + index.stdout.encode("utf-8", "surrogateescape"))
+    for relative_path in sorted(filter(None, paths.stdout.split("\0"))):
+        fingerprint_file(ROOT / relative_path, digest)
+    return digest.hexdigest()
 
 
 def preflight() -> None:
@@ -102,27 +142,41 @@ def marker_value(text: str, marker: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
-def extract_handoff(section: str) -> str | None:
-    begin = re.search(r"(?m)^\s*MIRA_HANDOFF_BEGIN\s*$", section)
+def extract_handoff(text: str, decision_run_id_start: int, run_id: str) -> str | None:
+    """Extrai apenas o handoff imediatamente associado à decisão atual."""
+    before_decision = text[:decision_run_id_start]
+    begins = list(re.finditer(r"(?m)^\s*MIRA_HANDOFF_BEGIN\s*$", before_decision))
+    if not begins:
+        return None
+    begin = begins[-1]
+    end = re.search(r"(?m)^\s*MIRA_HANDOFF_END\s*$", before_decision[begin.end():])
     if not begin:
         return None
-    end = re.search(r"(?m)^\s*MIRA_HANDOFF_END\s*$", section[begin.end():])
     if not end:
         raise OrchestrationError("MIRA_HANDOFF_BEGIN sem MIRA_HANDOFF_END.")
-    handoff = section[begin.end():begin.end() + end.start()].strip()
+    handoff_end = begin.end() + end.start()
+    if re.search(r"(?m)^\s*MIRA_DECISION:\s*", before_decision[handoff_end:]):
+        return None
+    handoff = before_decision[begin.end():handoff_end].strip()
     if not handoff:
         raise OrchestrationError("Handoff do Reviewer vazio.")
+    if not re.search(rf"(?m)^\s*MIRA_RUN_ID:\s*{re.escape(run_id)}\s*$", handoff):
+        raise OrchestrationError("Handoff sem MIRA_RUN_ID correspondente à execução atual.")
     return handoff
 
 
 def parse_reviewer_response(text: str, run_id: str) -> ReviewerResponse:
+    pattern = re.compile(rf"(?m)^\s*MIRA_RUN_ID:\s*{re.escape(run_id)}\s*$")
+    matches = list(pattern.finditer(text))
+    if not matches:
+        raise OrchestrationError("Resposta sem MIRA_RUN_ID correspondente à execução atual.")
     section = current_run_section(text, run_id)
     decision = marker_value(section, "MIRA_DECISION")
     if decision not in VALID_DECISIONS:
         raise OrchestrationError(
             "MIRA_DECISION inválida ou ausente; válidas: " + ", ".join(sorted(VALID_DECISIONS))
         )
-    handoff = extract_handoff(section)
+    handoff = extract_handoff(text, matches[-1].start(), run_id)
     if decision in AUTOMATIC and handoff is None:
         raise OrchestrationError("Decisão automática sem handoff do RUN_ID atual.")
     if decision not in AUTOMATIC and handoff is not None:
@@ -149,6 +203,10 @@ Revise independentemente arquivos, diff, testes e evidências. Não implemente c
 Atue como MIRA Reviewer. Leia AGENTS.md, agents/mira-reviewer.md,
 agents/handoff-template.md e openspec/config.yaml. Você é coordenado por um
 orquestrador externo: não opere Herdr e não tente chamar o Implementer.
+Esta é uma fase sem permissão de mutação: não crie, edite, exclua, mova ou
+renomeie arquivos, não aplique patches, não altere Git e não implemente. Toda
+alteração necessária deve ser delegada exclusivamente por MIRA_HANDOFF ao
+Implementer. Sua função nesta rodada é somente leitura, análise e verificação.
 
 MIRA_RUN_ID atual: {run_id}
 Objetivo:
@@ -156,14 +214,19 @@ Objetivo:
 {objective}
 --- FIM DO OBJETIVO ---
 {result_context}
-Após o relatório, emita exatamente:
+Para DONE ou um gate humano, após o relatório emita exatamente:
 MIRA_RUN_ID: {run_id}
-MIRA_DECISION: <CONTINUE | FIX_REQUIRED | HUMAN_DECISION_REQUIRED | READY_FOR_PUSH | READY_FOR_ARCHIVE | DONE>
+MIRA_DECISION: <HUMAN_DECISION_REQUIRED | READY_FOR_PUSH | READY_FOR_ARCHIVE | DONE>
 
-Somente para CONTINUE ou FIX_REQUIRED, acrescente um handoff autocontido:
+Para CONTINUE ou FIX_REQUIRED, não emita uma decisão antes do handoff: emita
+exatamente este protocolo:
 MIRA_HANDOFF_BEGIN
+MIRA_RUN_ID: {run_id}
+
 <handoff>
 MIRA_HANDOFF_END
+MIRA_RUN_ID: {run_id}
+MIRA_DECISION: CONTINUE | FIX_REQUIRED
 Não emita handoff para DONE ou gates humanos.
 """.strip()
 
@@ -221,9 +284,20 @@ def main() -> int:
         implementation = None
         for round_number in range(1, args.max_rounds + 1):
             print(f"Rodada {round_number}/{args.max_rounds}: Reviewer")
+            fingerprint_before = workspace_fingerprint()
             reviewer_output = run_agent_turn(
                 REVIEWER, reviewer_prompt(objective, run_id, implementation)
             )
+            fingerprint_after = workspace_fingerprint()
+            if fingerprint_before != fingerprint_after:
+                violation = (
+                    "PROTOCOL_VIOLATION: Reviewer modificou o workspace durante "
+                    f"a rodada {round_number}. A decisão não foi interpretada e "
+                    "nenhum handoff foi enviado ao Implementer."
+                )
+                save_log(run_dir, f"reviewer-round-{round_number:02d}.log", reviewer_output)
+                save_log(run_dir, "protocol-violation.txt", violation)
+                raise OrchestrationError(violation)
             save_log(run_dir, f"reviewer-round-{round_number:02d}.log", reviewer_output)
             response = parse_reviewer_response(reviewer_output, run_id)
             print(f"Decisão do Reviewer: {response.decision}")

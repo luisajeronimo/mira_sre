@@ -5,6 +5,27 @@ query "verificar-falhas" verb=GET {
   }
 
   stack {
+    var $chave_fiscal_recebida {
+      value = $env.$http_headers|get:"X-MIRA-Fiscal-Key"
+    }
+
+    var $chave_fiscal_configurada {
+      value = $env.MIRA_FISCAL_AUTOMATION_KEY
+    }
+
+    conditional {
+      if (!($chave_fiscal_configurada != null && $chave_fiscal_configurada != "" && $chave_fiscal_recebida != null && $chave_fiscal_recebida != "" && $chave_fiscal_recebida === $chave_fiscal_configurada)) {
+        util.set_header {
+          value = "HTTP/1.1 401 Unauthorized"
+          duplicates = "replace"
+        }
+
+        return {
+          value = {error: "Não autenticado."}
+        }
+      }
+    }
+
     var $limite_heartbeat {
       value = "now"|add_secs_to_timestamp:-900
     }

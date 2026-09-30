@@ -12,6 +12,27 @@ query telemetria_equipamentos verb=POST {
   }
 
   stack {
+    var $chave_simulator_recebida {
+      value = $env.$http_headers|get:"X-MIRA-Simulator-Key"
+    }
+
+    var $chave_simulator_configurada {
+      value = $env.MIRA_SIMULATOR_AUTOMATION_KEY
+    }
+
+    conditional {
+      if (!($chave_simulator_configurada != null && $chave_simulator_configurada != "" && $chave_simulator_recebida != null && $chave_simulator_recebida != "" && $chave_simulator_recebida === $chave_simulator_configurada)) {
+        util.set_header {
+          value = "HTTP/1.1 401 Unauthorized"
+          duplicates = "replace"
+        }
+
+        return {
+          value = {error: "Não autenticado."}
+        }
+      }
+    }
+
     db.get ativos_referencia {
       field_name = "id"
       field_value = $input.ativos_referencia_id

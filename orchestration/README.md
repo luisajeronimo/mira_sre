@@ -41,6 +41,23 @@ Uma rodada corresponde a uma revisão do Reviewer e, em `CONTINUE` ou
 `FIX_REQUIRED`, à execução subsequente do Implementer. Portanto, o limite 10
 permite até dez ciclos de revisão e execução sem loop infinito.
 
+O limite de rodadas é independente do timeout de uma execução individual de
+agente. O timeout padrão é de 900 segundos (15 minutos) e pode ser alterado
+somente para a execução corrente com `--agent-timeout-seconds`:
+
+```bash
+python3 orchestration/orchestrator.py --agent-timeout-seconds 1200 "objetivo"
+```
+
+Para cada handoff, o orquestrador inicia uma única execução do agente. Enquanto
+ela estiver ativa e dentro desse limite, consulta periodicamente o estado e
+emite progresso; não reenvia prompt, handoff nem inicia outro Implementer. Ao
+atingir o limite, consulta novamente o estado e a saída recente. Se já houver
+uma resposta com o `MIRA_RUN_ID` atual, ela é aproveitada normalmente. Caso
+contrário, o orquestrador falha explicitamente sem matar o agente: a mensagem
+identifica agente, RUN_ID, tempo e estado observado, e orienta revisar o agente
+e o workspace antes de reenviar a tarefa, pois o trabalho pode continuar vivo.
+
 `CONTINUE` e `FIX_REQUIRED` levam o handoff ao Implementer e a saída dele volta
 somente como evidência para a próxima revisão. Implementer terminou não
 significa objetivo terminado: seus marcadores `MIRA_DECISION`, inclusive

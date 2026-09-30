@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,7 +18,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LOGS_ROOT = ROOT / "orchestration" / "logs"
 REVIEWER, IMPLEMENTER = "reviewer", "implementer"
-DEFAULT_MAX_ROUNDS, TIMEOUT_MS = 10, 300_000
+DEFAULT_MAX_ROUNDS = 10
+DEFAULT_AGENT_TIMEOUT_SECONDS = 900
+AGENT_POLL_INTERVAL_SECONDS = 15
 AUTOMATIC = frozenset({"CONTINUE", "FIX_REQUIRED"})
 HUMAN_GATES = frozenset({"HUMAN_DECISION_REQUIRED", "READY_FOR_PUSH", "READY_FOR_ARCHIVE"})
 TERMINAL = frozenset({"DONE"})
@@ -105,13 +108,34 @@ def preflight() -> None:
         )
 
 
-def prompt_agent(agent: str, prompt: str) -> None:
-    result = run_command([
-        "herdr", "agent", "prompt", agent, prompt, "--wait", "--until", "idle",
-        "--until", "done", "--timeout", str(TIMEOUT_MS),
-    ])
+def start_agent_prompt(
+    agent: str, prompt: str, timeout_seconds: int
+) -> subprocess.Popen[str]:
+    """Inicia uma única execução e a mantém observável até o limite individual."""
+    try:
+        return subprocess.Popen(
+            [
+                "herdr", "agent", "prompt", agent, prompt, "--wait", "--until", "idle",
+                "--until", "done", "--timeout", str(timeout_seconds * 1000),
+            ],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except FileNotFoundError as error:
+        raise OrchestrationError(f"Comando indisponível: herdr.") from error
+
+
+def agent_status(agent: str) -> str:
+    """Consulta o estado atual sem iniciar ou reenviar trabalho ao agente."""
+    result = run_command(["herdr", "agent", "get", agent])
     if result.returncode:
-        raise OrchestrationError(f"Erro ao executar {agent}: {command_error(result)}")
+        raise OrchestrationError(f"Erro ao consultar {agent}: {command_error(result)}")
+    try:
+        return str(json.loads(result.stdout)["result"]["agent"]["agent_status"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise OrchestrationError(f"Resposta do Herdr sem status válido para {agent}.") from error
 
 
 def read_agent(agent: str) -> str:
@@ -123,9 +147,58 @@ def read_agent(agent: str) -> str:
     return result.stdout.strip()
 
 
-def run_agent_turn(agent: str, prompt: str) -> str:
-    """Executa uma rodada; o RUN_ID separa a resposta do histórico residual."""
-    prompt_agent(agent, prompt)
+def output_has_current_run(text: str, run_id: str) -> bool:
+    try:
+        current_run_section(text, run_id)
+    except OrchestrationError:
+        return False
+    return True
+
+
+def run_agent_turn(
+    agent: str,
+    prompt: str,
+    run_id: str,
+    *,
+    timeout_seconds: int = DEFAULT_AGENT_TIMEOUT_SECONDS,
+    poll_interval_seconds: int = AGENT_POLL_INTERVAL_SECONDS,
+) -> str:
+    """Executa uma rodada sem duplicar o prompt quando a espera demora.
+
+    O processo de espera é iniciado uma vez. Enquanto ele permanece ativo, o
+    orquestrador só consulta o estado e emite progresso. No limite, consulta
+    status e saída uma última vez: uma resposta do RUN_ID atual é aproveitada;
+    caso contrário, não mata nem reenvia trabalho potencialmente ainda vivo.
+    """
+    process = start_agent_prompt(agent, prompt, timeout_seconds)
+    started_at = time.monotonic()
+
+    while process.poll() is None:
+        elapsed_seconds = int(time.monotonic() - started_at)
+        if elapsed_seconds >= timeout_seconds:
+            observed_status = agent_status(agent)
+            recent_output = read_agent(agent)
+            if output_has_current_run(recent_output, run_id):
+                return recent_output
+            raise OrchestrationError(
+                f"Tempo limite de {timeout_seconds}s ao aguardar {agent} "
+                f"(MIRA_RUN_ID: {run_id}; estado observado: {observed_status}). "
+                "O agente pode continuar em execução e não houve resposta final "
+                "recuperável. Não reenvie a tarefa sem revisar o agente e o workspace."
+            )
+
+        observed_status = agent_status(agent)
+        print(
+            f"Aguardando {agent}: {elapsed_seconds}s/{timeout_seconds}s; "
+            f"estado observado: {observed_status}."
+        )
+        remaining_seconds = timeout_seconds - elapsed_seconds
+        time.sleep(min(poll_interval_seconds, remaining_seconds))
+
+    stdout, stderr = process.communicate()
+    if process.returncode:
+        details = (stderr or stdout or "sem detalhes").strip()
+        raise OrchestrationError(f"Erro ao executar {agent}: {details}")
     return read_agent(agent)
 
 
@@ -264,11 +337,19 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser.add_argument("--file", type=Path, help="arquivo UTF-8 com objetivo")
     parser.add_argument("--max-rounds", type=int, default=DEFAULT_MAX_ROUNDS,
                         help="máximo de rodadas do Reviewer (padrão: 10)")
+    parser.add_argument(
+        "--agent-timeout-seconds",
+        type=int,
+        default=DEFAULT_AGENT_TIMEOUT_SECONDS,
+        help="limite de uma execução individual de agente em segundos (padrão: 900)",
+    )
     args = parser.parse_args()
     if int(args.objective is not None) + int(args.file is not None) != 1:
         parser.error("informe exatamente uma fonte: objetivo posicional ou --file.")
     if args.max_rounds < 1:
         parser.error("--max-rounds deve ser maior ou igual a 1.")
+    if args.agent_timeout_seconds < 1:
+        parser.error("--agent-timeout-seconds deve ser maior ou igual a 1.")
     if args.file is not None:
         try:
             objective = args.file.read_text(encoding="utf-8")
@@ -295,7 +376,10 @@ def main() -> int:
             print(f"Rodada {round_number}/{args.max_rounds}: Reviewer")
             fingerprint_before = workspace_fingerprint()
             reviewer_output = run_agent_turn(
-                REVIEWER, reviewer_prompt(objective, run_id, implementation)
+                REVIEWER,
+                reviewer_prompt(objective, run_id, implementation),
+                run_id,
+                timeout_seconds=args.agent_timeout_seconds,
             )
             fingerprint_after = workspace_fingerprint()
             if fingerprint_before != fingerprint_after:
@@ -322,7 +406,10 @@ def main() -> int:
                 return 0
             print(f"Rodada {round_number}/{args.max_rounds}: Implementer")
             implementation = run_agent_turn(
-                IMPLEMENTER, implementer_prompt(response.handoff or "", run_id)
+                IMPLEMENTER,
+                implementer_prompt(response.handoff or "", run_id),
+                run_id,
+                timeout_seconds=args.agent_timeout_seconds,
             )
             save_log(run_dir, f"implementer-round-{round_number:02d}.log", implementation)
             validate_implementer_evidence(implementation, run_id)

@@ -12,8 +12,9 @@ from app.pages import (
     novo_chamado,
     tecnico_chamados,
 )
+from app.chamados.gerente import ChamadosGerenteState
+from app.chamados.tecnico import ChamadosTecnicoState
 from app.states.auth import AuthState
-from app.states.chamados import ChamadosGerenteState, ChamadosTecnicoState
 
 
 app = rx.App(theme=rx.theme(appearance="light", accent_color="blue"))

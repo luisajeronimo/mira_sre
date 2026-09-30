@@ -1,7 +1,8 @@
 """Regressões de ligação entre rotas e eventos funcionais."""
 
 from app.app import app
-from app.states.chamados import ChamadosGerenteState, ChamadosTecnicoState
+from app.chamados.gerente import ChamadosGerenteState
+from app.chamados.tecnico import ChamadosTecnicoState
 
 
 def test_rota_gerente_carrega_a_listagem_de_chamados():

@@ -3,8 +3,8 @@ import inspect
 
 import pytest
 
-import app.pages.chamados as paginas_chamados
-import app.states.chamados as chamados_module
+import app.chamados.tecnico.pages as paginas_chamados
+import app.chamados.tecnico.state as chamados_module
 from app.services.service_desk import (
     ChamadoDetalhe,
     ChamadoResumo,
@@ -14,11 +14,8 @@ from app.services.service_desk import (
 )
 from app.services.xano import XanoConflito
 from app.states.auth import MENSAGEM_INDISPONIVEL
-from app.states.chamados import (
-    ChamadosTecnicoState,
-    _detalhe_para_dict,
-    _tecnico_para_dict,
-)
+from app.chamados.shared import _detalhe_para_dict, _tecnico_para_dict
+from app.chamados.tecnico import ChamadosTecnicoState
 
 
 def executar_evento(handler, estado, *args):

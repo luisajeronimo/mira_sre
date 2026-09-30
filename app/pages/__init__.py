@@ -2,11 +2,13 @@
 
 from app.pages.home import diretoria, gerente, index, tecnico
 from app.pages.login import login
-from app.pages.chamados import (
+from app.chamados.gerente import (
     detalhe_chamado,
-    detalhe_chamado_tecnico,
     gerente_chamados,
     novo_chamado,
+)
+from app.chamados.tecnico import (
+    detalhe_chamado_tecnico,
     tecnico_chamados,
 )
 

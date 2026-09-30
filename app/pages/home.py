@@ -38,7 +38,7 @@ def _pagina_protegida(
 
 
 def gerente() -> rx.Component:
-    from app.pages.chamados import gerente_chamados
+    from app.chamados.gerente import gerente_chamados
 
     return gerente_chamados()
 

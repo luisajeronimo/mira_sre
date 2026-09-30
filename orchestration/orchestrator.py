@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LOGS_ROOT = ROOT / "orchestration" / "logs"
 REVIEWER, IMPLEMENTER = "reviewer", "implementer"
-DEFAULT_MAX_ROUNDS, TIMEOUT_MS = 5, 300_000
+DEFAULT_MAX_ROUNDS, TIMEOUT_MS = 10, 300_000
 AUTOMATIC = frozenset({"CONTINUE", "FIX_REQUIRED"})
 HUMAN_GATES = frozenset({"HUMAN_DECISION_REQUIRED", "READY_FOR_PUSH", "READY_FOR_ARCHIVE"})
 TERMINAL = frozenset({"DONE"})
@@ -137,6 +137,15 @@ def current_run_section(text: str, run_id: str) -> str:
     return text[matches[-1].end():]
 
 
+def validate_implementer_evidence(text: str, run_id: str) -> None:
+    """Exige o RUN_ID, sem interpretar marcadores do Implementer.
+
+    A saída do Implementer é evidência para a próxima revisão. Somente a
+    decisão extraída da resposta do Reviewer controla a máquina de estados.
+    """
+    current_run_section(text, run_id)
+
+
 def marker_value(text: str, marker: str) -> str | None:
     match = re.search(rf"(?m)^\s*{re.escape(marker)}:\s*(\S.*?)\s*$", text)
     return match.group(1).strip() if match else None
@@ -254,7 +263,7 @@ def parse_args() -> tuple[argparse.Namespace, str]:
     parser.add_argument("objective", nargs="?", help="objetivo da execução")
     parser.add_argument("--file", type=Path, help="arquivo UTF-8 com objetivo")
     parser.add_argument("--max-rounds", type=int, default=DEFAULT_MAX_ROUNDS,
-                        help="máximo de rodadas (padrão: 5)")
+                        help="máximo de rodadas do Reviewer (padrão: 10)")
     args = parser.parse_args()
     if int(args.objective is not None) + int(args.file is not None) != 1:
         parser.error("informe exatamente uma fonte: objetivo posicional ou --file.")
@@ -316,7 +325,7 @@ def main() -> int:
                 IMPLEMENTER, implementer_prompt(response.handoff or "", run_id)
             )
             save_log(run_dir, f"implementer-round-{round_number:02d}.log", implementation)
-            current_run_section(implementation, run_id)
+            validate_implementer_evidence(implementation, run_id)
         final = f"Limite de rodadas atingido: {args.max_rounds}\nRevisão humana necessária."
         save_log(run_dir, "final-result.txt", final)
         print(final)

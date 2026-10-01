@@ -198,8 +198,8 @@ def test_simulator_separa_posts_por_intervalo_configuravel(monkeypatch):
 @pytest.mark.parametrize(
     ("fonte", "header", "segredo", "primeiro_db"),
     [
-        (FISCAL_XS, "X-MIRA-Fiscal-Key", "MIRA_FISCAL_AUTOMATION_KEY", "db.get categorias_servico"),
-        (SIMULATOR_XS, "X-MIRA-Simulator-Key", "MIRA_SIMULATOR_AUTOMATION_KEY", "db.get ativos_referencia"),
+        (FISCAL_XS, "X-Mira-Fiscal-Key", "MIRA_FISCAL_AUTOMATION_KEY", "db.get categorias_servico"),
+        (SIMULATOR_XS, "X-Mira-Simulator-Key", "MIRA_SIMULATOR_AUTOMATION_KEY", "db.get ativos_referencia"),
     ],
 )
 def test_guardas_xano_rejeitam_com_401_e_corpo_exato_antes_da_logica(
@@ -209,7 +209,7 @@ def test_guardas_xano_rejeitam_com_401_e_corpo_exato_antes_da_logica(
 
     assert f'$env.$http_headers|get:"{header}"' in conteudo
     assert f"$env.{segredo}" in conteudo
-    assert 'value = "HTTP/1.1 401 Unauthorized"' in conteudo
+    assert 'value = "HTTP/1.1 401 Unauthorized\\nContent-Type: application/json"' in conteudo
     assert 'value = {error: "Não autenticado."}' in conteudo
     assert conteudo.index("util.set_header") < conteudo.index("return {")
     assert conteudo.index("return {") < conteudo.index(primeiro_db)

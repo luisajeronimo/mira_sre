@@ -13,7 +13,7 @@ query telemetria_equipamentos verb=POST {
 
   stack {
     var $chave_simulator_recebida {
-      value = $env.$http_headers|get:"X-MIRA-Simulator-Key"
+      value = $env.$http_headers|get:"X-Mira-Simulator-Key"
     }
 
     var $chave_simulator_configurada {
@@ -23,7 +23,7 @@ query telemetria_equipamentos verb=POST {
     conditional {
       if (!($chave_simulator_configurada != null && $chave_simulator_configurada != "" && $chave_simulator_recebida != null && $chave_simulator_recebida != "" && $chave_simulator_recebida === $chave_simulator_configurada)) {
         util.set_header {
-          value = "HTTP/1.1 401 Unauthorized"
+          value = "HTTP/1.1 401 Unauthorized\nContent-Type: application/json"
           duplicates = "replace"
         }
 

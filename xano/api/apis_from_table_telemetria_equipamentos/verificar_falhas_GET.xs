@@ -6,7 +6,7 @@ query "verificar-falhas" verb=GET {
 
   stack {
     var $chave_fiscal_recebida {
-      value = $env.$http_headers|get:"X-MIRA-Fiscal-Key"
+      value = $env.$http_headers|get:"X-Mira-Fiscal-Key"
     }
 
     var $chave_fiscal_configurada {
@@ -16,7 +16,7 @@ query "verificar-falhas" verb=GET {
     conditional {
       if (!($chave_fiscal_configurada != null && $chave_fiscal_configurada != "" && $chave_fiscal_recebida != null && $chave_fiscal_recebida != "" && $chave_fiscal_recebida === $chave_fiscal_configurada)) {
         util.set_header {
-          value = "HTTP/1.1 401 Unauthorized"
+          value = "HTTP/1.1 401 Unauthorized\nContent-Type: application/json"
           duplicates = "replace"
         }
 

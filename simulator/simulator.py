@@ -23,12 +23,21 @@ ATIVOS = [
 ]
 
 INTERVALO_CICLO_SEGUNDOS = int(
-    os.getenv("SIMULATOR_INTERVAL_SECONDS", "420")
+    os.getenv("SIMULATOR_INTERVAL_SECONDS", "300")
 )
 
 INTERVALO_ENTRE_ATIVOS_SEGUNDOS = int(
-    os.getenv("SIMULATOR_INTERVAL_BETWEEN_ASSETS", "2")
+    os.getenv("SIMULATOR_INTERVAL_BETWEEN_ASSETS", "3")
 )
+
+
+def obter_chave_simulator():
+    """Obtém a credencial obrigatória sem registrá-la em logs."""
+
+    chave = os.getenv("MIRA_SIMULATOR_AUTOMATION_KEY", "").strip()
+    if not chave:
+        raise RuntimeError("MIRA_SIMULATOR_AUTOMATION_KEY não configurada")
+    return chave
 
 
 def ler_id_ativo(nome_variavel):
@@ -143,18 +152,19 @@ def gerar_telemetria(ativo_id):
 # ============================================================
 
 def enviar_telemetria(payload):
+    chave = obter_chave_simulator()
     url = f"{XANO_BASE_URL}/telemetria_equipamentos"
 
     response = requests.post(
         url,
         json=payload,
+        headers={"X-MIRA-Simulator-Key": chave},
         timeout=30,
     )
 
     if not response.ok:
         print(
-            f"Erro HTTP {response.status_code}: "
-            f"{response.text}"
+            f"Erro HTTP {response.status_code}"
         )
 
     response.raise_for_status()
@@ -193,6 +203,7 @@ def executar_ciclo():
     print("Novo ciclo de telemetria")
     print("=" * 80)
 
+    houve_requisicao = False
     for ativo_id in ATIVOS:
 
         # ----------------------------------------------------
@@ -207,6 +218,10 @@ def executar_ciclo():
 
             continue
 
+        if houve_requisicao:
+            time.sleep(INTERVALO_ENTRE_ATIVOS_SEGUNDOS)
+        houve_requisicao = True
+
         try:
             payload, cenarios = gerar_telemetria(
                 ativo_id
@@ -219,21 +234,17 @@ def executar_ciclo():
                 cenarios,
             )
 
-        except requests.RequestException as erro:
+        except requests.RequestException:
             print(
                 f"[ERRO] Falha HTTP no ativo "
-                f"{ativo_id}: {erro}"
+                f"{ativo_id}"
             )
 
-        except Exception as erro:
+        except Exception:
             print(
                 f"[ERRO] Falha inesperada no ativo "
-                f"{ativo_id}: {erro}"
+                f"{ativo_id}"
             )
-
-        time.sleep(
-            INTERVALO_ENTRE_ATIVOS_SEGUNDOS
-        )
 
 
 # ============================================================
@@ -249,6 +260,16 @@ def validar_configuracao():
     if not ATIVOS:
         raise RuntimeError(
             "SIMULATOR_ATIVOS não configurado no .env"
+        )
+
+    obter_chave_simulator()
+
+    if INTERVALO_CICLO_SEGUNDOS <= 0:
+        raise RuntimeError("SIMULATOR_INTERVAL_SECONDS deve ser maior que zero")
+
+    if INTERVALO_ENTRE_ATIVOS_SEGUNDOS <= 0:
+        raise RuntimeError(
+            "SIMULATOR_INTERVAL_BETWEEN_ASSETS deve ser maior que zero"
         )
 
 

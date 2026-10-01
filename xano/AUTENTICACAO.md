@@ -91,8 +91,8 @@ devem permanecer inalterados. Nenhum push deve ser executado enquanto
 | `interacoes_chamado` | GET lista/detalhe | Gerente: somente interações de Chamados de sua Loja; Técnico: consulta necessária à tratativa; Diretoria: negado. |
 | `usuarios` | GET lista/detalhe | Negado; a única consulta de identidade permitida é `GET /me`. |
 | CRUDs genéricos | POST, PATCH e DELETE | Autenticação obrigatória e negação para os três perfis oficiais. |
-| `telemetria_equipamentos` | POST | Rota do Simulator; contrato e autenticação permanecem inalterados. |
-| `verificar-falhas` | GET | Rota disparada pelo Fiscal; contrato e autenticação permanecem inalterados. |
+| `telemetria_equipamentos` | POST | Rota do Simulator; exige exclusivamente `X-MIRA-Simulator-Key`, comparado no Xano a `MIRA_SIMULATOR_AUTOMATION_KEY` antes de persistir. |
+| `verificar-falhas` | GET | Rota disparada pelo Fiscal; exige exclusivamente `X-MIRA-Fiscal-Key`, comparado no Xano a `MIRA_FISCAL_AUTOMATION_KEY` antes de consultar heartbeat. |
 
 As regras são aplicadas por rota, sem proteção indiscriminada do grupo que contém as
 duas automações. Identificadores enviados pelo cliente localizam recursos, mas nunca

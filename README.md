@@ -41,13 +41,16 @@ Gerente / Técnico / Diretoria
  telemetria      verificar-falhas
 ```
 
-O **Simulator** apenas gera telemetria.  
-O **Fiscal** apenas chama periodicamente `GET /verificar-falhas`.  
+O **Simulator** apenas gera telemetria e envia `POST /telemetria_equipamentos`
+com `X-MIRA-Simulator-Key`. O **Fiscal** apenas chama periodicamente
+`GET /verificar-falhas` com `X-MIRA-Fiscal-Key`. Cada processo exige sua
+variável de ambiente técnica antes de enviar uma chamada.
 As regras de negócio, persistência e criação automática de incidentes ficam no **Xano**.
 
 ## Heartbeat
 
-- Telemetria normal: a cada **7 minutos por ativo**.
+- Telemetria normal: ciclo a cada **5 minutos**, com os 15 ativos enviados
+  sequencialmente a cada **3 segundos**.
 - Mais de **15 minutos sem telemetria**: ativo marcado como `Offline`.
 - Se não existir incidente aberto para a mesma falha, o Xano cria um chamado `Novo/Urgente`.
 - Chamados duplicados para a mesma indisponibilidade devem ser evitados.

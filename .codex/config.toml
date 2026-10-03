@@ -1,3 +1,11 @@
 [mcp_servers.xano]
 command = "npx"
 args = ["-y", "@xano/developer-mcp"]
+
+[agents.mira-implementer]
+description = "MIRA Implementer: executa somente o escopo autorizado e devolve evidências ao Supervisor."
+config_file = "agents/mira-implementer.toml"
+
+[agents.mira-reviewer]
+description = "MIRA Reviewer: revisão independente e read-only de OpenSpec, diffs, testes, riscos e gates."
+config_file = "agents/mira-reviewer.toml"

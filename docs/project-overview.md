@@ -392,8 +392,6 @@ Não decide se um Totem está Offline e não cria incidentes diretamente.
 
 O desenvolvimento do projeto utiliza OpenSpec para organizar a evolução incremental do sistema.
 
-O Codex e os agentes especializados definidos pelo projeto auxiliam planejamento, revisão e implementação conforme as instruções de `AGENTS.md` e `agents/`.
-
 O Xano Developer MCP apoia consultas e validações relacionadas ao XanoScript, e o Xano CLI é utilizado nas atividades de sincronização operacional previstas pelo projeto.
 
 ---
@@ -475,7 +473,7 @@ Os documentos possuem responsabilidades diferentes:
 - `docs/project-overview.md`: visão global do projeto, seu problema, objetivos, escopo, usuários, funcionalidades, restrições e arquitetura;
 - `docs/domain-model.md`: conceitos fundamentais, relacionamentos e regras estruturais do domínio;
 - `AGENTS.md`: regras operacionais para agentes de IA que trabalham no repositório;
-- `agents/`: instruções especializadas por papel de agente;
+- `.codex/agents/`: papéis opcionais dos agentes especializados do Codex;
 - `openspec/config.yaml`: contexto curto e permanente fornecido aos workflows do OpenSpec;
 - `openspec/specs/`: comportamento consolidado pelas changes concluídas;
 - `openspec/changes/`: mudanças em planejamento ou implementação;

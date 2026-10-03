@@ -9,18 +9,32 @@ Este `AGENTS.md` na raiz vale para todo o repositório. Se uma área passar a ex
 
 Não copie requisitos detalhados para cá. Mantenha comportamento funcional nas specs e nas changes do OpenSpec.
 
-## Agentes especializados
+## Desenvolvimento assistido por agentes (opcional)
 
-O projeto possui papéis especializados em `agents/` para separar revisão/orquestração de implementação.
+O funcionamento do MIRA, seus testes e o fluxo OpenSpec não dependem de Codex
+ou de agentes. Colaboradores podem ignorar `.codex/` completamente.
 
-- `agents/mira-reviewer.md` — instruções do **MIRA Reviewer**, responsável por revisar evidências, coerência OpenSpec, diffs, testes, riscos e gates. O Reviewer não implementa funcionalidades.
-- `agents/mira-implementer.md` — instruções do **MIRA Implementer**, responsável por executar somente o trabalho aprovado na change ativa e devolver evidências para revisão.
-- `agents/handoff-template.md` — formato preferencial de passagem de contexto entre Reviewer e Implementer, quando aplicável.
-- `agents/README.md` — visão geral dos papéis e do fluxo de agentes.
+Quando o usuário solicitar trabalho assistido por agentes, o agente principal
+do Codex atua como **Supervisor** e pode delegar aos papéis nativos definidos em
+`.codex/agents/`:
 
-As instruções especializadas complementam este `AGENTS.md`; não substituem o OpenSpec nem criam uma segunda fonte de requisitos. Em caso de divergência, aplique a precedência definida neste arquivo e reporte o conflito.
+- **MIRA Implementer** executa somente o trabalho autorizado e devolve
+  evidências ao Supervisor;
+- **MIRA Reviewer** revisa de forma independente e estritamente read-only,
+  devolvendo `aprovado`, `correção necessária` ou `decisão humana necessária`.
 
-Ao atuar como Reviewer, leia `agents/mira-reviewer.md` antes da revisão. Ao atuar como Implementer, leia `agents/mira-implementer.md` antes de executar a change.
+O Supervisor coordena as rodadas; os especialistas não coordenam outros
+agentes. Em Explore, delega apenas investigação read-only. Em Propose e Apply,
+pode alternar Implementer e Reviewer até aprovação ou gate humano. Archive só
+pode ser delegado após autorização humana explícita e deve receber revisão
+independente posterior.
+
+Interrompa a automação para decisão humana diante de nova regra de negócio,
+requisito ambíguo relevante, arquitetura não aprovada, nova entidade ou campo
+relevante, recurso pago, alteração de segredo, operação destrutiva, push remoto
+sensível, Archive, merge em `main` ou aceitação de limitação funcional. Tarefas
+técnicas rotineiras já autorizadas, testes, lint, correções dentro do escopo e
+validações locais reversíveis não exigem novo gate.
 
 ## Onde buscar contexto
 
@@ -54,7 +68,7 @@ Se houver conflito real entre fontes autoritativas, pare e reporte a inconsistê
 
 ## Mapa do repositório
 
-- `agents/` — instruções dos papéis especializados de revisão/orquestração e implementação.
+- `.codex/` — configuração opcional do Codex, incluindo papéis especializados e Xano Developer MCP.
 - `app/` — aplicação Reflex, navegação, UI, State e consumo das APIs.
 - `xano/` — schemas, funções, APIs e regras de backend em Xano/XanoScript.
 - `simulator/` — geração de telemetria para ativos existentes.
@@ -144,7 +158,7 @@ Nunca registre “não executado” como “passou”.
 ## Responsabilidade dos documentos
 
 - `AGENTS.md` — regras gerais e permanentes de trabalho no repositório.
-- `agents/` — instruções especializadas por papel; não contém requisitos funcionais do produto.
+- `.codex/agents/` — papéis opcionais do Codex; não contém requisitos funcionais do produto.
 - `openspec/config.yaml` — restrições globais do projeto/processo.
 - `docs/project-overview.md` — visão do produto, arquitetura e estado atual/futuro.
 - `docs/domain-model.md` — conceitos e invariantes estáveis do domínio.
@@ -153,28 +167,6 @@ Nunca registre “não executado” como “passou”.
 - archive — histórico.
 
 Evite duplicar a mesma regra em vários arquivos. Se documentação e código divergirem, reporte a deriva antes de “corrigir” uma fonte por inferência.
-
-## Git e handoff
-
-Quando houver passagem entre Reviewer e Implementer, prefira o formato de `agents/handoff-template.md`. O handoff deve carregar somente o contexto necessário da rodada, sem duplicar integralmente a change ou criar um backlog paralelo.
-
-Antes de entregar trabalho para revisão:
-
-- confirme a branch atual;
-- inspecione `git status` e o diff;
-- identifique arquivos não versionados relevantes;
-- confirme que não há mudança fora do escopo misturada ao patch.
-
-Não reescreva histórico, descarte trabalho do usuário ou execute operações Git destrutivas sem solicitação explícita.
-
-Ao final de cada rodada, informe:
-
-- o que mudou;
-- arquivos/recursos afetados;
-- validações realmente executadas e resultados;
-- tasks que ganharam evidência;
-- limitações, bloqueios ou decisões humanas pendentes;
-- próximo gate do OpenSpec.
 
 ## Idioma
 

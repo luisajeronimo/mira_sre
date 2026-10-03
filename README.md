@@ -22,30 +22,8 @@ O MIRA combina monitoramento técnico dos totens com abertura e tratamento de ch
 - **Xano / XanoScript** — backend, banco de dados e regras de negócio
 - **Python** — Simulator e Fiscal
 - **OpenSpec** — especificação e evolução das funcionalidades
-- **Codex + Xano Developer MCP** — apoio ao desenvolvimento e validação de XanoScript
 - **Xano CLI** — sincronização entre os arquivos locais e o workspace Xano
 - **GNU Make** — automação de comandos do ambiente
-
-## Arquitetura resumida
-
-```text
-Gerente / Técnico / Diretoria
-             |
-           Reflex
-             |
-             | REST
-             v
-            Xano
-        /           \
- Simulator          Fiscal
- telemetria      verificar-falhas
-```
-
-O **Simulator** apenas gera telemetria e envia `POST /telemetria_equipamentos`
-com `X-MIRA-Simulator-Key`. O **Fiscal** apenas chama periodicamente
-`GET /verificar-falhas` com `X-MIRA-Fiscal-Key`. Cada processo exige sua
-variável de ambiente técnica antes de enviar uma chamada.
-As regras de negócio, persistência e criação automática de incidentes ficam no **Xano**.
 
 ## Heartbeat
 
@@ -64,7 +42,7 @@ O técnico pode consultar a fila, assumir chamados, registrar diagnóstico, work
 As categorias de serviço classificam os chamados e armazenam o parâmetro de SLA em `sla_horas`.
 
 
-## OpenSpec e Codex
+## OpenSpec
 
 O projeto utiliza **Spec-Driven Development**.
 
@@ -74,12 +52,6 @@ Fluxo:
 
 ```text
 explore -> propose -> revisão -> apply -> archive
-```
-
-A configuração do Codex e do Xano Developer MCP fica versionada em:
-
-```text
-.codex/config.toml
 ```
 
 As especificações ficam em:

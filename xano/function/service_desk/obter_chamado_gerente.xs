@@ -18,6 +18,9 @@ function "service_desk/obter_chamado_gerente" {
         "retorna detalhe legado": ```
           {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
           ```
+        "retorna detalhe automático": ```
+          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+          ```
         "rejeita chamado inexistente": ```
           {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
           ```
@@ -73,10 +76,13 @@ function "service_desk/obter_chamado_gerente" {
       return = {type: "single"}
       mock = {
         "retorna detalhe da loja": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criado_em: 1780000000000, sla_horas_aplicado: 2, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, sla_horas_aplicado: 2, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "retorna detalhe legado": ```
-          {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criado_em: null, sla_horas_aplicado: null, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+          {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: null, sla_horas_aplicado: null, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+          ```
+        "retorna detalhe automático": ```
+          {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, sla_horas_aplicado: 1, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "rejeita chamado inexistente": null
         "rejeita chamado de outra loja": ```
@@ -130,6 +136,7 @@ function "service_desk/obter_chamado_gerente" {
         status: $registro.status,
         prioridade: $registro.prioridade,
         origem: $registro.origem,
+        criador_sistema: $registro.criador_sistema,
         criado_em: $registro.criado_em,
         sla_horas_aplicado: $registro.sla_horas_aplicado,
         ativo: {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome},
@@ -146,6 +153,7 @@ function "service_desk/obter_chamado_gerente" {
     input = {usuarios_id: 8, chamados_id: 101}
     expect.to_equal ($response.chamado.id) { value = 101 }
     expect.to_equal ($response.chamado.solicitante.id) { value = 8 }
+    expect.to_be_null ($response.chamado.criador_sistema)
     expect.to_be_null ($response.chamado.tecnico)
     expect.to_not_be_defined ($response.chamado.created_at)
   }
@@ -154,7 +162,15 @@ function "service_desk/obter_chamado_gerente" {
     input = {usuarios_id: 8, chamados_id: 16}
     expect.to_be_null ($response.chamado.descricao)
     expect.to_be_null ($response.chamado.origem)
+    expect.to_be_null ($response.chamado.criador_sistema)
     expect.to_be_null ($response.chamado.sla_horas_aplicado)
+  }
+
+  test "retorna detalhe automático" {
+    input = {usuarios_id: 8, chamados_id: 17}
+    expect.to_equal ($response.chamado.origem) { value = "automatico" }
+    expect.to_be_null ($response.chamado.solicitante)
+    expect.to_equal ($response.chamado.criador_sistema) { value = "bot_fiscalizacao" }
   }
 
   test "rejeita chamado inexistente" {

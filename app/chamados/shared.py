@@ -48,6 +48,11 @@ def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
     dados["tecnico_nome"] = (
         chamado.tecnico.nome if chamado.tecnico is not None else "Não atribuído"
     )
+    dados["criador_sistema_nome"] = (
+        "Bot de Fiscalização"
+        if chamado.criador_sistema == "bot_fiscalizacao"
+        else ""
+    )
     dados["pode_assumir"] = chamado.status == "Novo" and chamado.tecnico is None
     return dados
 
@@ -91,6 +96,7 @@ class DetalheView(TypedDict, total=False):
     sla_horas_texto: str
     atribuido_em_texto: str
     tecnico_nome: str
+    criador_sistema_nome: str
     pode_assumir: bool
 
 

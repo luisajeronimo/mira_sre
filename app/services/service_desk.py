@@ -17,6 +17,7 @@ from app.services.xano import (
 
 
 ORIGENS_CHAMADO = frozenset({"manual", "automatico"})
+CRIADORES_SISTEMA_CHAMADO = frozenset({"bot_fiscalizacao"})
 PRIORIDADES_CHAMADO = ("Baixa", "Média", "Alta", "Urgente")
 
 
@@ -87,6 +88,7 @@ class ChamadoDetalhe:
     solicitante: ReferenciaUsuario | None
     tecnico: ReferenciaUsuario | None
     atribuido_em: int | None = None
+    criador_sistema: str | None = None
 
 
 def _inteiro(valor: Any, campo: str) -> int:
@@ -186,6 +188,19 @@ def _origem(valor: Any) -> str | None:
     return valor
 
 
+def _criador_sistema(valor: Any) -> str | None:
+    if valor is None:
+        return None
+    if (
+        not isinstance(valor, str)
+        or valor not in CRIADORES_SISTEMA_CHAMADO
+    ):
+        raise XanoContratoInvalido(
+            "Campo inválido na resposta: criador_sistema."
+        )
+    return valor
+
+
 def _resumo(dados: dict[str, Any]) -> ChamadoResumo:
     return ChamadoResumo(
         id=_inteiro(dados.get("id"), "id"),
@@ -237,6 +252,7 @@ def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
             dados.get("atribuido_em"),
             "atribuido_em",
         ),
+        criador_sistema=_criador_sistema(dados.get("criador_sistema")),
     )
 
 

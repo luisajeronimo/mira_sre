@@ -40,6 +40,7 @@ class FakeCall:
     status: str
     prioridade: str
     origem: str | None = None
+    criador_sistema: str | None = None
     criado_em: int | None = None
     sla_horas_aplicado: Any = None
 
@@ -118,6 +119,7 @@ def executar_verificacao_isolada(
                         status="Novo",
                         prioridade="Urgente",
                         origem="automatico",
+                        criador_sistema="bot_fiscalizacao",
                         criado_em=criado_em,
                         sla_horas_aplicado=categoria.sla_horas,
                     )
@@ -165,6 +167,7 @@ def test_telemetria_antiga_marca_offline_e_cria_incidente_com_snapshot():
             status="Novo",
             prioridade="Urgente",
             origem="automatico",
+            criador_sistema="bot_fiscalizacao",
             criado_em=123_456,
             sla_horas_aplicado=2,
         )
@@ -201,8 +204,30 @@ def test_incidente_equivalente_aberto_impede_duplicidade_sequencial():
     assert len(db.added) == 1
 
 
+def test_incidente_equivalente_legado_nao_recebe_autoria_retroativa():
+    existente = FakeCall(
+        ativos_referencia_id=1,
+        categorias_servico_id=1,
+        status="Novo",
+        prioridade="Urgente",
+        origem="automatico",
+        criador_sistema=None,
+    )
+    db = FakeHeartbeatDb(
+        assets=[FakeAsset(id=1, status_atual="online")],
+        telemetry=[FakeTelemetry(1, 99_999)],
+        calls=[existente],
+    )
+
+    resultado = executar_verificacao_isolada(db, agora=1_000_000)
+
+    assert resultado["incidentes_criados"] == 0
+    assert db.added == []
+    assert existente.criador_sistema is None
+
+
 def test_telemetria_recente_nao_fecha_chamado_existente():
-    call = FakeCall(1, 1, "Novo", "Urgente", "automatico", 100, 2)
+    call = FakeCall(1, 1, "Novo", "Urgente", "automatico", None, 100, 2)
     db = FakeHeartbeatDb(
         assets=[FakeAsset(id=1, status_atual="offline")],
         telemetry=[FakeTelemetry(1, 1_000_000)],
@@ -245,6 +270,7 @@ def test_fonte_preserva_limite_e_campos_da_criacao_automatica():
 
     assert 'add_secs_to_timestamp:-900' in fonte
     assert 'origem               : "automatico"' in fonte
+    assert 'criador_sistema      : "bot_fiscalizacao"' in fonte
     assert 'criado_em            : "now"' in fonte
     assert 'sla_horas_aplicado   : $categoria_heartbeat.sla_horas' in fonte
     assert 'status               : "Novo"' in fonte

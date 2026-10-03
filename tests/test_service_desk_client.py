@@ -34,6 +34,7 @@ def detalhe_valido(**alteracoes):
         "status": "Novo",
         "prioridade": "Alta",
         "origem": "manual",
+        "criador_sistema": None,
         "criado_em": 1780000000000,
         "sla_horas_aplicado": 2,
         "ativo": {"id": 1, "nome_ativo": "Totem 01"},
@@ -202,6 +203,45 @@ def test_colecoes_vazias_e_nulos_legados_sao_aceitos():
     assert detalhe.descricao is None
     assert detalhe.sla_horas_aplicado is None
     assert detalhe.solicitante is None
+    assert detalhe.criador_sistema is None
+
+
+def test_detalhe_automatico_expoe_criador_sistema_sem_solicitante_humano():
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json=detalhe_valido(
+                    origem="automatico",
+                    criador_sistema="bot_fiscalizacao",
+                    solicitante=None,
+                ),
+            )
+        ),
+    )
+
+    detalhe = executar(cliente.obter_chamado("token", 101))
+
+    assert detalhe.origem == "automatico"
+    assert detalhe.solicitante is None
+    assert detalhe.criador_sistema == "bot_fiscalizacao"
+
+
+@pytest.mark.parametrize("valor", ["bot desconhecido", {"id": 1}, 1])
+def test_criador_sistema_invalido_falha_fechado(valor):
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json=detalhe_valido(criador_sistema=valor),
+            )
+        ),
+    )
+
+    with pytest.raises(XanoContratoInvalido, match="criador_sistema"):
+        executar(cliente.obter_chamado("token", 101))
 
 
 def test_contratos_tecnicos_preservam_visao_atribuicao_e_idempotencia():

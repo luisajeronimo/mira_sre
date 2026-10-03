@@ -174,9 +174,9 @@ Quando o mesmo problema afeta vários Totens, deve existir um chamado separado p
 
 ### 6.4 Chamados automáticos
 
-Um incidente automático é criado pelo sistema em resposta às condições de heartbeat definidas pelo projeto.
+Um incidente automático é criado pelo sistema em resposta às condições de heartbeat definidas pelo projeto. Sua origem é automática, seu solicitante humano permanece ausente e seu criador de sistema é o **Bot de Fiscalização**.
 
-O solicitante de um chamado automático é um **ator de sistema**, representado pelo Bot de Fiscalização, e não um usuário humano autenticável.
+O Bot de Fiscalização é um ator lógico não autenticável, persistido separadamente da origem e do solicitante. Ele não é usuário humano e não representa a credencial técnica que autentica o Fiscal.
 
 Incidentes automáticos de heartbeat utilizam prioridade `Urgente`.
 

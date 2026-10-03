@@ -265,6 +265,7 @@ Registrar e acompanhar uma necessidade de atendimento relacionada a um Totem.
 - título;
 - descrição;
 - origem;
+- criador de sistema, quando aplicável;
 - status;
 - prioridade;
 - solicitante;
@@ -295,6 +296,17 @@ Um Chamado possui uma origem funcional:
 - `manual`: aberto por um Gerente;
 - `automático`: criado pelo sistema a partir do monitoramento.
 
+Origem classifica como o chamado surgiu; ela não identifica, por si só, quem o
+criou.
+
+#### Solicitante e criador de sistema
+
+`solicitante_id` referencia exclusivamente um usuário humano quando aplicável.
+Em chamados automáticos de heartbeat, ele permanece ausente. O
+`criador_sistema` opcional registra o ator lógico que criou o chamado: nesta
+automação, `bot_fiscalizacao` representa o **Bot de Fiscalização**, sem relação
+com `usuarios`, login, senha, sessão, token ou permissão humana.
+
 #### Abertura manual
 
 Todo novo Chamado manual deve possuir:
@@ -312,7 +324,8 @@ Um Chamado manual não pode ser criado com ausência dessas informações.
 #### Abertura automática
 
 - é criada pelo sistema quando a regra de heartbeat determina a necessidade;
-- utiliza solicitante de sistema, conceitualmente identificado como **Bot de Fiscalização**;
+- mantém solicitante humano ausente e registra o **Bot de Fiscalização** como
+  criador de sistema;
 - o Bot de Fiscalização não é um usuário autenticável;
 - utiliza prioridade `Urgente`;
 - respeita a regra de prevenção de duplicidade do heartbeat.

@@ -96,6 +96,13 @@ def _detalhe_tecnico() -> rx.Component:
                     rx.text("Status: " + ChamadosTecnicoState.chamado["status"]),
                     rx.text("Prioridade: " + ChamadosTecnicoState.chamado["prioridade"]),
                     rx.text("Origem: " + ChamadosTecnicoState.chamado["origem"]),
+                    rx.cond(
+                        ChamadosTecnicoState.chamado["criador_sistema_nome"] != "",
+                        rx.text(
+                            "Criado por: "
+                            + ChamadosTecnicoState.chamado["criador_sistema_nome"]
+                        ),
+                    ),
                     rx.text("SLA aplicado: " + ChamadosTecnicoState.chamado["sla_horas_texto"]),
                     rx.text("Técnico: " + ChamadosTecnicoState.chamado["tecnico_nome"]),
                     rx.text("Atribuído em: " + ChamadosTecnicoState.chamado["atribuido_em_texto"]),

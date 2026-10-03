@@ -94,6 +94,7 @@ query "verificar-falhas" verb=GET {
                     status               : "Novo"
                     prioridade           : "Urgente"
                     origem               : "automatico"
+                    criador_sistema      : "bot_fiscalizacao"
                     criado_em            : "now"
                     sla_horas_aplicado   : $categoria_heartbeat.sla_horas
                     ativos_referencia_id : $item.id

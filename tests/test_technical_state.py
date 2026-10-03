@@ -3,6 +3,7 @@ import inspect
 
 import pytest
 
+import app.chamados.gerente.pages as paginas_gerente
 import app.chamados.tecnico.pages as paginas_chamados
 import app.chamados.tecnico.state as chamados_module
 from app.services.service_desk import (
@@ -43,7 +44,13 @@ def resumo_tecnico(*, status="Novo", tecnico=None, atribuido_em=0):
     )
 
 
-def detalhe_tecnico(*, status="Novo", tecnico=None, atribuido_em=1780000001000):
+def detalhe_tecnico(
+    *,
+    status="Novo",
+    tecnico=None,
+    atribuido_em=1780000001000,
+    criador_sistema=None,
+):
     return ChamadoDetalhe(
         id=32,
         titulo="TESTE E2E - Falha operacional",
@@ -58,6 +65,7 @@ def detalhe_tecnico(*, status="Novo", tecnico=None, atribuido_em=1780000001000):
         solicitante=ReferenciaUsuario(id=8, nome="Gerente"),
         tecnico=tecnico,
         atribuido_em=atribuido_em,
+        criador_sistema=criador_sistema,
     )
 
 
@@ -128,6 +136,31 @@ def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():
     )["pode_assumir"] is True
     assert _tecnico_para_dict(tecnico_atribuido)["pode_assumir"] is False
     assert _tecnico_para_dict(status_diferente)["pode_assumir"] is False
+
+
+def test_detalhe_mostra_nome_do_bot_somente_quando_persistido():
+    automatico = _detalhe_para_dict(
+        detalhe_tecnico(criador_sistema="bot_fiscalizacao")
+    )
+    legado = _detalhe_para_dict(detalhe_tecnico(criador_sistema=None))
+
+    assert automatico["criador_sistema_nome"] == "Bot de Fiscalização"
+    assert legado["criador_sistema_nome"] == ""
+
+
+def test_detalhes_apresentam_autoria_persistida_sem_ampliar_listagens():
+    detalhe_gerente = inspect.getsource(paginas_gerente._detalhe)
+    detalhe_tecnico = inspect.getsource(paginas_chamados._detalhe_tecnico)
+    lista_gerente = inspect.getsource(paginas_gerente._lista)
+    fila_tecnica = inspect.getsource(paginas_chamados._fila_tecnico)
+
+    for detalhe in (detalhe_gerente, detalhe_tecnico):
+        assert '"criador_sistema_nome"] != ""' in detalhe
+        assert "Criado por: " in detalhe
+        assert "Origem: " in detalhe
+
+    assert "criador_sistema" not in lista_gerente
+    assert "criador_sistema" not in fila_tecnica
 
 
 def test_assuncao_bem_sucedida_recarrega_fila_e_preserva_confirmacao(monkeypatch):

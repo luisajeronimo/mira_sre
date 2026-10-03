@@ -15,6 +15,9 @@ table chamados {
     enum? origem? {
       values = ["manual", "automatico"]
     }
+    enum? criador_sistema? {
+      values = ["bot_fiscalizacao"]
+    }
 
     timestamp? criado_em?
     decimal? sla_horas_aplicado?

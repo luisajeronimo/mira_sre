@@ -105,6 +105,7 @@ def abrir_chamado_isolado(
         "status": registro["status"],
         "prioridade": registro["prioridade"],
         "origem": registro["origem"],
+        "criador_sistema": None,
         "criado_em": registro["criado_em"],
         "sla_horas_aplicado": registro["sla_horas_aplicado"],
         "ativo": {"id": ativo.id, "nome_ativo": ativo.nome},
@@ -141,6 +142,8 @@ def test_quatro_prioridades_criam_chamado_novo(prioridade):
     assert dto["prioridade"] == prioridade
     assert dto["status"] == "Novo"
     assert dto["origem"] == "manual"
+    assert dto["criador_sistema"] is None
+    assert "criador_sistema" not in banco.chamados[0]
 
 
 @pytest.mark.parametrize("campo", ["titulo", "descricao"])

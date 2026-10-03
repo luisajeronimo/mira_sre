@@ -116,6 +116,13 @@ def _detalhe() -> rx.Component:
                     rx.text("Status: " + ChamadosGerenteState.chamado["status"]),
                     rx.text("Prioridade: " + ChamadosGerenteState.chamado["prioridade"]),
                     rx.text("Origem: " + ChamadosGerenteState.chamado["origem"]),
+                    rx.cond(
+                        ChamadosGerenteState.chamado["criador_sistema_nome"] != "",
+                        rx.text(
+                            "Criado por: "
+                            + ChamadosGerenteState.chamado["criador_sistema_nome"]
+                        ),
+                    ),
                     rx.text("SLA aplicado: " + ChamadosGerenteState.chamado["sla_horas_texto"]),
                     rx.text(ChamadosGerenteState.chamado["criado_em_texto"], color="gray"),
                     align="start",

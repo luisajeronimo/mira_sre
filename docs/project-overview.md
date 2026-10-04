@@ -150,6 +150,11 @@ A automação de indisponibilidade considera Totens que estavam Online. Um Totem
 
 Quando necessário, o Xano pode marcar o Totem como Offline e criar um incidente automático.
 
+Transições efetivas entre Online e Offline são preservadas como histórico de
+disponibilidade, com a telemetria de referência, o instante de detecção e o
+limite de heartbeat aplicado. O histórico registra fatos para indicadores
+futuros, sem antecipar dashboard ou métricas derivadas.
+
 Para evitar duplicidade, um novo incidente automático não deve ser criado quando já existir chamado da mesma categoria para o mesmo Totem em estado não terminal. Chamados `Encerrados` e `Cancelados` não bloqueiam a criação de um novo incidente futuro.
 
 Quando a telemetria retorna, o Totem pode voltar a Online, mas isso **não resolve, cancela nem encerra automaticamente o chamado**. A continuidade da tratativa depende de ação humana.

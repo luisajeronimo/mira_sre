@@ -29,7 +29,7 @@ table categorias_servico {
       nome                     : "Totem Offline / Sem Heartbeat"
       tipo_itil                : "Incidente"
       sla_horas                : 1
-      desc                     : "Criada automaticamente quando o ativo fica mais de 5 minutos sem telemetria"
+      desc                     : "Criada automaticamente quando o ativo fica mais de 15 minutos sem telemetria"
       permite_abertura_manual  : false
     }
     {

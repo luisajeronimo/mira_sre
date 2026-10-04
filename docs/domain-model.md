@@ -143,6 +143,7 @@ Ser o elemento monitorado pelo sistema e o ponto de associação entre Loja, tel
 
 - cada Totem pertence a uma Loja;
 - um Totem pode possuir muitos eventos de telemetria;
+- um Totem pode possuir eventos de disponibilidade materializados pelo Xano;
 - um Totem pode possuir vários chamados ao longo do tempo.
 
 ### Regras estruturais
@@ -209,6 +210,11 @@ Detectar ausência de comunicação de um Totem e iniciar o fluxo automático de
 - pode alterar o estado operacional do Totem;
 - pode originar um Chamado automático.
 
+As transições efetivas são preservadas como fatos específicos de disponibilidade,
+relacionados ao Totem e à telemetria que fundamentou a decisão. Cada fato
+registra o instante de detecção e o limite de heartbeat aplicado; não armazena
+indicadores derivados nem altera dados históricos anteriores.
+
 ### Regras estruturais
 
 - o Fiscal apenas dispara periodicamente a verificação;
@@ -217,7 +223,7 @@ Detectar ausência de comunicação de um Totem e iniciar o fluxo automático de
 - um Totem que já está `Offline` não deve gerar novo chamado apenas porque continua sem heartbeat;
 - antes de criar um chamado automático, o sistema verifica se já existe chamado equivalente para o mesmo Totem e a mesma Categoria;
 - chamados `Encerrado` ou `Cancelado` não bloqueiam a criação de um novo incidente equivalente;
-- qualquer outro status ainda é considerado relevante para evitar duplicidade do mesmo incidente;
+- os status não terminais vigentes bloqueiam a criação de outro incidente equivalente;
 - o retorno da telemetria pode levar o Totem de volta a `Online`, mas **não resolve, cancela nem encerra o chamado automaticamente**;
 - após a recuperação técnica do Totem, a tratativa do chamado continua dependendo de ação humana.
 
@@ -593,6 +599,7 @@ Loja 1 ─── N Gerente
 Loja 1 ─── N Totem
 
 Totem 1 ─── N Telemetria
+Totem 1 ─── N Eventos de disponibilidade
 Totem 1 ─── N Chamado
 
 Categoria de Serviço 1 ─── N Chamado

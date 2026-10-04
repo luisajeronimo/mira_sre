@@ -186,15 +186,15 @@ Os contratos de `mira-service-desk` DEVEM (MUST) distinguir autenticação ausen
 - **THEN** o contrato usa 401 para sessão não autenticada, 403 para perfil ou escopo não autorizado, 404 para recurso inexistente, 422 para entrada inválida e resposta 5xx para falha interna ou indisponibilidade do backend
 
 ### Requirement: Compatibilidade automática é limitada aos novos dados compartilhados
-O criador automático existente DEVE (MUST) continuar aplicando seu título, status `Novo`, prioridade `Urgente`, categoria, ativo e verificação atual de incidente equivalente, acrescentando somente origem `automatico`, `criado_em` definido pelo backend e snapshot de SLA. Esta capacidade NÃO DEVE (MUST NOT) alterar o limite de heartbeat, o conjunto atual de status considerados abertos, a deduplicação concorrente, o encerramento automático nem o tratamento de ativo sem telemetria.
+O criador automático de heartbeat DEVE (MUST) criar incidente somente em uma transição elegível Online → Offline, com título, status `Novo`, prioridade `Urgente`, categoria, ativo, origem `automatico`, solicitante humano ausente, `criador_sistema = "bot_fiscalizacao"`, `criado_em` definido pelo backend e snapshot de SLA. A consulta de incidente equivalente DEVE (MUST) usar ativo, categoria e os status vigentes não terminais. Se encontrar equivalente, NÃO DEVE (MUST NOT) criar chamado nem alterar origem, autoria, status, SLA, solicitante ou qualquer dado do registro existente.
 
 #### Scenario: Heartbeat cria incidente compatível
-- **WHEN** a condição atual do heartbeat determina a criação de um incidente
-- **THEN** o Xano cria o registro com os novos dados compartilhados sem alterar os demais critérios ou valores já usados pelo fluxo
+- **WHEN** uma transição elegível do heartbeat não encontra incidente equivalente não terminal
+- **THEN** o Xano cria o registro com os dados compartilhados aprovados e sem solicitante humano
 
 #### Scenario: Heartbeat encontra incidente equivalente
-- **WHEN** a verificação atual encontra um incidente equivalente aberto
-- **THEN** nenhum novo chamado é criado, com a mesma regra anterior a esta capacidade
+- **WHEN** uma transição elegível encontra incidente equivalente não terminal
+- **THEN** nenhum novo chamado é criado e nenhum registro existente recebe alteração de origem, autoria, status, SLA ou solicitante
 
 ### Requirement: Chamado distingue origem de criador de sistema
 O sistema DEVE (MUST) persistir no chamado um `criador_sistema` opcional,

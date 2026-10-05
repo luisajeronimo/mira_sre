@@ -14,6 +14,7 @@ from app.services.xano import (
 from app.states.auth import (
     MENSAGEM_CREDENCIAIS,
     MENSAGEM_EXPIRADA,
+    MENSAGEM_IDENTIDADE_INVALIDA,
     MENSAGEM_INDISPONIVEL,
     MENSAGEM_NAO_AUTORIZADO,
     AuthState,
@@ -29,7 +30,7 @@ IDENTIDADES = {
         lojas_id=1 if perfil == "gerente" else None,
     )
     for indice, perfil in enumerate(
-        ("gerente", "tecnico", "diretoria"),
+        ("gerente", "tecnico", "diretoria", "administrador"),
         start=1,
     )
 }
@@ -94,6 +95,7 @@ def test_token_e_backend_only_e_nao_usa_armazenamento_cliente():
         ("gerente", "/gerente"),
         ("tecnico", "/tecnico"),
         ("diretoria", "/diretoria"),
+        ("administrador", "/administracao"),
     ],
 )
 def test_login_confirma_me_e_redireciona_por_perfil(
@@ -302,4 +304,137 @@ def test_logout_e_apenas_local_e_limpa_estado():
     assert destino_redirect(evento) == "/login"
 
     eventos = executar_evento(AuthState.carregar_gerente, estado)
+    assert destino_redirect(eventos[-1]) == "/login"
+
+
+def test_sessao_pendente_prioriza_primeiro_acesso(monkeypatch):
+    identidade = IdentidadeXano(
+        id=4, nome="Admin", email="admin@example.test", role="administrador",
+        lojas_id=None, deve_trocar_senha=True,
+    )
+    monkeypatch.setattr(auth_module, "criar_cliente_xano", lambda: ClienteFalso(identidade))
+    estado = novo_estado()
+    estado._auth_token = "token"
+
+    eventos = executar_evento(AuthState.carregar_administracao, estado)
+
+    assert estado.deve_trocar_senha is True
+    assert destino_redirect(eventos[-1]) == "/primeiro-acesso"
+
+
+def identidade_pendente() -> IdentidadeXano:
+    return IdentidadeXano(
+        id=4,
+        nome="Admin",
+        email="admin@example.test",
+        role="administrador",
+        lojas_id=None,
+        deve_trocar_senha=True,
+    )
+
+
+def test_login_administrador_pendente_vai_para_primeiro_acesso(monkeypatch):
+    cliente = ClienteFalso(identidade=identidade_pendente())
+    monkeypatch.setattr(auth_module, "criar_cliente_xano", lambda: cliente)
+    estado = novo_estado()
+
+    eventos = executar_evento(
+        AuthState.login,
+        estado,
+        {"email": "admin@example.test", "senha": "segredo"},
+    )
+
+    assert estado.sessao_confirmada is True
+    assert estado.deve_trocar_senha is True
+    assert destino_redirect(eventos[-1]) == "/primeiro-acesso"
+
+
+def test_primeiro_acesso_pendente_revalida_sem_redirecionar(monkeypatch):
+    cliente = ClienteFalso(identidade=identidade_pendente())
+    monkeypatch.setattr(auth_module, "criar_cliente_xano", lambda: cliente)
+    estado = novo_estado()
+    estado._auth_token = "token"
+
+    eventos = executar_evento(AuthState.carregar_primeiro_acesso, estado)
+
+    assert cliente.chamadas == [("me", "token")]
+    assert estado.sessao_confirmada is True
+    assert estado.deve_trocar_senha is True
+    assert eventos == [None]
+
+
+def test_visitante_em_primeiro_acesso_redireciona_para_login():
+    estado = novo_estado()
+
+    eventos = executar_evento(AuthState.carregar_primeiro_acesso, estado)
+
+    assert estado.sessao_confirmada is False
+    assert destino_redirect(eventos[-1]) == "/login"
+
+
+def test_primeiro_acesso_pendente_revalidacoes_repetidas_nao_criam_loop(
+    monkeypatch,
+):
+    cliente = ClienteFalso(identidade=identidade_pendente())
+    monkeypatch.setattr(auth_module, "criar_cliente_xano", lambda: cliente)
+    estado = novo_estado()
+    estado._auth_token = "token"
+
+    for _ in range(2):
+        eventos = executar_evento(AuthState.carregar_primeiro_acesso, estado)
+        assert eventos == [None]
+        assert estado.sessao_confirmada is True
+        assert estado.deve_trocar_senha is True
+
+    assert cliente.chamadas == [("me", "token"), ("me", "token")]
+
+
+@pytest.mark.parametrize(
+    ("perfil", "destino"),
+    [
+        ("gerente", "/gerente"),
+        ("tecnico", "/tecnico"),
+        ("diretoria", "/diretoria"),
+        ("administrador", "/administracao"),
+    ],
+)
+def test_primeiro_acesso_concluido_redireciona_para_destino_do_perfil(
+    monkeypatch,
+    perfil,
+    destino,
+):
+    cliente = ClienteFalso(identidade=IDENTIDADES[perfil])
+    monkeypatch.setattr(auth_module, "criar_cliente_xano", lambda: cliente)
+    estado = novo_estado()
+    estado._auth_token = "token"
+
+    eventos = executar_evento(AuthState.carregar_primeiro_acesso, estado)
+
+    assert estado.sessao_confirmada is True
+    assert estado.deve_trocar_senha is False
+    assert destino_redirect(eventos[-1]) == destino
+
+
+def test_primeiro_acesso_com_identidade_invalida_limpa_sessao(monkeypatch):
+    identidade_invalida = IdentidadeXano(
+        id=4,
+        nome="Legado",
+        email="legado@example.test",
+        role="admin",
+        lojas_id=None,
+        deve_trocar_senha=True,
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "criar_cliente_xano",
+        lambda: ClienteFalso(identidade=identidade_invalida),
+    )
+    estado = novo_estado()
+    estado._auth_token = "token"
+
+    eventos = executar_evento(AuthState.carregar_primeiro_acesso, estado)
+
+    assert estado._auth_token == ""
+    assert estado.sessao_confirmada is False
+    assert estado.mensagem_erro == MENSAGEM_IDENTIDADE_INVALIDA
     assert destino_redirect(eventos[-1]) == "/login"

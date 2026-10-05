@@ -7,6 +7,7 @@ from app.services.xano import (
     CredenciaisInvalidas,
     XanoCliente,
     XanoContratoInvalido,
+    XanoEntradaInvalida,
     XanoIndisponivel,
     XanoNaoAutenticado,
     XanoNaoAutorizado,
@@ -36,6 +37,7 @@ def test_login_e_me_usam_contratos_minimos_e_token_bearer():
                 "email": "gerente@example.test",
                 "role": "gerente",
                 "lojas_id": 1,
+                "deve_trocar_senha": False,
             },
         )
 
@@ -54,6 +56,108 @@ def test_login_e_me_usam_contratos_minimos_e_token_bearer():
     assert requisicoes[1].method == "GET"
     assert str(requisicoes[1].url) == f"{BASE_URL}/me"
     assert requisicoes[1].headers["Authorization"] == "Bearer token-teste"
+
+
+@pytest.mark.parametrize("role", ["tecnico", "diretoria", "administrador"])
+def test_cliente_admin_usa_endpoint_e_dto_publico_sem_loja_para_perfis_globais(
+    monkeypatch, role
+):
+    cliente = XanoCliente(BASE_URL)
+    sentinela_sensivel = object()
+    chamadas = []
+
+    async def requisitar(metodo, caminho, **kwargs):
+        chamadas.append((metodo, caminho, kwargs))
+        return {"id": 9, "nome": "Novo", "email": "novo@example.test", "role": role, "lojas_id": None, "deve_trocar_senha": True}
+
+    monkeypatch.setattr(cliente, "_requisitar", requisitar)
+    usuario = executar(cliente.criar_usuario_administrativo("token", nome="Novo", email="novo@example.test", role=role, lojas_id=None, senha_temporaria=sentinela_sensivel))
+    assert usuario.role == role
+    assert usuario.deve_trocar_senha is True
+    metodo, caminho, kwargs = chamadas[0]
+    assert (metodo, caminho) == ("POST", "/administracao/usuarios")
+    assert kwargs["token"] == "token"
+    assert kwargs["json"]["senha_temporaria"] is sentinela_sensivel
+    assert "lojas_id" not in kwargs["json"]
+    assert kwargs["erro_400_como_entrada"] is True
+
+
+def test_criacao_admin_classifica_rejeicao_http_400_como_entrada_invalida():
+    cliente = XanoCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(400, json={"message": "não expor"})
+        ),
+    )
+
+    with pytest.raises(XanoEntradaInvalida, match="dados informados"):
+        executar(
+            cliente.criar_usuario_administrativo(
+                "token",
+                nome="Novo",
+                email="novo@example.test",
+                role="tecnico",
+                lojas_id=None,
+                senha_temporaria="senha-ficticia",
+            )
+        )
+
+
+def test_http_400_de_outro_endpoint_continua_contrato_invalido():
+    cliente = XanoCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(400, json={"message": "não expor"})
+        ),
+    )
+
+    with pytest.raises(XanoContratoInvalido):
+        executar(cliente.obter_identidade("token"))
+
+
+def test_cliente_busca_opcoes_minimas_de_loja_sem_enviar_credencial_no_corpo():
+    requisicoes = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        requisicoes.append(requisicao)
+        return httpx.Response(
+            200,
+            json={"lojas": [{"id": 1, "nome": "Loja Paulista"}]},
+        )
+
+    cliente = XanoCliente(
+        BASE_URL, transport=httpx.MockTransport(responder)
+    )
+    lojas = executar(cliente.listar_lojas_administracao("token-admin"))
+
+    assert lojas[0].id == 1
+    assert lojas[0].nome == "Loja Paulista"
+    assert requisicoes[0].method == "GET"
+    assert str(requisicoes[0].url) == f"{BASE_URL}/administracao/lojas"
+    assert requisicoes[0].headers["Authorization"] == "Bearer token-admin"
+    assert requisicoes[0].read() == b""
+
+
+@pytest.mark.parametrize(
+    "resposta",
+    [
+        {"items": []},
+        {"lojas": [{"id": True, "nome": "Loja Paulista"}]},
+        {"lojas": [{"id": 1, "nome": "Loja Paulista", "endereco": "interno"}]},
+        {"lojas": [{"id": 1, "nome": "  "}]},
+        {"lojas": [], "extra": "não permitido"},
+    ],
+)
+def test_cliente_rejeita_dto_de_opcoes_de_loja_fora_do_contrato(resposta):
+    cliente = XanoCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json=resposta)
+        ),
+    )
+
+    with pytest.raises(XanoContratoInvalido):
+        executar(cliente.listar_lojas_administracao("token-admin"))
 
 
 @pytest.mark.parametrize("status", [400, 401, 403, 422])

@@ -1,32 +1,6 @@
-# autenticação de usuários Specification
+# Spec Delta
 
-## Purpose
-
-Definir a autenticação dos usuários do MIRA no Xano e o contrato seguro pelo qual o Reflex obtém e apresenta a identidade autenticada.
-
-## Requirements
-
-### Requirement: Autenticação pertence ao Xano
-O sistema DEVE (MUST) autenticar usuários exclusivamente pelo mecanismo de autenticação do Xano. O Reflex DEVE apenas enviar as credenciais ao contrato de autenticação e consumir o resultado, sem implementar validação própria de credenciais.
-
-#### Scenario: Credenciais válidas
-- **WHEN** um usuário cadastrado informa credenciais válidas
-- **THEN** o Xano autentica o usuário e retorna um token válido por 8 horas para as requisições subsequentes
-
-#### Scenario: Credenciais inválidas
-- **WHEN** uma tentativa de autenticação contém credenciais inválidas
-- **THEN** o Xano rejeita a tentativa sem emitir credencial de sessão e sem revelar qual parte das credenciais está incorreta
-
-### Requirement: Token possui expiração definida
-O sistema DEVE (MUST) emitir o token de autenticação com expiração de 8 horas. O sistema NÃO DEVE (MUST NOT) introduzir refresh token ou renovação automática nesta change.
-
-#### Scenario: Expiração do token
-- **WHEN** o Xano emite um token após uma autenticação válida
-- **THEN** o token expira 8 horas após sua emissão
-
-#### Scenario: Token expirado
-- **WHEN** uma API destinada a usuários recebe um token após sua expiração
-- **THEN** o Xano rejeita a requisição como não autenticada sem renovar o token automaticamente
+## MODIFIED Requirements
 
 ### Requirement: Sessão identifica o usuário autenticado
 O sistema DEVE (MUST) permitir que um consumidor autenticado consulte sua identidade atual e receba somente os dados necessários para identificação e direcionamento da interface, incluindo identificação, nome, e-mail, perfil oficial e o estado de troca obrigatória de senha.
@@ -39,13 +13,6 @@ O sistema DEVE (MUST) permitir que um consumidor autenticado consulte sua identi
 - **WHEN** uma requisição sem credencial de sessão válida consulta a identidade atual
 - **THEN** o Xano rejeita a requisição como não autenticada
 
-### Requirement: Credenciais não são dados de negócio
-O sistema NÃO DEVE (MUST NOT) retornar senha, representação reversível da senha ou material interno de autenticação nas respostas das APIs destinadas ao Reflex.
-
-#### Scenario: Resposta de autenticação
-- **WHEN** o Xano responde a uma autenticação bem-sucedida ou à consulta da identidade atual
-- **THEN** a resposta não contém senha nem representação interna reutilizável da credencial armazenada
-
 ### Requirement: Somente perfis oficiais obtêm acesso ao MIRA
 O sistema DEVE (MUST) conceder uma sessão utilizável no MIRA somente a usuários associados a Gerente, Técnico, Diretoria ou Administrador. `administrador` é um usuário humano autenticável; `admin` e atores de sistema não representam perfil oficial de sessão humana.
 
@@ -57,16 +24,7 @@ O sistema DEVE (MUST) conceder uma sessão utilizável no MIRA somente a usuári
 - **WHEN** um usuário possui credenciais válidas, mas seu valor de perfil não corresponde a Gerente, Técnico, Diretoria ou Administrador depois da aplicação do mapeamento de migração aprovado
 - **THEN** o Xano não concede acesso utilizável às APIs do MIRA e não converte esse valor sem nova decisão humana explícita
 
-### Requirement: APIs destinadas a usuários exigem autenticação
-O sistema DEVE (MUST) exigir uma credencial de sessão válida nas APIs destinadas ao uso por Gerente, Técnico, Diretoria ou Administrador.
-
-#### Scenario: Acesso autenticado
-- **WHEN** uma API destinada a usuários recebe uma credencial de sessão válida
-- **THEN** o Xano identifica o usuário antes de avaliar sua autorização
-
-#### Scenario: Acesso anônimo
-- **WHEN** uma API destinada a usuários é chamada sem credencial de sessão válida
-- **THEN** o Xano rejeita a requisição sem retornar dados protegidos nem executar alterações
+## ADDED Requirements
 
 ### Requirement: Primeiro acesso restringe a sessão autenticada
 O sistema DEVE (MUST) permitir que a autenticação válida de usuário com troca obrigatória pendente emita token, mas DEVE limitar essa sessão à consulta da própria identidade, à troca obrigatória da própria senha e ao encerramento local aplicável. APIs funcionais normais DEVEM rejeitar a sessão pendente no backend.

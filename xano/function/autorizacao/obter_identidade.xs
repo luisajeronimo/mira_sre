@@ -61,6 +61,17 @@ function "autorizacao/obter_identidade" {
             role: "desconhecido"
           }
           ```
+        "retorna identidade administrador pendente": ```
+          {
+            id: 12,
+            nome: "Administradora",
+            email: "admin@example.test",
+            role: "administrador",
+            lojas_id: null,
+            deve_trocar_senha: true,
+            senha: "nao-retornar"
+          }
+          ```
       }
     } as $usuario
   
@@ -70,7 +81,7 @@ function "autorizacao/obter_identidade" {
     }
   
     var $perfil_oficial {
-      value = ($usuario.role == "gerente" || $usuario.role == "tecnico" || $usuario.role == "diretoria")
+      value = ($usuario.role == "gerente" || $usuario.role == "tecnico" || $usuario.role == "diretoria" || $usuario.role == "administrador")
     }
   
     precondition ($perfil_oficial) {
@@ -97,6 +108,7 @@ function "autorizacao/obter_identidade" {
         email   : $usuario.email
         role    : $usuario.role
         lojas_id: $lojas_id
+        deve_trocar_senha: $usuario.deve_trocar_senha
       }
     }
   }
@@ -167,6 +179,18 @@ function "autorizacao/obter_identidade" {
     expect.to_throw {
       exception = ""
     }
+  }
+
+  test "retorna identidade administrador pendente" {
+    input = {usuarios_id: 12}
+
+    expect.to_equal ($response.role) {
+      value = "administrador"
+    }
+
+    expect.to_be_true ($response.deve_trocar_senha)
+    expect.to_be_null ($response.lojas_id)
+    expect.to_not_be_defined ($response.senha)
   }
 
   guid = "6Ic54j6lFL7p2rhQsV-M9MUI4Rc"

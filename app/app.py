@@ -4,16 +4,19 @@ import reflex as rx
 
 from app.pages import (
     detalhe_chamado,
+    administracao,
     detalhe_chamado_tecnico,
     diretoria,
     gerente,
     index,
     login,
     novo_chamado,
+    primeiro_acesso,
     tecnico_chamados,
 )
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
+from app.pages.administracao import AdministracaoState
 from app.states.auth import AuthState
 
 
@@ -26,6 +29,13 @@ app.add_page(
     title="Entrar | MIRA",
     on_load=AuthState.carregar_login,
 )
+app.add_page(
+    administracao,
+    route="/administracao",
+    title="Administração | MIRA",
+    on_load=AdministracaoState.carregar_administracao,
+)
+app.add_page(primeiro_acesso, route="/primeiro-acesso", title="Primeiro acesso | MIRA", on_load=AuthState.carregar_primeiro_acesso)
 app.add_page(
     gerente,
     route="/gerente",

@@ -22,7 +22,10 @@ DESTINOS_POR_PERFIL = {
     "gerente": "/gerente",
     "tecnico": "/tecnico",
     "diretoria": "/diretoria",
+    "administrador": "/administracao",
 }
+
+DESTINO_PRIMEIRO_ACESSO = "/primeiro-acesso"
 
 MENSAGEM_CREDENCIAIS = "Credenciais inválidas."
 MENSAGEM_EXPIRADA = "Sua sessão expirou. Entre novamente."
@@ -43,6 +46,7 @@ class AuthState(rx.State):
     email: str = ""
     role: str = ""
     lojas_id: int | None = None
+    deve_trocar_senha: bool = False
 
     carregando: bool = False
     sessao_confirmada: bool = False
@@ -62,6 +66,7 @@ class AuthState(rx.State):
         self.email = ""
         self.role = ""
         self.lojas_id = None
+        self.deve_trocar_senha = False
         self.sessao_confirmada = False
 
     def _limpar_sessao(self, mensagem: str = "") -> None:
@@ -82,12 +87,18 @@ class AuthState(rx.State):
         self.email = identidade.email
         self.role = identidade.role
         self.lojas_id = identidade.lojas_id
+        self.deve_trocar_senha = identidade.deve_trocar_senha
         self.sessao_confirmada = True
         self.mensagem_erro = ""
 
     @staticmethod
     def destino_por_perfil(role: str) -> str | None:
         return DESTINOS_POR_PERFIL.get(role)
+
+    def destino_atual(self) -> str | None:
+        if self.deve_trocar_senha:
+            return DESTINO_PRIMEIRO_ACESSO
+        return self.destino_por_perfil(self.role)
 
     async def _revalidar(
         self,
@@ -117,7 +128,9 @@ class AuthState(rx.State):
             self._limpar_sessao(MENSAGEM_IDENTIDADE_INVALIDA)
             return "/login"
 
-        destino = self.destino_por_perfil(self.role)
+        destino = self.destino_atual()
+        if self.deve_trocar_senha:
+            return destino
         if perfil_esperado is not None and self.role != perfil_esperado:
             return destino
         return None
@@ -159,7 +172,7 @@ class AuthState(rx.State):
             return
 
         self._finalizar_carregamento()
-        destino = self.destino_por_perfil(self.role)
+        destino = self.destino_atual()
         if destino is None:
             self._limpar_sessao(MENSAGEM_IDENTIDADE_INVALIDA)
             return
@@ -179,7 +192,7 @@ class AuthState(rx.State):
             yield rx.redirect(destino)
             return
         if redirecionar_ao_confirmar and self.sessao_confirmada:
-            destino = self.destino_por_perfil(self.role)
+            destino = self.destino_atual()
             if destino is not None:
                 yield rx.redirect(destino)
 
@@ -212,6 +225,64 @@ class AuthState(rx.State):
     async def carregar_diretoria(self) -> AsyncIterator[Any]:
         async for evento in self._executar_guard("diretoria", False):
             yield evento
+
+    @rx.event
+    async def carregar_administracao(self) -> AsyncIterator[Any]:
+        async for evento in self._executar_guard("administrador", False):
+            yield evento
+
+    @rx.event
+    async def carregar_primeiro_acesso(self) -> AsyncIterator[Any]:
+        self._iniciar_carregamento()
+        yield
+        destino = await self._revalidar()
+        self._finalizar_carregamento()
+
+        if not self.sessao_confirmada:
+            if destino is not None:
+                yield rx.redirect(destino)
+            return
+
+        if not self.deve_trocar_senha:
+            destino = self.destino_por_perfil(self.role)
+            if destino is not None:
+                yield rx.redirect(destino)
+
+    @rx.event
+    async def trocar_senha_primeiro_acesso(
+        self, form_data: dict[str, Any]
+    ) -> AsyncIterator[Any]:
+        nova_senha = str(form_data.get("nova_senha", ""))
+        confirmacao = str(form_data.get("confirmacao", ""))
+        self.mensagem_erro = ""
+        if len(nova_senha) < 8:
+            self.mensagem_erro = "A senha deve ter pelo menos 8 caracteres."
+            return
+        if nova_senha != confirmacao:
+            self.mensagem_erro = "A confirmação de senha não confere."
+            return
+        if not self._auth_token or not self.deve_trocar_senha:
+            self.mensagem_erro = MENSAGEM_NAO_AUTORIZADO
+            return
+        self.carregando = True
+        yield
+        try:
+            cliente = criar_cliente_xano()
+            await cliente.trocar_senha_primeiro_acesso(self._auth_token, nova_senha)
+            identidade = await cliente.obter_identidade(self._auth_token)
+            self._publicar_identidade(identidade)
+            destino = self.destino_atual()
+            if destino is not None:
+                yield rx.redirect(destino)
+        except XanoNaoAutenticado:
+            self._limpar_sessao(MENSAGEM_EXPIRADA)
+            yield rx.redirect("/login")
+        except (XanoNaoAutorizado, XanoContratoInvalido):
+            self.mensagem_erro = MENSAGEM_NAO_AUTORIZADO
+        except XanoIndisponivel:
+            self.mensagem_erro = MENSAGEM_INDISPONIVEL
+        finally:
+            self._finalizar_carregamento()
 
     @rx.event
     def logout(self):

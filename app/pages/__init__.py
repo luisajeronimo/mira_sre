@@ -2,6 +2,7 @@
 
 from app.pages.home import diretoria, gerente, index, tecnico
 from app.pages.login import login
+from app.pages.administracao import administracao, primeiro_acesso
 from app.chamados.gerente import (
     detalhe_chamado,
     gerente_chamados,
@@ -14,6 +15,7 @@ from app.chamados.tecnico import (
 
 __all__ = [
     "detalhe_chamado",
+    "administracao",
     "detalhe_chamado_tecnico",
     "diretoria",
     "gerente",
@@ -21,6 +23,7 @@ __all__ = [
     "index",
     "login",
     "novo_chamado",
+    "primeiro_acesso",
     "tecnico",
     "tecnico_chamados",
 ]

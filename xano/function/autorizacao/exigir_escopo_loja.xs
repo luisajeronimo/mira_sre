@@ -20,7 +20,8 @@ function "autorizacao/exigir_escopo_loja" {
             nome: "Thiago Pereira",
             email: "thiago@example.test",
             role: "gerente",
-            lojas_id: 1
+            lojas_id: 1,
+            deve_trocar_senha: false
           }
           ```
         "nega outra loja ao gerente"        : ```
@@ -29,7 +30,8 @@ function "autorizacao/exigir_escopo_loja" {
             nome: "Thiago Pereira",
             email: "thiago@example.test",
             role: "gerente",
-            lojas_id: 1
+            lojas_id: 1,
+            deve_trocar_senha: false
           }
           ```
         "nega gerente sem loja"             : ```
@@ -38,7 +40,8 @@ function "autorizacao/exigir_escopo_loja" {
             nome: "Thiago Pereira",
             email: "thiago@example.test",
             role: "gerente",
-            lojas_id: null
+            lojas_id: null,
+            deve_trocar_senha: false
           }
           ```
         "autoriza loja da segunda gerente"  : ```
@@ -47,7 +50,8 @@ function "autorizacao/exigir_escopo_loja" {
             nome: "Isabelly Garcia",
             email: "isabelly@example.test",
             role: "gerente",
-            lojas_id: 2
+            lojas_id: 2,
+            deve_trocar_senha: false
           }
           ```
         "isola lojas entre gerentes"        : ```
@@ -56,7 +60,8 @@ function "autorizacao/exigir_escopo_loja" {
             nome: "Isabelly Garcia",
             email: "isabelly@example.test",
             role: "gerente",
-            lojas_id: 2
+            lojas_id: 2,
+            deve_trocar_senha: false
           }
           ```
         "autoriza tecnico quando previsto"  : ```
@@ -65,7 +70,8 @@ function "autorizacao/exigir_escopo_loja" {
             nome: "Técnico",
             email: "tecnico@example.test",
             role: "tecnico",
-            lojas_id: null
+            lojas_id: null,
+            deve_trocar_senha: false
           }
           ```
         "autoriza diretoria quando prevista": ```
@@ -74,11 +80,17 @@ function "autorizacao/exigir_escopo_loja" {
             nome: "Diretoria",
             email: "diretoria@example.test",
             role: "diretoria",
-            lojas_id: null
+            lojas_id: null,
+            deve_trocar_senha: false
           }
           ```
       }
     } as $usuario
+
+    precondition ($usuario.deve_trocar_senha != true) {
+      error_type = "accessdenied"
+      error = "Troca de senha obrigatória."
+    }
   
     var $permitido {
       value = ($usuario.role == "gerente" && $usuario.lojas_id != null && $input.lojas_id != null && $usuario.lojas_id == $input.lojas_id) || ($usuario.role == "tecnico" && $input.tecnico) || ($usuario.role == "diretoria" && $input.diretoria)

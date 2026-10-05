@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PERFIS_OFICIAIS = frozenset({"gerente", "tecnico", "diretoria"})
+PERFIS_OFICIAIS = frozenset({"gerente", "tecnico", "diretoria", "administrador"})
 TIMEOUT_PADRAO_SEGUNDOS = 10.0
 
 
@@ -61,6 +61,27 @@ class IdentidadeXano:
     email: str
     role: str
     lojas_id: int | None
+    deve_trocar_senha: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class UsuarioAdministrativoXano:
+    """Identidade pública retornada ao provisionar um usuário."""
+
+    id: int
+    nome: str
+    email: str
+    role: str
+    lojas_id: int | None
+    deve_trocar_senha: bool
+
+
+@dataclass(frozen=True, slots=True)
+class LojaOpcaoAdministracaoXano:
+    """Opção mínima de Loja disponível na criação administrativa de Gerente."""
+
+    id: int
+    nome: str
 
 
 def _ler_timeout(valor: str | None) -> float:
@@ -119,6 +140,7 @@ class XanoCliente:
         token: str | None = None,
         json: dict[str, Any] | None = None,
         login: bool = False,
+        erro_400_como_entrada: bool = False,
     ) -> dict[str, Any]:
         cabecalhos: dict[str, str] = {}
         if token:
@@ -155,6 +177,8 @@ class XanoCliente:
         if resposta.status_code == 409:
             raise XanoConflito("O chamado foi assumido por outro Técnico.")
         if resposta.status_code == 422:
+            raise XanoEntradaInvalida("Os dados informados são inválidos.")
+        if resposta.status_code == 400 and erro_400_como_entrada:
             raise XanoEntradaInvalida("Os dados informados são inválidos.")
         if resposta.status_code >= 500:
             raise XanoIndisponivel("O Xano está indisponível temporariamente.")
@@ -198,6 +222,7 @@ class XanoCliente:
         email = dados.get("email")
         role = dados.get("role")
         lojas_id = dados.get("lojas_id")
+        deve_trocar_senha = dados.get("deve_trocar_senha")
 
         identidade_valida = (
             isinstance(usuario_id, int)
@@ -211,6 +236,7 @@ class XanoCliente:
                 lojas_id is None
                 or (isinstance(lojas_id, int) and not isinstance(lojas_id, bool))
             )
+            and isinstance(deve_trocar_senha, bool)
         )
         if not identidade_valida:
             raise XanoContratoInvalido(
@@ -223,7 +249,96 @@ class XanoCliente:
             email=email,
             role=role,
             lojas_id=lojas_id,
+            deve_trocar_senha=deve_trocar_senha,
         )
+
+    async def criar_usuario_administrativo(
+        self,
+        token: str,
+        *,
+        nome: str,
+        email: str,
+        role: str,
+        lojas_id: int | None,
+        senha_temporaria: str,
+    ) -> UsuarioAdministrativoXano:
+        payload = {
+            "nome": nome,
+            "email": email,
+            "role": role,
+            "senha_temporaria": senha_temporaria,
+        }
+        if lojas_id is not None:
+            payload["lojas_id"] = lojas_id
+        dados = await self._requisitar(
+            "POST",
+            "/administracao/usuarios",
+            token=token,
+            json=payload,
+            erro_400_como_entrada=True,
+        )
+        try:
+            usuario = UsuarioAdministrativoXano(
+                id=dados["id"], nome=dados["nome"], email=dados["email"],
+                role=dados["role"], lojas_id=dados.get("lojas_id"),
+                deve_trocar_senha=dados["deve_trocar_senha"],
+            )
+        except (KeyError, TypeError) as erro:
+            raise XanoContratoInvalido("O Xano retornou um usuário inválido.") from erro
+        if (
+            not isinstance(usuario.id, int) or isinstance(usuario.id, bool)
+            or not isinstance(usuario.nome, str) or not usuario.nome.strip()
+            or not isinstance(usuario.email, str) or not usuario.email.strip()
+            or usuario.role not in PERFIS_OFICIAIS
+            or not isinstance(usuario.deve_trocar_senha, bool)
+            or (usuario.lojas_id is not None and (not isinstance(usuario.lojas_id, int) or isinstance(usuario.lojas_id, bool)))
+        ):
+            raise XanoContratoInvalido("O Xano retornou um usuário inválido.")
+        return usuario
+
+    async def listar_lojas_administracao(
+        self, token: str
+    ) -> tuple[LojaOpcaoAdministracaoXano, ...]:
+        """Obtém somente opções de Loja para criação administrativa de Gerente."""
+
+        if not token:
+            raise XanoNaoAutenticado("Sessão não autenticada.")
+
+        dados = await self._requisitar(
+            "GET", "/administracao/lojas", token=token
+        )
+        lojas = dados.get("lojas")
+        if set(dados) != {"lojas"} or not isinstance(lojas, list):
+            raise XanoContratoInvalido(
+                "O Xano retornou uma lista de Lojas inválida."
+            )
+
+        opcoes: list[LojaOpcaoAdministracaoXano] = []
+        for loja in lojas:
+            if (
+                not isinstance(loja, dict)
+                or set(loja) != {"id", "nome"}
+                or not isinstance(loja.get("id"), int)
+                or isinstance(loja.get("id"), bool)
+                or loja["id"] < 1
+                or not isinstance(loja.get("nome"), str)
+                or not loja["nome"].strip()
+            ):
+                raise XanoContratoInvalido(
+                    "O Xano retornou uma opção de Loja inválida."
+                )
+            opcoes.append(
+                LojaOpcaoAdministracaoXano(id=loja["id"], nome=loja["nome"])
+            )
+        return tuple(opcoes)
+
+    async def trocar_senha_primeiro_acesso(self, token: str, nova_senha: str) -> None:
+        dados = await self._requisitar(
+            "POST", "/primeiro-acesso/trocar-senha", token=token,
+            json={"nova_senha": nova_senha},
+        )
+        if dados.get("success") is not True:
+            raise XanoContratoInvalido("O Xano não confirmou a troca de senha.")
 
 
 def criar_cliente_xano() -> XanoCliente:

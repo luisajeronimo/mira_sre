@@ -15,12 +15,15 @@ table usuarios {
         "gerente"
         "tecnico"
         "diretoria"
+        "administrador"
       ]
     }
 
     password? senha? {
       sensitive = true
     }
+
+    bool deve_trocar_senha?=false
 
     int? lojas_id? {
       table = "lojas"

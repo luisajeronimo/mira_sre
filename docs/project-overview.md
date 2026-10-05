@@ -96,6 +96,11 @@ Além das operações de atendimento e acompanhamento, é responsável pelos cad
 
 No cadastro de usuário, o perfil Gerente exige associação a uma loja. Os demais perfis humanos não exigem vínculo obrigatório com uma loja.
 
+A criação de usuários é uma capacidade administrativa restrita ao Administrador.
+Novas contas recebem senha temporária pelo mecanismo nativo de autenticação e
+devem definir nova senha no primeiro acesso; contas existentes não são
+submetidas a troca retroativa por essa regra.
+
 ---
 
 ## 5. Escopo

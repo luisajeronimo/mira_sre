@@ -3,12 +3,12 @@ query telemetria_equipamentos verb=POST {
   api_group = "APIS from table telemetria_equipamentos"
 
   input {
-    int ativos_referencia_id
-    decimal uso_cpu
-    decimal uso_memoria
-    decimal temperatura
-    text status_rede
-    timestamp evento_timestamp
+    int ativos_referencia_id?
+    decimal uso_cpu?
+    decimal uso_memoria?
+    decimal temperatura?
+    text status_rede?
+    timestamp evento_timestamp?
   }
 
   stack {
@@ -31,6 +31,11 @@ query telemetria_equipamentos verb=POST {
           value = {error: "Não autenticado."}
         }
       }
+    }
+
+    precondition ($input.ativos_referencia_id != null && $input.uso_cpu != null && $input.uso_memoria != null && $input.temperatura != null && $input.status_rede != null && $input.status_rede != "" && $input.evento_timestamp != null) {
+      error_type = "inputerror"
+      error = "Payload de telemetria incompleto."
     }
 
     db.get ativos_referencia {

@@ -139,7 +139,14 @@ def test_simulator_envia_somente_header_dedicado_e_preserva_post_payload(monkeyp
         monkeypatch, SIMULATOR_PATH, "simulator_valido", ambiente_simulator()
     )
     chamadas = []
-    payload = {"ativos_referencia_id": 1, "uso_cpu": 42}
+    payload = {
+        "ativos_referencia_id": 1,
+        "uso_cpu": 42,
+        "uso_memoria": 58,
+        "temperatura": 31,
+        "status_rede": "ONLINE",
+        "evento_timestamp": 1_780_000_000_000,
+    }
 
     def post(url, **kwargs):
         chamadas.append((url, kwargs))
@@ -214,6 +221,36 @@ def test_guardas_xano_rejeitam_com_401_e_corpo_exato_antes_da_logica(
     assert conteudo.index("util.set_header") < conteudo.index("return {")
     assert conteudo.index("return {") < conteudo.index(primeiro_db)
     assert '!= ""' in conteudo
+
+
+def test_simulator_adia_presenca_do_payload_para_depois_do_guard():
+    conteudo = SIMULATOR_XS.read_text(encoding="utf-8")
+
+    for declaracao in (
+        "int ativos_referencia_id?",
+        "decimal uso_cpu?",
+        "decimal uso_memoria?",
+        "decimal temperatura?",
+        "text status_rede?",
+        "timestamp evento_timestamp?",
+    ):
+        assert declaracao in conteudo
+
+    validacao = "precondition ($input.ativos_referencia_id != null"
+    assert validacao in conteudo
+    assert conteudo.index('value = {error: "Não autenticado."}') < conteudo.index(validacao)
+    assert conteudo.index(validacao) < conteudo.index("db.get ativos_referencia")
+    assert conteudo.index(validacao) < conteudo.index("db.add telemetria_equipamentos")
+
+    for campo in (
+        "ativos_referencia_id",
+        "uso_cpu",
+        "uso_memoria",
+        "temperatura",
+        "status_rede",
+        "evento_timestamp",
+    ):
+        assert f"$input.{campo} != null" in conteudo
 
 
 def test_credenciais_tecnicas_nao_sao_reutilizadas_em_endpoints_humanos():

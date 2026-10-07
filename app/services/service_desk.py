@@ -57,6 +57,19 @@ class ReferenciaUsuario:
 
 
 @dataclass(frozen=True, slots=True)
+class AutorComentarioPublico:
+    nome: str
+
+
+@dataclass(frozen=True, slots=True)
+class ComentarioPublico:
+    id: int
+    conteudo: str
+    criado_em: int
+    autor: AutorComentarioPublico | None
+
+
+@dataclass(frozen=True, slots=True)
 class ChamadoResumo:
     id: int
     titulo: str
@@ -89,6 +102,7 @@ class ChamadoDetalhe:
     tecnico: ReferenciaUsuario | None
     atribuido_em: int | None = None
     criador_sistema: str | None = None
+    ultima_atualizacao_em: int | None = None
 
 
 def _inteiro(valor: Any, campo: str) -> int:
@@ -134,6 +148,13 @@ def _objeto(valor: Any, campo: str) -> dict[str, Any]:
     if not isinstance(valor, dict):
         raise XanoContratoInvalido(f"Campo inválido na resposta: {campo}.")
     return valor
+
+
+def _objeto_exato(valor: Any, campo: str, campos: set[str]) -> dict[str, Any]:
+    dados = _objeto(valor, campo)
+    if set(dados) != campos:
+        raise XanoContratoInvalido(f"Campo inválido na resposta: {campo}.")
+    return dados
 
 
 def _colecao(dados: dict[str, Any]) -> list[dict[str, Any]]:
@@ -253,6 +274,29 @@ def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
             "atribuido_em",
         ),
         criador_sistema=_criador_sistema(dados.get("criador_sistema")),
+        ultima_atualizacao_em=_timestamp_opcional(
+            dados.get("ultima_atualizacao_em"),
+            "ultima_atualizacao_em",
+        ),
+    )
+
+
+def _comentario_publico(dados: Any) -> ComentarioPublico:
+    comentario = _objeto_exato(
+        dados,
+        "comentario",
+        {"id", "conteudo", "criado_em", "autor"},
+    )
+    autor_valor = comentario["autor"]
+    autor = None
+    if autor_valor is not None:
+        autor_dados = _objeto_exato(autor_valor, "comentario.autor", {"nome"})
+        autor = AutorComentarioPublico(nome=_texto(autor_dados["nome"], "comentario.autor.nome"))
+    return ComentarioPublico(
+        id=_inteiro(comentario["id"], "comentario.id"),
+        conteudo=_texto(comentario["conteudo"], "comentario.conteudo"),
+        criado_em=_inteiro(comentario["criado_em"], "comentario.criado_em"),
+        autor=autor,
     )
 
 
@@ -350,6 +394,33 @@ class XanoServiceDeskCliente(XanoCliente):
             token=token,
         )
         return _detalhe(_objeto(dados.get("chamado"), "chamado"))
+
+    async def listar_comentarios_publicos(
+        self,
+        token: str,
+        chamado_id: int,
+    ) -> list[ComentarioPublico]:
+        dados = await self._requisitar(
+            "GET",
+            f"/gerente/chamados/{chamado_id}/comentarios",
+            token=token,
+        )
+        return [_comentario_publico(item) for item in _colecao(dados)]
+
+    async def criar_comentario_publico(
+        self,
+        token: str,
+        chamado_id: int,
+        *,
+        conteudo: str,
+    ) -> ComentarioPublico:
+        dados = await self._requisitar(
+            "POST",
+            f"/gerente/chamados/{chamado_id}/comentarios",
+            token=token,
+            json={"conteudo": conteudo},
+        )
+        return _comentario_publico(dados.get("comentario"))
 
     async def listar_chamados_tecnico(
         self,

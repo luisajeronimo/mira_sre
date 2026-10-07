@@ -129,6 +129,17 @@ Todos os contratos técnicos DEVEM (MUST) exigir autenticação de `usuarios`, a
 - **WHEN** um usuário tenta alterar `chamados` pelo CRUD genérico
 - **THEN** a negação por padrão permanece aplicada e nenhum chamado é modificado
 
+### Requirement: Assunção efetiva atualiza a última atualização observável
+Uma assunção que efetivamente altera o Técnico responsável DEVE (MUST) atualizar `ultima_atualizacao_em` pelo Xano junto com `tecnico_id` e `atribuido_em`. A repetição idempotente pelo mesmo Técnico NÃO DEVE (MUST NOT) alterar novamente esse timestamp.
+
+#### Scenario: Assunção válida atualiza a data
+- **WHEN** um Técnico efetiva assunção válida de chamado sem responsável
+- **THEN** o Xano persiste `tecnico_id`, `atribuido_em` e `ultima_atualizacao_em` definidos pelo backend
+
+#### Scenario: Repetição idempotente não atualiza a data
+- **WHEN** o mesmo Técnico repete a assunção de chamado já atribuído a ele
+- **THEN** `ultima_atualizacao_em` permanece inalterada
+
 ### Requirement: Reflex oferece a jornada técnica mínima
 O Reflex DEVE (MUST) transformar `/tecnico` em fila técnica, criar `/tecnico/chamados/{chamado_id}` e reutilizar a sessão backend-only e `XANO_SERVICE_DESK_BASE_URL`. A interface DEVE (MUST) exibir as duas visões aprovadas, permitir abrir o detalhe e mostrar a ação `Assumir` somente quando o chamado estiver elegível e não atribuído.
 

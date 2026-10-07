@@ -144,6 +144,17 @@ O sistema DEVE (MUST) responder à criação válida com status HTTP de criaçã
 - **WHEN** o chamado manual é persistido com sucesso
 - **THEN** o Xano retorna HTTP 201 e o objeto funcional do chamado criado com `tecnico` nulo enquanto não houver atribuição
 
+### Requirement: Criação de chamado inicializa a última atualização observável
+Todo chamado criado pelos fluxos manual e automático DEVE (MUST) persistir `ultima_atualizacao_em` com o mesmo valor funcional de `criado_em`. O valor NÃO DEVE (MUST NOT) ser recebido de consumidores nem substituído por `created_at` técnico.
+
+#### Scenario: Abertura manual inicializa a data
+- **WHEN** um Gerente abre chamado manual válido
+- **THEN** o registro persiste `criado_em` e `ultima_atualizacao_em` com o mesmo instante definido pelo Xano
+
+#### Scenario: Resposta da abertura preserva a data funcional
+- **WHEN** a abertura manual é concluída com sucesso
+- **THEN** o DTO funcional retorna `ultima_atualizacao_em` igual a `criado_em`, sem expor `created_at`
+
 ### Requirement: Gerente acompanha todos os chamados da própria Loja
 O sistema DEVE (MUST) fornecer `GET /gerente/chamados` e `GET /gerente/chamados/{chamados_id}` no grupo `mira-service-desk`. A lista DEVE (MUST) retornar `items` com resumo funcional e o detalhe DEVE (MUST) retornar um objeto `chamado` com os campos do contrato de criação; ambos DEVEM (MUST) determinar pertencimento à Loja pela relação persistida entre chamado, ativo e Loja, independentemente do solicitante e da origem.
 

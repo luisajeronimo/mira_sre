@@ -136,6 +136,10 @@ query "verificar-falhas" verb=GET {
 
                       conditional {
                         if ($incidente_equivalente == null) {
+                          var $criado_em {
+                            value = now
+                          }
+
                           db.add chamados {
                             data = {
                               titulo               : "Totem sem heartbeat"
@@ -143,7 +147,8 @@ query "verificar-falhas" verb=GET {
                               prioridade           : "Urgente"
                               origem               : "automatico"
                               criador_sistema      : "bot_fiscalizacao"
-                              criado_em            : "now"
+                              criado_em            : $criado_em
+                              ultima_atualizacao_em: $criado_em
                               sla_horas_aplicado   : $categoria_heartbeat_revalidada.sla_horas
                               ativos_referencia_id : $item.id
                               categorias_servico_id: $categoria_heartbeat_revalidada.id

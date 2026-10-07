@@ -7,7 +7,14 @@ from typing import Any
 
 import reflex as rx
 
-from app.chamados.shared import ChamadoView, DetalheView, _detalhe_para_dict, _resumo_para_dict
+from app.chamados.shared import (
+    ChamadoView,
+    ComentarioView,
+    DetalheView,
+    _detalhe_para_dict,
+    _resumo_para_dict,
+    comentario_publico_para_dict,
+)
 from app.services.service_desk import PRIORIDADES_CHAMADO, criar_cliente_service_desk
 from app.services.xano import (
     XanoContratoInvalido,
@@ -33,14 +40,20 @@ class ChamadosGerenteState(AuthState):
     ativos: list[str] = []
     categorias: list[str] = []
     chamado: DetalheView = {}
+    comentarios: list[ComentarioView] = []
+    rascunho_comentario: str = ""
 
     carregando_chamados: bool = False
     carregando_formulario: bool = False
     carregando_detalhe: bool = False
+    carregando_comentarios: bool = False
+    detalhe_carregado: bool = False
     enviando: bool = False
+    enviando_comentario: bool = False
     mensagem_chamados: str = ""
     mensagem_formulario: str = ""
     mensagem_detalhe: str = ""
+    mensagem_comentarios: str = ""
     mensagem_sucesso: str = ""
 
     @staticmethod
@@ -51,6 +64,7 @@ class ChamadosGerenteState(AuthState):
         self.mensagem_chamados = ""
         self.mensagem_formulario = ""
         self.mensagem_detalhe = ""
+        self.mensagem_comentarios = ""
         self.mensagem_sucesso = ""
 
     def _registrar_erro(self, erro: Exception, destino: str) -> str | None:
@@ -140,6 +154,10 @@ class ChamadosGerenteState(AuthState):
         if self.carregando_detalhe:
             return
         self.carregando_detalhe = True
+        self.detalhe_carregado = False
+        self.chamado = {}
+        self.comentarios = []
+        self.rascunho_comentario = ""
         self._limpar_mensagens_funcionais()
         yield
         destino = await self._validar_gerente()
@@ -159,10 +177,28 @@ class ChamadosGerenteState(AuthState):
             self.carregando_detalhe = False
             return
         try:
-            resultado = await criar_cliente_service_desk().obter_chamado(
-                self._auth_token, chamado_id
-            )
+            cliente = criar_cliente_service_desk()
+            resultado = await cliente.obter_chamado(self._auth_token, chamado_id)
             self.chamado = _detalhe_para_dict(resultado)
+            self.detalhe_carregado = True
+            self.carregando_comentarios = True
+            try:
+                comentarios = await cliente.listar_comentarios_publicos(
+                    self._auth_token,
+                    chamado_id,
+                )
+                self.comentarios = [
+                    comentario_publico_para_dict(comentario)
+                    for comentario in comentarios
+                ]
+            except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+                destino = self._registrar_erro(erro, "mensagem_comentarios")
+                if destino is not None:
+                    self.carregando_detalhe = False
+                    yield rx.redirect(destino)
+                    return
+            finally:
+                self.carregando_comentarios = False
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             destino = self._registrar_erro(erro, "mensagem_detalhe")
             if destino is not None:
@@ -170,6 +206,58 @@ class ChamadosGerenteState(AuthState):
                 yield rx.redirect(destino)
             return
         self.carregando_detalhe = False
+
+    @rx.event
+    async def publicar_comentario(self):
+        if self.enviando_comentario:
+            return
+        self.enviando_comentario = True
+        self.mensagem_comentarios = ""
+        yield
+        destino = await self._validar_gerente()
+        if destino is not None:
+            self.enviando_comentario = False
+            yield rx.redirect(destino)
+            return
+        if not self.sessao_confirmada:
+            self.enviando_comentario = False
+            return
+        try:
+            chamado_id = int(str(self.chamado_id))
+            if chamado_id <= 0:
+                raise ValueError
+        except (AttributeError, TypeError, ValueError):
+            self.mensagem_comentarios = "Chamado não encontrado."
+            self.enviando_comentario = False
+            return
+        try:
+            cliente = criar_cliente_service_desk()
+            comentario = await cliente.criar_comentario_publico(
+                self._auth_token,
+                chamado_id,
+                conteudo=self.rascunho_comentario,
+            )
+            self.comentarios = [comentario_publico_para_dict(comentario)] + self.comentarios
+            self.rascunho_comentario = ""
+            resultado = await cliente.obter_chamado(self._auth_token, chamado_id)
+            self.chamado = _detalhe_para_dict(resultado)
+        except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            destino = self._registrar_erro(erro, "mensagem_comentarios")
+            if destino is not None:
+                self.enviando_comentario = False
+                yield rx.redirect(destino)
+                return
+        self.enviando_comentario = False
+
+    @rx.event
+    def descartar_rascunho_comentario(self):
+        """Descarta somente o rascunho local, sem chamada ao backend."""
+        self.rascunho_comentario = ""
+
+    @rx.event
+    def alterar_rascunho_comentario(self, conteudo: str):
+        """Mantém o rascunho exclusivamente no State local."""
+        self.rascunho_comentario = conteudo
 
     @rx.event
     async def abrir_chamado(self, form_data: dict[str, Any]):

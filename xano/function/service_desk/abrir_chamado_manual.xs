@@ -179,6 +179,7 @@ function "service_desk/abrir_chamado_manual" {
         prioridade           : $input.prioridade
         origem               : "manual"
         criado_em            : $criado_em
+        ultima_atualizacao_em: $criado_em
         sla_horas_aplicado   : $categoria.sla_horas
         solicitante_id       : $usuario.id
         tecnico_id           : null
@@ -187,7 +188,7 @@ function "service_desk/abrir_chamado_manual" {
       }
       mock = {
         "cria chamado manual": ```
-          {id: 101, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 8, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1}
+          {id: 101, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 8, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1}
           ```
       }
     } as $novo_chamado
@@ -202,6 +203,7 @@ function "service_desk/abrir_chamado_manual" {
         origem: $novo_chamado.origem,
         criador_sistema: $novo_chamado.criador_sistema,
         criado_em: $novo_chamado.criado_em,
+        ultima_atualizacao_em: $novo_chamado.ultima_atualizacao_em,
         sla_horas_aplicado: $novo_chamado.sla_horas_aplicado,
         ativo: {id: $ativo.id, nome_ativo: $ativo.nome_ativo},
         categoria: {id: $categoria.id, nome: $categoria.nome},
@@ -220,6 +222,7 @@ function "service_desk/abrir_chamado_manual" {
     expect.to_equal ($response.chamado.solicitante.id) { value = 8 }
     expect.to_be_null ($response.chamado.criador_sistema)
     expect.to_equal ($response.chamado.sla_horas_aplicado) { value = 2 }
+    expect.to_equal ($response.chamado.ultima_atualizacao_em) { value = 1780000000000 }
     expect.to_be_null ($response.chamado.tecnico)
     expect.to_not_be_defined ($response.chamado.created_at)
   }

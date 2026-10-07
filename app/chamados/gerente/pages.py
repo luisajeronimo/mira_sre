@@ -108,27 +108,111 @@ def _detalhe() -> rx.Component:
         rx.cond(
             ChamadosGerenteState.carregando_detalhe,
             rx.spinner(size="3"),
-            rx.card(
-                rx.vstack(
-                    rx.text("Chamado #" + ChamadosGerenteState.chamado["id"].to_string(), weight="bold"),
-                    rx.heading(ChamadosGerenteState.chamado["titulo"], size="5"),
-                    rx.text(ChamadosGerenteState.chamado["descricao"], white_space="pre-wrap"),
-                    rx.text("Status: " + ChamadosGerenteState.chamado["status"]),
-                    rx.text("Prioridade: " + ChamadosGerenteState.chamado["prioridade"]),
-                    rx.text("Origem: " + ChamadosGerenteState.chamado["origem"]),
-                    rx.cond(
-                        ChamadosGerenteState.chamado["criador_sistema_nome"] != "",
+            rx.cond(
+                ChamadosGerenteState.detalhe_carregado,
+                rx.card(
+                    rx.vstack(
+                        rx.text("Chamado #" + ChamadosGerenteState.chamado["id"].to_string(), weight="bold"),
+                        rx.heading(ChamadosGerenteState.chamado["titulo"], size="5"),
+                        rx.text(ChamadosGerenteState.chamado["descricao"], white_space="pre-wrap"),
+                        rx.text("Status: " + ChamadosGerenteState.chamado["status"]),
+                        rx.text("Prioridade: " + ChamadosGerenteState.chamado["prioridade"]),
+                        rx.text("Origem: " + ChamadosGerenteState.chamado["origem"]),
+                        rx.text("Totem: " + ChamadosGerenteState.chamado["ativo_nome"]),
+                        rx.text("Categoria: " + ChamadosGerenteState.chamado["categoria_nome"]),
+                        rx.text("Solicitante: " + ChamadosGerenteState.chamado["solicitante_nome"]),
+                        rx.text("Técnico: " + ChamadosGerenteState.chamado["tecnico_nome"]),
+                        rx.cond(
+                            ChamadosGerenteState.chamado["criador_sistema_nome"] != "",
+                            rx.text(
+                                "Criado por: "
+                                + ChamadosGerenteState.chamado["criador_sistema_nome"]
+                            ),
+                        ),
+                        rx.text("SLA aplicado: " + ChamadosGerenteState.chamado["sla_horas_texto"]),
+                        rx.text("Aberto em: " + ChamadosGerenteState.chamado["criado_em_texto"], color="gray"),
                         rx.text(
-                            "Criado por: "
-                            + ChamadosGerenteState.chamado["criador_sistema_nome"]
+                            "Última atualização: "
+                            + ChamadosGerenteState.chamado["ultima_atualizacao_em_texto"],
+                            color="gray",
+                        ),
+                        align="start",
+                        spacing="2",
+                    ),
+                    width="100%",
+                ),
+                rx.fragment(),
+            ),
+        ),
+        rx.cond(
+            ChamadosGerenteState.detalhe_carregado,
+            rx.vstack(
+                rx.heading("Comentários", size="5"),
+                erro(ChamadosGerenteState.mensagem_comentarios),
+                rx.cond(
+                    ChamadosGerenteState.carregando_comentarios,
+                    rx.spinner(size="2"),
+                    rx.cond(
+                        ChamadosGerenteState.comentarios.length() == 0,
+                        rx.text("Nenhum comentário público.", color="gray"),
+                        rx.vstack(
+                            rx.foreach(
+                                ChamadosGerenteState.comentarios,
+                                lambda comentario: rx.card(
+                                    rx.vstack(
+                                        rx.text(comentario["conteudo"], white_space="pre-wrap"),
+                                        rx.text(
+                                            comentario["autor_nome"]
+                                            + " • "
+                                            + comentario["criado_em_texto"],
+                                            size="2",
+                                            color="gray",
+                                        ),
+                                        align="start",
+                                        spacing="1",
+                                    ),
+                                    width="100%",
+                                ),
+                            ),
+                            width="100%",
+                            spacing="2",
                         ),
                     ),
-                    rx.text("SLA aplicado: " + ChamadosGerenteState.chamado["sla_horas_texto"]),
-                    rx.text(ChamadosGerenteState.chamado["criado_em_texto"], color="gray"),
-                    align="start",
-                    spacing="2",
+                ),
+                rx.cond(
+                    (ChamadosGerenteState.chamado["status"] != "Encerrado")
+                    & (ChamadosGerenteState.chamado["status"] != "Cancelado"),
+                    rx.vstack(
+                        rx.text_area(
+                            value=ChamadosGerenteState.rascunho_comentario,
+                            on_change=ChamadosGerenteState.alterar_rascunho_comentario,
+                            placeholder="Adicionar comentário público",
+                            width="100%",
+                        ),
+                        rx.hstack(
+                            rx.button(
+                                rx.cond(
+                                    ChamadosGerenteState.enviando_comentario,
+                                    "Enviando...",
+                                    "Postar comentário",
+                                ),
+                                on_click=ChamadosGerenteState.publicar_comentario,
+                                disabled=ChamadosGerenteState.enviando_comentario,
+                            ),
+                            rx.button(
+                                "Descartar rascunho",
+                                variant="outline",
+                                on_click=ChamadosGerenteState.descartar_rascunho_comentario,
+                                disabled=ChamadosGerenteState.enviando_comentario,
+                            ),
+                            spacing="3",
+                        ),
+                        width="100%",
+                        spacing="3",
+                    ),
                 ),
                 width="100%",
+                spacing="3",
             ),
         ),
         rx.link("Voltar aos chamados", href="/gerente"),

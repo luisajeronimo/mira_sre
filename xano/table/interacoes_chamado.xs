@@ -10,6 +10,9 @@ table interacoes_chamado {
   
     text mensagem? filters=trim
     timestamp? criado_em?
+    enum? visibilidade? {
+      values = ["publica", "interna"]
+    }
     int chamados_id? {
       table = "chamados"
     }

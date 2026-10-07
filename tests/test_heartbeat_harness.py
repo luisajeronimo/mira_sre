@@ -57,6 +57,7 @@ class FakeCall:
     criador_sistema: str | None = None
     criado_em: int | None = None
     sla_horas_aplicado: Any = None
+    ultima_atualizacao_em: int | None = None
 
 
 @dataclass
@@ -209,6 +210,7 @@ def executar_verificacao_isolada(
                             origem="automatico",
                             criador_sistema="bot_fiscalizacao",
                             criado_em=criado_em,
+                            ultima_atualizacao_em=criado_em,
                             sla_horas_aplicado=categoria.sla_horas,
                         )
                     )
@@ -330,6 +332,7 @@ def test_online_para_offline_persiste_fato_e_incidente_automatico():
             origem="automatico",
             criador_sistema="bot_fiscalizacao",
             criado_em=123_456,
+            ultima_atualizacao_em=123_456,
             sla_horas_aplicado=2,
         )
     ]
@@ -487,7 +490,9 @@ def test_fontes_declaram_schema_transacoes_e_contrato_aprovado():
     assert 'Aguardando Terceiro' not in endpoint
     assert 'origem               : "automatico"' in endpoint
     assert 'criador_sistema      : "bot_fiscalizacao"' in endpoint
-    assert 'criado_em            : "now"' in endpoint
+    assert "var $criado_em" in endpoint
+    assert "criado_em            : $criado_em" in endpoint
+    assert "ultima_atualizacao_em: $criado_em" in endpoint
     assert 'sla_horas_aplicado   : $categoria_heartbeat_revalidada.sla_horas' in endpoint
     assert 'status               : "Novo"' in endpoint
     assert 'prioridade           : "Urgente"' in endpoint

@@ -144,16 +144,22 @@ function "service_desk/assumir_chamado_tecnico" {
                 }
               }
               else {
+                var $atribuido_em {
+                  value = now
+                  mock = {"assume válido": 1780000001000}
+                }
+
                 db.edit chamados {
                   field_name = "id"
                   field_value = $input.chamados_id
                   data = {
                     tecnico_id: $usuario.id,
-                    atribuido_em: now
+                    atribuido_em: $atribuido_em,
+                    ultima_atualizacao_em: $atribuido_em
                   }
                   mock = {
-                    "assume válido": {id: 101, tecnico_id: 12, atribuido_em: 1780000001000},
-                    "idempotente": {id: 101, tecnico_id: 12, atribuido_em: 1780000001000}
+                    "assume válido": {id: 101, tecnico_id: 12, atribuido_em: 1780000001000, ultima_atualizacao_em: 1780000001000},
+                    "idempotente": {id: 101, tecnico_id: 12, atribuido_em: 1780000001000, ultima_atualizacao_em: 1780000001000}
                   }
                 } as $editado
 

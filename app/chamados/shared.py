@@ -8,7 +8,7 @@ from typing import Any, TypedDict
 
 import reflex as rx
 
-from app.services.service_desk import ChamadoDetalhe, ChamadoResumo
+from app.services.service_desk import ChamadoDetalhe, ChamadoResumo, ComentarioPublico
 
 
 def _timestamp_para_texto(valor: int | None) -> str:
@@ -43,10 +43,18 @@ def _resumo_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
 def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
     dados = asdict(chamado)
     dados["criado_em_texto"] = _timestamp_para_texto(chamado.criado_em)
+    dados["ultima_atualizacao_em_texto"] = _timestamp_para_texto(
+        chamado.ultima_atualizacao_em
+    )
     dados["sla_horas_texto"] = _numero_para_texto(chamado.sla_horas_aplicado)
     dados["atribuido_em_texto"] = _timestamp_para_texto(chamado.atribuido_em)
     dados["tecnico_nome"] = (
         chamado.tecnico.nome if chamado.tecnico is not None else "Não atribuído"
+    )
+    dados["ativo_nome"] = chamado.ativo.nome_ativo
+    dados["categoria_nome"] = chamado.categoria.nome
+    dados["solicitante_nome"] = (
+        chamado.solicitante.nome if chamado.solicitante is not None else "Não informado"
     )
     dados["criador_sistema_nome"] = (
         "Bot de Fiscalização"
@@ -55,6 +63,15 @@ def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
     )
     dados["pode_assumir"] = chamado.status == "Novo" and chamado.tecnico is None
     return dados
+
+
+def comentario_publico_para_dict(comentario: ComentarioPublico) -> dict[str, Any]:
+    return {
+        "id": comentario.id,
+        "conteudo": comentario.conteudo,
+        "criado_em_texto": _timestamp_para_texto(comentario.criado_em),
+        "autor_nome": comentario.autor.nome if comentario.autor is not None else "Não informado",
+    }
 
 
 def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
@@ -93,11 +110,22 @@ class DetalheView(TypedDict, total=False):
     prioridade: str
     origem: str
     criado_em_texto: str
+    ultima_atualizacao_em_texto: str
     sla_horas_texto: str
     atribuido_em_texto: str
     tecnico_nome: str
+    ativo_nome: str
+    categoria_nome: str
+    solicitante_nome: str
     criador_sistema_nome: str
     pode_assumir: bool
+
+
+class ComentarioView(TypedDict):
+    id: int
+    conteudo: str
+    criado_em_texto: str
+    autor_nome: str
 
 
 class TecnicoView(TypedDict, total=False):

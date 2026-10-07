@@ -91,6 +91,7 @@ def abrir_chamado_isolado(
             "prioridade": prioridade,
             "origem": "manual",
             "criado_em": criado_em,
+            "ultima_atualizacao_em": criado_em,
             "sla_horas_aplicado": categoria.sla_horas,
             "solicitante_id": usuario.id,
             "tecnico_id": None,
@@ -107,6 +108,7 @@ def abrir_chamado_isolado(
         "origem": registro["origem"],
         "criador_sistema": None,
         "criado_em": registro["criado_em"],
+        "ultima_atualizacao_em": registro["ultima_atualizacao_em"],
         "sla_horas_aplicado": registro["sla_horas_aplicado"],
         "ativo": {"id": ativo.id, "nome_ativo": ativo.nome},
         "categoria": {"id": categoria.id, "nome": categoria.nome},
@@ -142,6 +144,7 @@ def test_quatro_prioridades_criam_chamado_novo(prioridade):
     assert dto["prioridade"] == prioridade
     assert dto["status"] == "Novo"
     assert dto["origem"] == "manual"
+    assert dto["ultima_atualizacao_em"] == dto["criado_em"]
     assert dto["criador_sistema"] is None
     assert "criador_sistema" not in banco.chamados[0]
 
@@ -238,6 +241,7 @@ def test_derivacoes_autoritativas_campos_extras_dto_e_timestamp():
     assert dto["status"] == "Novo"
     assert dto["origem"] == "manual"
     assert dto["criado_em"] == 123
+    assert dto["ultima_atualizacao_em"] == 123
     assert dto["sla_horas_aplicado"] == CATEGORIA_PERMITIDA.sla_horas
     assert dto["ativo"]["id"] == ATIVO_PROPRIO.id
     assert dto["categoria"]["id"] == CATEGORIA_PERMITIDA.id

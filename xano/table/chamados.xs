@@ -20,6 +20,7 @@ table chamados {
     }
 
     timestamp? criado_em?
+    timestamp? ultima_atualizacao_em?
     decimal? sla_horas_aplicado?
     int solicitante_id? {
       table = "usuarios"

@@ -2,6 +2,14 @@
 command = "npx"
 args = ["-y", "@xano/developer-mcp"]
 
+[mcp_servers.playwright]
+command = "npx"
+args = [
+  "-y",
+  "@playwright/mcp@latest",
+  "--cdp-endpoint=chrome"
+]
+
 [agents.mira-implementer]
 description = "MIRA Implementer: executa somente o escopo autorizado e devolve evidências ao Supervisor."
 config_file = "agents/mira-implementer.toml"

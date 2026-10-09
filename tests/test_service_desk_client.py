@@ -36,6 +36,7 @@ def detalhe_valido(**alteracoes):
         "origem": "manual",
         "criador_sistema": None,
         "criado_em": 1780000000000,
+        "ultima_atualizacao_em": 1780000000000,
         "sla_horas_aplicado": 2,
         "ativo": {"id": 1, "nome_ativo": "Totem 01"},
         "categoria": {"id": 2, "nome": "Falha de Rede"},
@@ -96,10 +97,13 @@ def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
                         "prioridade": "Alta",
                         "origem": "manual",
                         "criado_em": 1780000000000,
+                        "ultima_atualizacao_em": 1780000001000,
+                        "descricao": "Totem não conecta",
                         "ativo": {"id": 1, "nome_ativo": "Totem 01"},
                         "categoria": {"id": 2, "nome": "Falha de Rede"},
                     }
-                ]
+                ],
+                "total": 1,
             },
         )
 
@@ -124,7 +128,8 @@ def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
 
     assert ativos[0].id == 1
     assert categorias[0].sla_horas == 2
-    assert chamados[0].origem == "manual"
+    assert chamados.items[0].origem == "manual"
+    assert chamados.total == 1
     assert criado.tecnico is None
     assert detalhe.solicitante.id == 8
     assert [requisicao.method for requisicao in requisicoes] == [
@@ -137,7 +142,7 @@ def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
     assert [str(requisicao.url) for requisicao in requisicoes] == [
         f"{BASE_URL}/gerente/ativos",
         f"{BASE_URL}/gerente/categorias",
-        f"{BASE_URL}/gerente/chamados",
+        f"{BASE_URL}/gerente/chamados?ordenar_por=criado_em&direcao=DESC",
         f"{BASE_URL}/gerente/chamados",
         f"{BASE_URL}/gerente/chamados/101",
     ]
@@ -154,7 +159,7 @@ def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
     }
 
 
-def test_colecoes_vazias_e_nulos_legados_sao_aceitos():
+def test_colecoes_vazias_e_campos_opcionais_nao_temporais_sao_aceitos():
     respostas = iter(
         [
             httpx.Response(200, json={"items": []}),
@@ -165,18 +170,21 @@ def test_colecoes_vazias_e_nulos_legados_sao_aceitos():
                     "items": [
                         {
                             "id": 16,
-                            "titulo": "Legado",
+                            "titulo": "Resumo",
                             "status": "Novo",
                             "prioridade": "Urgente",
-                            "origem": None,
-                            "criado_em": None,
+                                "origem": None,
+                                "criado_em": 1780000000000,
+                                "ultima_atualizacao_em": 1780000000000,
+                                "descricao": None,
                             "ativo": {"id": 1, "nome_ativo": "Totem 01"},
                             "categoria": {
                                 "id": 1,
                                 "nome": "Totem Offline / Sem Heartbeat",
                             },
                         }
-                    ]
+                    ],
+                    "total": 1,
                 },
             ),
             httpx.Response(
@@ -184,7 +192,6 @@ def test_colecoes_vazias_e_nulos_legados_sao_aceitos():
                 json=detalhe_valido(
                     descricao=None,
                     origem=None,
-                    criado_em=None,
                     sla_horas_aplicado=None,
                     solicitante=None,
                 ),
@@ -198,12 +205,84 @@ def test_colecoes_vazias_e_nulos_legados_sao_aceitos():
 
     assert executar(cliente.listar_ativos("token")) == []
     assert executar(cliente.listar_categorias("token")) == []
-    assert executar(cliente.listar_chamados("token"))[0].origem is None
+    assert executar(cliente.listar_chamados("token")).items[0].origem is None
     detalhe = executar(cliente.obter_chamado("token", 16))
     assert detalhe.descricao is None
     assert detalhe.sla_horas_aplicado is None
     assert detalhe.solicitante is None
     assert detalhe.criador_sistema is None
+
+
+@pytest.mark.parametrize("campo", ["criado_em", "ultima_atualizacao_em"])
+def test_lista_gerente_rejeita_timestamp_funcional_ausente(campo):
+    item = {
+        "id": 16,
+        "titulo": "Resumo inválido",
+        "status": "Novo",
+        "prioridade": "Urgente",
+        "origem": "manual",
+        "criado_em": 1780000000000,
+        "ultima_atualizacao_em": 1780000000000,
+        "descricao": None,
+        "ativo": {"id": 1, "nome_ativo": "Totem 01"},
+        "categoria": {"id": 1, "nome": "Categoria"},
+    }
+    item[campo] = None
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"items": [item], "total": 1})
+        ),
+    )
+
+    with pytest.raises(XanoContratoInvalido, match=campo):
+        executar(cliente.listar_chamados("token"))
+
+
+@pytest.mark.parametrize("campo", ["criado_em", "ultima_atualizacao_em"])
+def test_detalhe_gerente_rejeita_timestamp_funcional_ausente(campo):
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json=detalhe_valido(**{campo: None}))
+        ),
+    )
+
+    with pytest.raises(XanoContratoInvalido, match=campo):
+        executar(cliente.obter_chamado("token", 101))
+
+
+def test_lista_gerente_rejeita_total_divergente_sem_paginacao():
+    """A paginação futura exigirá contrato novo; hoje total e items coincidem."""
+
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": 101,
+                            "titulo": "Falha observada",
+                            "status": "Novo",
+                            "prioridade": "Alta",
+                            "origem": "manual",
+                            "criado_em": 1780000000000,
+                            "ultima_atualizacao_em": 1780000001000,
+                            "descricao": "Totem não conecta",
+                            "ativo": {"id": 1, "nome_ativo": "Totem 01"},
+                            "categoria": {"id": 2, "nome": "Falha de Rede"},
+                        }
+                    ],
+                    "total": 2,
+                },
+            )
+        ),
+    )
+
+    with pytest.raises(XanoContratoInvalido, match="total de chamados"):
+        executar(cliente.listar_chamados("token"))
 
 
 def test_detalhe_automatico_expoe_criador_sistema_sem_solicitante_humano():
@@ -262,6 +341,7 @@ def test_contratos_tecnicos_preservam_visao_atribuicao_e_idempotencia():
                             "prioridade": "Alta",
                             "origem": "manual",
                             "criado_em": 1780000000000,
+                                "ultima_atualizacao_em": 1780000000000,
                             "sla_horas_aplicado": 2,
                             "atribuido_em": None,
                             "ativo": {"id": 1, "nome_ativo": "Totem 01"},

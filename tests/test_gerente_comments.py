@@ -175,12 +175,6 @@ def test_detalhe_carrega_campos_e_comentarios_publicos(monkeypatch):
     assert estado.comentarios[0]["autor_nome"] == "Não informado"
 
 
-def test_ultima_atualizacao_legada_e_apresentada_sem_inferencia():
-    from app.chamados.shared import _detalhe_para_dict
-
-    assert _detalhe_para_dict(detalhe(ultima_atualizacao_em=None))["ultima_atualizacao_em_texto"] == "Não informado"
-
-
 def test_postagem_atualiza_state_com_dto_servidor_e_descarta_rascunho(monkeypatch):
     liberar_validacao(monkeypatch)
     cliente = ClienteComentariosFalso()

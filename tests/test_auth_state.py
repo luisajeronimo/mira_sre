@@ -8,6 +8,7 @@ from app.services.xano import (
     CredenciaisInvalidas,
     IdentidadeXano,
     XanoIndisponivel,
+    XanoContratoInvalido,
     XanoNaoAutenticado,
     XanoNaoAutorizado,
 )
@@ -208,7 +209,7 @@ def test_token_expirado_limpa_sessao(monkeypatch):
     assert destino_redirect(eventos[-1]) == "/login"
 
 
-def test_indisponibilidade_preserva_token_e_identidade_sem_renderizar(
+def test_indisponibilidade_preserva_sessao_confirmada(
     monkeypatch,
 ):
     cliente = ClienteFalso(erro_me=XanoIndisponivel("indisponível"))
@@ -226,7 +227,29 @@ def test_indisponibilidade_preserva_token_e_identidade_sem_renderizar(
     assert estado._auth_token == "token-valido"
     assert estado.nome == "Usuário anterior"
     assert estado.role == "gerente"
-    assert estado.sessao_confirmada is False
+    assert estado.sessao_confirmada is True
+    assert estado.mensagem_erro == MENSAGEM_INDISPONIVEL
+    assert eventos == [None]
+
+
+def test_contrato_invalido_na_revalidacao_preserva_sessao_confirmada(
+    monkeypatch,
+):
+    cliente = ClienteFalso(erro_me=XanoContratoInvalido("contrato"))
+    monkeypatch.setattr(auth_module, "criar_cliente_xano", lambda: cliente)
+    estado = novo_estado()
+    estado._auth_token = "token-valido"
+    estado.usuario_id = 7
+    estado.nome = "Usuário anterior"
+    estado.email = "anterior@example.test"
+    estado.role = "gerente"
+    estado.sessao_confirmada = True
+
+    eventos = executar_evento(AuthState.carregar_gerente, estado)
+
+    assert estado._auth_token == "token-valido"
+    assert estado.role == "gerente"
+    assert estado.sessao_confirmada is True
     assert estado.mensagem_erro == MENSAGEM_INDISPONIVEL
     assert eventos == [None]
 

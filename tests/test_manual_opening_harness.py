@@ -5,8 +5,13 @@ rede, não usa credenciais e não persiste dados fora da memória do teste.
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pytest
+
+
+ROOT = Path(__file__).parents[1]
+ABERTURA_MANUAL_XS = ROOT / "xano/function/service_desk/abrir_chamado_manual.xs"
 
 
 PRIORIDADES = ("Baixa", "Média", "Alta", "Urgente")
@@ -147,6 +152,15 @@ def test_quatro_prioridades_criam_chamado_novo(prioridade):
     assert dto["ultima_atualizacao_em"] == dto["criado_em"]
     assert dto["criador_sistema"] is None
     assert "criador_sistema" not in banco.chamados[0]
+
+
+def test_xanoscript_manual_reutiliza_um_unico_instante_funcional():
+    fonte = ABERTURA_MANUAL_XS.read_text(encoding="utf-8")
+
+    assert "var $criado_em" in fonte
+    assert "value = now" in fonte
+    assert "criado_em            : $criado_em" in fonte
+    assert "ultima_atualizacao_em: $criado_em" in fonte
 
 
 @pytest.mark.parametrize("campo", ["titulo", "descricao"])

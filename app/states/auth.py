@@ -54,7 +54,6 @@ class AuthState(rx.State):
 
     def _iniciar_carregamento(self) -> None:
         self.carregando = True
-        self.sessao_confirmada = False
         self.mensagem_erro = ""
 
     def _finalizar_carregamento(self) -> None:
@@ -121,10 +120,15 @@ class AuthState(rx.State):
             self.mensagem_erro = MENSAGEM_NAO_AUTORIZADO
             return None
         except XanoIndisponivel:
-            self.sessao_confirmada = False
             self.mensagem_erro = MENSAGEM_INDISPONIVEL
             return None
         except XanoContratoInvalido:
+            # Uma sessão que já foi confirmada não pode ser descartada porque
+            # uma revalidação auxiliar recebeu um contrato temporariamente
+            # incompatível. O login inicial continua falhando de forma segura.
+            if self.sessao_confirmada and self.role:
+                self.mensagem_erro = MENSAGEM_INDISPONIVEL
+                return None
             self._limpar_sessao(MENSAGEM_IDENTIDADE_INVALIDA)
             return "/login"
 

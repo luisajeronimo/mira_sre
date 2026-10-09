@@ -9,6 +9,7 @@ from app.services.xano import (
     XanoContratoInvalido,
     XanoEntradaInvalida,
     XanoIndisponivel,
+    XanoRateLimitado,
     XanoNaoAutenticado,
     XanoNaoAutorizado,
     criar_cliente_xano,
@@ -210,6 +211,24 @@ def test_timeout_e_conexao_sao_indisponibilidade():
         )
         with pytest.raises(XanoIndisponivel):
             executar(cliente.obter_identidade("token"))
+
+
+def test_rate_limitado_e_classificado_sem_invalidar_com_retry_after():
+    cliente = XanoCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                429,
+                headers={"Retry-After": "2"},
+                json={"message": "não expor"},
+            )
+        ),
+    )
+
+    with pytest.raises(XanoRateLimitado) as captura:
+        executar(cliente.obter_identidade("token"))
+
+    assert captura.value.retry_after_segundos == 2
 
 
 @pytest.mark.parametrize(

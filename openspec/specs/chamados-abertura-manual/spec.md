@@ -5,30 +5,46 @@ Definir a fundação persistida e os contratos funcionais pelos quais o Gerente 
 ## Requirements
 
 ### Requirement: Novos chamados preservam origem, abertura e SLA aplicado
-O sistema DEVE (MUST) persistir em cada chamado criado pelos fluxos funcionais novos a origem canônica, `criado_em` como único timestamp de negócio da abertura e `sla_horas_aplicado` como snapshot numérico do `sla_horas` vigente na categoria no instante da criação. `created_at` PODE (MAY) continuar existindo como metadado técnico, mas NÃO DEVE (MUST NOT) ser tratado como uma segunda referência funcional de abertura.
+O sistema DEVE (MUST) persistir em cada chamado válido criado pelos fluxos manual e automático a origem canônica, `criado_em` como timestamp funcional imutável de abertura, `ultima_atualizacao_em` inicialmente igual a `criado_em` e `sla_horas_aplicado` como snapshot numérico do `sla_horas` vigente na categoria no instante da criação. Os dois timestamps DEVEM (MUST) usar o mesmo instante funcional definido uma única vez pelo backend. `created_at` PODE (MAY) continuar existindo como metadado técnico, mas NÃO DEVE (MUST NOT) ser tratado como uma segunda referência funcional de abertura.
+
+#### Scenario: Abertura manual inicializa os dois timestamps
+- **WHEN** o Xano cria um chamado manual válido
+- **THEN** o registro recebe `criado_em` e `ultima_atualizacao_em` com o mesmo instante funcional do backend
 
 #### Scenario: Fundação preenchida em chamado manual
 - **WHEN** o Xano cria um chamado por uma submissão manual válida
-- **THEN** o registro recebe `origem = "manual"`, `criado_em` definido pelo backend no instante da criação e `sla_horas_aplicado` igual ao valor numérico vigente da categoria
+- **THEN** o registro recebe `origem = "manual"`, os dois timestamps funcionais com o mesmo instante do backend e `sla_horas_aplicado` igual ao valor numérico vigente da categoria
+
+#### Scenario: Incidente automático inicializa os dois timestamps
+- **WHEN** o heartbeat cria um incidente automático elegível
+- **THEN** o registro recebe `criado_em` e `ultima_atualizacao_em` com o mesmo instante funcional do backend
 
 #### Scenario: Fundação preenchida em chamado automático
 - **WHEN** o heartbeat cria um novo chamado pela regra automática existente
-- **THEN** o registro recebe `origem = "automatico"`, `criado_em` definido pelo backend no instante da criação e `sla_horas_aplicado` igual ao valor numérico vigente da categoria do heartbeat
+- **THEN** o registro recebe `origem = "automatico"`, os dois timestamps funcionais com o mesmo instante do backend e `sla_horas_aplicado` igual ao valor numérico vigente da categoria do heartbeat
+
+#### Scenario: Abertura posterior não altera a data inicial
+- **WHEN** um evento observável posterior ocorre no chamado
+- **THEN** `criado_em` permanece imutável e somente `ultima_atualizacao_em` pode ser atualizada conforme o contrato aplicável
 
 #### Scenario: Valores de criação enviados pelo cliente
-- **WHEN** um consumidor tenta informar ou substituir `origem`, `criado_em`, `created_at`, `sla_horas_aplicado`, `solicitante_id`, `tecnico_id`, `lojas_id` ou `status` na abertura manual
-- **THEN** esses valores não são usados como autoridade para a criação e o Xano aplica exclusivamente os valores derivados pelo contrato funcional
+- **WHEN** um consumidor tenta informar ou substituir `origem`, `criado_em`, `ultima_atualizacao_em`, `created_at`, `sla_horas_aplicado`, `solicitante_id`, `tecnico_id`, `lojas_id` ou `status` na abertura manual
+- **THEN** esses valores não são usados como autoridade e o Xano aplica exclusivamente os valores derivados pelo contrato funcional
 
 ### Requirement: Evolução do schema preserva dados legados sem inferência
-O sistema DEVE (MUST) adicionar `descricao`, `origem` e `sla_horas_aplicado` de forma fisicamente compatível com chamados existentes e manter `criado_em` compatível com valores ausentes. Os valores novos DEVEM (MUST) ser obrigatórios nos fluxos definidos por esta capacidade, mas registros anteriores NÃO DEVEM (MUST NOT) receber origem, descrição, timestamp de negócio ou SLA histórico inferidos de categoria, título, usuário, `created_at` ou qualquer outra heurística.
+O sistema NÃO DEVE (MUST NOT) fazer backfill ou inferir `criado_em` ou `ultima_atualizacao_em` a partir de `created_at`, atribuição, interação ou qualquer timestamp aproximado. Registros históricos que ainda tenham esses campos ausentes não são compatíveis com a consulta operacional desta change; a existência deles DEVE (MUST) ser apenas reportada antes de qualquer ação sobre dados.
+
+#### Scenario: Registro histórico sem timestamp funcional
+- **WHEN** há registro existente com `criado_em` ou `ultima_atualizacao_em` ausente
+- **THEN** o sistema não o preenche nem inventa data, e a change não oferece fallback de leitura
 
 #### Scenario: Chamado legado sem os novos dados
-- **WHEN** a evolução do schema encontra um chamado existente sem origem, descrição, `criado_em` ou snapshot de SLA
+- **WHEN** a evolução encontra chamado existente sem origem, descrição, timestamp funcional ou snapshot de SLA
 - **THEN** o registro permanece armazenado com esses valores ausentes e nenhum dado histórico é fabricado
 
 #### Scenario: Consulta de chamado legado atribuível a uma Loja
-- **WHEN** um chamado legado possui relação válida com um ativo da Loja do Gerente, mas algum dado novo está ausente
-- **THEN** o contrato de consulta pode retorná-lo com o valor correspondente nulo, sem substituí-lo por uma inferência
+- **WHEN** um chamado legado possui ativo da Loja do Gerente, mas algum timestamp funcional está ausente
+- **THEN** a consulta operacional desta change não inventa valor nem oferece compatibilidade temporal para ele
 
 #### Scenario: Chamado legado sem ativo válido
 - **WHEN** um chamado legado não possui relação válida com um ativo e, por isso, não pode ser atribuído com segurança à Loja do Gerente
@@ -156,7 +172,7 @@ Todo chamado criado pelos fluxos manual e automático DEVE (MUST) persistir `ult
 - **THEN** o DTO funcional retorna `ultima_atualizacao_em` igual a `criado_em`, sem expor `created_at`
 
 ### Requirement: Gerente acompanha todos os chamados da própria Loja
-O sistema DEVE (MUST) fornecer `GET /gerente/chamados` e `GET /gerente/chamados/{chamados_id}` no grupo `mira-service-desk`. A lista DEVE (MUST) retornar `items` com resumo funcional e o detalhe DEVE (MUST) retornar um objeto `chamado` com os campos do contrato de criação; ambos DEVEM (MUST) determinar pertencimento à Loja pela relação persistida entre chamado, ativo e Loja, independentemente do solicitante e da origem.
+O sistema DEVE (MUST) fornecer `GET /gerente/chamados` e `GET /gerente/chamados/{chamados_id}` no grupo `mira-service-desk`. A lista DEVE (MUST) retornar `items` com resumo funcional e `total` correspondente à consulta atual; o detalhe DEVE (MUST) retornar um objeto `chamado` com os campos do contrato de criação. Ambos DEVEM (MUST) determinar pertencimento à Loja pela relação persistida entre chamado, ativo e Loja, independentemente do solicitante e da origem.
 
 #### Scenario: Lista da Loja
 - **WHEN** um Gerente autenticado consulta a lista de chamados
@@ -171,7 +187,7 @@ O sistema DEVE (MUST) fornecer `GET /gerente/chamados` e `GET /gerente/chamados/
 - **THEN** o Xano rejeita a operação como não autorizada sem retornar os dados do chamado
 
 #### Scenario: Chamado inexistente
-- **WHEN** o Gerente consulta um identificador de chamado que não existe
+- **WHEN** um Gerente consulta um identificador de chamado que não existe
 - **THEN** o Xano responde como recurso não encontrado
 
 ### Requirement: Contratos funcionais preservam autenticação e negação por padrão
@@ -286,3 +302,82 @@ autorização existentes NÃO DEVEM (MUST NOT) ser alteradas por essa autoria.
   sistema
 - **THEN** o contrato mantém o chamado legível e retorna `criador_sistema` nulo
   sem alterar sua autorização por Loja
+
+### Requirement: Lista operacional da Loja possui consulta controlada
+`GET /gerente/chamados` DEVE (MUST) retornar em cada item `id`, `titulo`, `descricao`, `status`, `prioridade`, Totem, Categoria, `criado_em` e `ultima_atualizacao_em`, além de `total` filtrado. O contrato NÃO DEVE (MUST NOT) aceitar Loja do cliente, metadados de paginação ou campo de consulta arbitrário.
+
+#### Scenario: Resumo operacional completo
+- **WHEN** a consulta autorizada encontra chamados no escopo da Loja
+- **THEN** cada item contém os dados funcionais necessários à lista e `total` representa a quantidade de chamados que atendem à mesma consulta
+
+#### Scenario: Resumo com datas funcionais obrigatórias
+- **WHEN** a consulta autorizada encontra chamado válido
+- **THEN** `criado_em` e `ultima_atualizacao_em` são timestamps funcionais definidos, sem fallback para `created_at`
+
+### Requirement: Filtros da lista são restritos ao escopo da Loja
+A lista DEVE (MUST) aceitar somente filtros opcionais de número exato, status canônico, Totem pertencente à Loja autorizada e intervalo inclusivo de `criado_em`. Critério inválido, status não canônico ou Totem fora do escopo DEVE (MUST) resultar em erro funcional sem ampliar a consulta.
+
+#### Scenario: Combinação de filtros
+- **WHEN** o Gerente aplica mais de um filtro válido
+- **THEN** o Xano retorna somente chamados da própria Loja que atendem simultaneamente aos critérios e informa o total filtrado
+
+#### Scenario: Período inclusivo de abertura
+- **WHEN** o Gerente informa início e fim válidos do período
+- **THEN** a consulta inclui chamados abertos nos dois dias-limite e não filtra por `ultima_atualizacao_em`
+
+#### Scenario: Totem de outra Loja
+- **WHEN** o Gerente informa identificador de Totem que não pertence à sua Loja
+- **THEN** o Xano rejeita a consulta como não autorizada sem retornar chamados
+
+### Requirement: Ordenação da lista é autorizada, determinística e server-side
+A lista DEVE (MUST) ordenar no Xano somente por número, título, status, prioridade, Totem, Categoria, abertura ou última atualização, em `ASC` ou `DESC`. Sem seleção explícita, a ordem DEVE (MUST) ser `criado_em DESC, id DESC`; filtros não a alteram. Número usa ordem numérica; Título, Status, Prioridade, Totem textual e Categoria usam ordem alfabética case-insensitive; datas usam ordem cronológica. Chamados válidos possuem ambas as datas funcionais, portanto a ordenação temporal é direta e cronológica.
+
+#### Scenario: Ordem padrão
+- **WHEN** o Gerente não informa critério de ordenação
+- **THEN** o Xano retorna chamados por `criado_em DESC` e `id DESC` como desempate
+
+#### Scenario: Ordenação textual case-insensitive de prioridade
+- **WHEN** o Gerente ordena por prioridade
+- **THEN** a ordem ascendente é Alta, Baixa, Média, Urgente e a descendente é sua inversão, sem diferenças de maiúsculas/minúsculas, com desempate determinístico por identificador
+
+#### Scenario: Ordenação cronológica de datas funcionais
+- **WHEN** a ordenação selecionada é `criado_em` ou `ultima_atualizacao_em` em qualquer direção
+- **THEN** o Xano aplica ordem cronológica na direção solicitada e desempate determinístico por identificador
+
+#### Scenario: Ordenação inválida
+- **WHEN** o cliente informa campo ou direção fora da whitelist
+- **THEN** o Xano rejeita a entrada sem executar ordenação arbitrária
+
+### Requirement: Seleção manual preserva os identificadores funcionais
+Durante a abertura manual, o sistema DEVE (MUST) manter o identificador do ativo e da categoria selecionados separado do texto apresentado e usar esses identificadores mantidos no State na validação e no payload de criação, independentemente de eventos de interface transmitidos no acionamento do salvamento.
+
+#### Scenario: Ativo e categoria selecionados
+- **WHEN** o Gerente seleciona um ativo e uma categoria válidos nos catálogos exibidos
+- **THEN** a seleção atual permanece disponível no State e o salvamento envia os respectivos identificadores numéricos ao contrato de abertura
+
+#### Scenario: Labels não são autoridade
+- **WHEN** o nome exibido de um ativo ou categoria contém texto formatado para apresentação
+- **THEN** o backend recebe somente o identificador correspondente, sem usar o label como valor funcional
+
+#### Scenario: Acionamento por clique do botão Salvar
+- **WHEN** o Gerente clica no botão Salvar após selecionar ativo e categoria
+- **THEN** a ação de abertura consome os valores selecionados no State e não descarta a seleção em decorrência do evento de clique da interface
+
+### Requirement: Abertura rejeita seleção incompleta antes do request
+A abertura manual DEVE (MUST) rejeitar a submissão quando o ativo ou a categoria não estiver selecionado com um identificador positivo e NÃO DEVE (MUST NOT) executar o request de criação nessa condição.
+
+#### Scenario: Ativo ausente
+- **WHEN** a categoria está selecionada e o ativo está vazio ou inválido
+- **THEN** o sistema mantém a mensagem de seleção e não cria chamado
+
+#### Scenario: Categoria ausente
+- **WHEN** o ativo está selecionado e a categoria está vazia ou inválida
+- **THEN** o sistema mantém a mensagem de seleção e não cria chamado
+
+#### Scenario: Ambos ausentes
+- **WHEN** o Gerente tenta salvar sem ativo e sem categoria
+- **THEN** o sistema rejeita a submissão antes do backend e não cria chamado
+
+#### Scenario: Ambos válidos
+- **WHEN** ativo, categoria e os demais campos obrigatórios são válidos
+- **THEN** a validação de seleção é aprovada e o fluxo existente prossegue para a criação do chamado

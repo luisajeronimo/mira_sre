@@ -58,3 +58,11 @@ simulator:
 fiscal:
 	@echo "Iniciando Fiscal..."
 	@$(VENV_PYTHON) fiscal/fiscal.py
+
+py_test:
+	@PYTHONPATH=. .venv/bin/python -m pytest -q
+
+reflex_check:
+	@PYTHONPATH=. .venv/bin/reflex compile --dry
+
+check: py_test reflex_check

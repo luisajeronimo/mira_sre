@@ -51,6 +51,7 @@ function "service_desk/construir_dto_chamado_tecnico" {
         origem: $input.registro.origem,
         criador_sistema: $input.registro.criador_sistema,
         criado_em: $input.registro.criado_em,
+        ultima_atualizacao_em: $input.registro.ultima_atualizacao_em,
         sla_horas_aplicado: $input.registro.sla_horas_aplicado,
         atribuido_em: $atribuido_em,
         ativo: {id: $input.registro.ativo_id, nome_ativo: $input.registro.ativo_nome},
@@ -64,20 +65,22 @@ function "service_desk/construir_dto_chamado_tecnico" {
   response = $chamado
 
   test "preserva tecnico e atribuido_em" {
-    input = {registro: {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000001000, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: 12, tecnico_nome: "Técnico"}}
+    input = {registro: {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000001000, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: 12, tecnico_nome: "Técnico"}}
     expect.to_equal ($response.id) { value = 101 }
     expect.to_equal ($response.tecnico.id) { value = 12 }
     expect.to_equal ($response.atribuido_em) { value = 1780000001000 }
     expect.to_be_null ($response.criador_sistema)
   }
 
-  test "preserva nulos legados" {
-    input = {registro: {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}}
+  test "preserva campos opcionais sem inferir datas" {
+    input = {registro: {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}}
     expect.to_be_null ($response.descricao)
     expect.to_be_null ($response.origem)
     expect.to_be_null ($response.criador_sistema)
     expect.to_be_null ($response.atribuido_em)
     expect.to_be_null ($response.tecnico)
+    expect.to_equal ($response.criado_em) { value = 1780000000000 }
+    expect.to_equal ($response.ultima_atualizacao_em) { value = 1780000000000 }
   }
   guid = "0M0qt2--nIDImCR9ZlVm9E5SaWk"
 }

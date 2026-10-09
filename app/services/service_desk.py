@@ -76,7 +76,8 @@ class ChamadoResumo:
     status: str
     prioridade: str
     origem: str | None
-    criado_em: int | None
+    criado_em: int
+    ultima_atualizacao_em: int
     ativo: ReferenciaAtivo
     categoria: ReferenciaCategoria
     descricao: str | None = None
@@ -87,6 +88,14 @@ class ChamadoResumo:
 
 
 @dataclass(frozen=True, slots=True)
+class ListaChamadosGerente:
+    """Resposta estruturada da consulta operacional, ainda sem paginação."""
+
+    items: list[ChamadoResumo]
+    total: int
+
+
+@dataclass(frozen=True, slots=True)
 class ChamadoDetalhe:
     id: int
     titulo: str
@@ -94,7 +103,8 @@ class ChamadoDetalhe:
     status: str
     prioridade: str
     origem: str | None
-    criado_em: int | None
+    criado_em: int
+    ultima_atualizacao_em: int
     sla_horas_aplicado: float | None
     ativo: ReferenciaAtivo
     categoria: ReferenciaCategoria
@@ -102,11 +112,16 @@ class ChamadoDetalhe:
     tecnico: ReferenciaUsuario | None
     atribuido_em: int | None = None
     criador_sistema: str | None = None
-    ultima_atualizacao_em: int | None = None
 
 
 def _inteiro(valor: Any, campo: str) -> int:
     if not isinstance(valor, int) or isinstance(valor, bool) or valor <= 0:
+        raise XanoContratoInvalido(f"Campo inválido na resposta: {campo}.")
+    return valor
+
+
+def _contagem(valor: Any, campo: str) -> int:
+    if not isinstance(valor, int) or isinstance(valor, bool) or valor < 0:
         raise XanoContratoInvalido(f"Campo inválido na resposta: {campo}.")
     return valor
 
@@ -229,7 +244,11 @@ def _resumo(dados: dict[str, Any]) -> ChamadoResumo:
         status=_texto(dados.get("status"), "status"),
         prioridade=_texto(dados.get("prioridade"), "prioridade"),
         origem=_origem(dados.get("origem")),
-        criado_em=_timestamp_opcional(dados.get("criado_em"), "criado_em"),
+        criado_em=_inteiro(dados.get("criado_em"), "criado_em"),
+        ultima_atualizacao_em=_inteiro(
+            dados.get("ultima_atualizacao_em"),
+            "ultima_atualizacao_em",
+        ),
         ativo=_referencia_ativo(dados.get("ativo")),
         categoria=_referencia_categoria(dados.get("categoria")),
         descricao=_texto_opcional(dados.get("descricao"), "descricao"),
@@ -249,6 +268,39 @@ def _resumo(dados: dict[str, Any]) -> ChamadoResumo:
     )
 
 
+def _resumo_gerente(dados: dict[str, Any]) -> ChamadoResumo:
+    return _resumo(dados)
+
+
+def _lista_chamados_gerente(dados: dict[str, Any]) -> ListaChamadosGerente:
+    """Valida o envelope estruturado, ainda sem paginação, da lista do Gerente."""
+
+    if set(dados) != {"items", "total"}:
+        raise XanoContratoInvalido(
+            "O Xano retornou uma lista de chamados incompatível."
+        )
+
+    items = _colecao(dados)
+    for item in items:
+        if "descricao" not in item or "ultima_atualizacao_em" not in item:
+            raise XanoContratoInvalido(
+                "O Xano retornou um resumo de chamado incompatível."
+            )
+
+    total = _contagem(dados.get("total"), "total")
+    # Nesta change não há paginação: todo item correspondente à consulta vem
+    # na resposta. Uma divergência indica contrato remoto incompatível, em vez
+    # de uma página parcial que o Reflex poderia interpretar incorretamente.
+    if total != len(items):
+        raise XanoContratoInvalido(
+            "O Xano retornou um total de chamados incompatível."
+        )
+    return ListaChamadosGerente(
+        items=[_resumo_gerente(item) for item in items],
+        total=total,
+    )
+
+
 def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
     return ChamadoDetalhe(
         id=_inteiro(dados.get("id"), "id"),
@@ -257,7 +309,11 @@ def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
         status=_texto(dados.get("status"), "status"),
         prioridade=_texto(dados.get("prioridade"), "prioridade"),
         origem=_origem(dados.get("origem")),
-        criado_em=_timestamp_opcional(dados.get("criado_em"), "criado_em"),
+        criado_em=_inteiro(dados.get("criado_em"), "criado_em"),
+        ultima_atualizacao_em=_inteiro(
+            dados.get("ultima_atualizacao_em"),
+            "ultima_atualizacao_em",
+        ),
         sla_horas_aplicado=_numero_opcional(
             dados.get("sla_horas_aplicado"),
             "sla_horas_aplicado",
@@ -274,11 +330,11 @@ def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
             "atribuido_em",
         ),
         criador_sistema=_criador_sistema(dados.get("criador_sistema")),
-        ultima_atualizacao_em=_timestamp_opcional(
-            dados.get("ultima_atualizacao_em"),
-            "ultima_atualizacao_em",
-        ),
     )
+
+
+def _detalhe_gerente(dados: dict[str, Any]) -> ChamadoDetalhe:
+    return _detalhe(dados)
 
 
 def _comentario_publico(dados: Any) -> ComentarioPublico:
@@ -373,15 +429,40 @@ class XanoServiceDeskCliente(XanoCliente):
                 "descricao": descricao,
             },
         )
-        return _detalhe(_objeto(dados.get("chamado"), "chamado"))
+        return _detalhe_gerente(_objeto(dados.get("chamado"), "chamado"))
 
-    async def listar_chamados(self, token: str) -> list[ChamadoResumo]:
+    async def listar_chamados(
+        self,
+        token: str,
+        *,
+        numero: int | None = None,
+        status: str | None = None,
+        ativo_id: int | None = None,
+        data_inicio: int | None = None,
+        data_fim: int | None = None,
+        ordenar_por: str = "criado_em",
+        direcao: str = "DESC",
+    ) -> ListaChamadosGerente:
+        params: dict[str, str | int] = {
+            "ordenar_por": ordenar_por,
+            "direcao": direcao,
+        }
+        for campo, valor in (
+            ("numero", numero),
+            ("status", status),
+            ("ativo_id", ativo_id),
+            ("data_inicio", data_inicio),
+            ("data_fim", data_fim),
+        ):
+            if valor is not None and valor != "":
+                params[campo] = valor
         dados = await self._requisitar(
             "GET",
             "/gerente/chamados",
             token=token,
+            params=params,
         )
-        return [_resumo(item) for item in _colecao(dados)]
+        return _lista_chamados_gerente(dados)
 
     async def obter_chamado(
         self,
@@ -393,7 +474,7 @@ class XanoServiceDeskCliente(XanoCliente):
             f"/gerente/chamados/{chamado_id}",
             token=token,
         )
-        return _detalhe(_objeto(dados.get("chamado"), "chamado"))
+        return _detalhe_gerente(_objeto(dados.get("chamado"), "chamado"))
 
     async def listar_comentarios_publicos(
         self,

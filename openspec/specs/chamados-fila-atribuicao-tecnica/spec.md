@@ -34,19 +34,23 @@ O sistema DEVE (MUST) fornecer no grupo `MIRA Service Desk` uma consulta autenti
 - **THEN** os itens são ordenados somente por `id desc` e a resposta não introduz ordenação por prioridade, SLA ou paginação nesta capacidade
 
 ### Requirement: Listagem técnica retorna DTO funcional estável
-O sistema DEVE (MUST) retornar em cada item da fila `id`, `titulo`, `status`, `prioridade`, `origem`, `criado_em`, `sla_horas_aplicado`, `atribuido_em`, ativo, categoria, solicitante e técnico atual quando existir. Valores nulos de registros legados DEVEM (MUST) permanecer nulos, sem backfill ou inferência.
+
+O sistema DEVE (MUST) retornar em cada item da fila `id`, `titulo`, `status`, `prioridade`, `origem`, `criado_em`, `ultima_atualizacao_em`, `sla_horas_aplicado`, `atribuido_em`, ativo, categoria, solicitante e técnico atual quando existir. Todo chamado válido possui ambos os timestamps funcionais; o contrato NÃO DEVE (MUST NOT) inferi-los de `created_at` nem apresentar fallback temporal para registros históricos que os tenham ausentes.
 
 #### Scenario: Chamado manual na fila
-- **WHEN** um chamado manual elegível é retornado
-- **THEN** a resposta preserva sua origem manual, prioridade, abertura, snapshot de SLA, ativo, categoria e técnico atual
+
+- **WHEN** um chamado manual elegível e válido é retornado
+- **THEN** a resposta preserva origem manual, prioridade, os dois timestamps funcionais, snapshot de SLA, ativo, categoria e Técnico atual
 
 #### Scenario: Chamado automático na fila
-- **WHEN** um chamado automático elegível é retornado
-- **THEN** a resposta preserva sua origem automática e os demais dados já persistidos, sem alterar a regra do heartbeat
+
+- **WHEN** um chamado automático elegível e válido é retornado
+- **THEN** a resposta preserva origem automática, os dois timestamps funcionais e os demais dados já persistidos, sem alterar a regra do heartbeat
 
 #### Scenario: Chamado legado na consulta
-- **WHEN** um chamado legado elegível possui origem, SLA, abertura ou atribuição ausentes
-- **THEN** a resposta representa esses campos como nulos e não fabrica valores históricos
+
+- **WHEN** um registro histórico elegível possui origem, SLA ou atribuição ausentes
+- **THEN** a resposta preserva esses campos como nulos sem inferência; timestamps funcionais ausentes não recebem fallback nem tornam o registro compatível com a jornada operacional
 
 ### Requirement: Técnico pode consultar detalhe global somente leitura
 O sistema DEVE (MUST) fornecer `GET /tecnico/chamados/{chamados_id}` para o perfil `tecnico`, com escopo global de consulta já consolidado. O detalhe DEVE (MUST) reutilizar o formato funcional consolidado quando possível, incluir `atribuido_em` e NÃO DEVE (MUST NOT) oferecer mutação de status, edição, reatribuição, liberação ou tratativa.

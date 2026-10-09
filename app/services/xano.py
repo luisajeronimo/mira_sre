@@ -52,6 +52,19 @@ class XanoIndisponivel(XanoErro):
     """O Xano não pôde responder temporariamente."""
 
 
+class XanoRateLimitado(XanoIndisponivel):
+    """O Xano aplicou limite transitório de requisições."""
+
+    def __init__(
+        self,
+        mensagem: str = "O serviço está temporariamente ocupado. Tente novamente.",
+        *,
+        retry_after_segundos: float | None = None,
+    ) -> None:
+        super().__init__(mensagem)
+        self.retry_after_segundos = retry_after_segundos
+
+
 @dataclass(frozen=True, slots=True)
 class IdentidadeXano:
     """Dados públicos retornados pelo contrato GET /me."""
@@ -139,6 +152,7 @@ class XanoCliente:
         *,
         token: str | None = None,
         json: dict[str, Any] | None = None,
+        params: dict[str, str | int] | None = None,
         login: bool = False,
         erro_400_como_entrada: bool = False,
     ) -> dict[str, Any]:
@@ -156,6 +170,7 @@ class XanoCliente:
                     caminho,
                     headers=cabecalhos,
                     json=json,
+                    params=params,
                 )
         except (httpx.TimeoutException, httpx.NetworkError) as erro:
             raise XanoIndisponivel(
@@ -176,6 +191,17 @@ class XanoCliente:
             raise XanoNaoEncontrado("Recurso não encontrado.")
         if resposta.status_code == 409:
             raise XanoConflito("O chamado foi assumido por outro Técnico.")
+        if resposta.status_code == 429:
+            retry_after = resposta.headers.get("Retry-After")
+            retry_after_segundos = None
+            if retry_after is not None:
+                try:
+                    valor = float(retry_after)
+                except ValueError:
+                    valor = None
+                if valor is not None and valor >= 0:
+                    retry_after_segundos = valor
+            raise XanoRateLimitado(retry_after_segundos=retry_after_segundos)
         if resposta.status_code == 422:
             raise XanoEntradaInvalida("Os dados informados são inválidos.")
         if resposta.status_code == 400 and erro_400_como_entrada:

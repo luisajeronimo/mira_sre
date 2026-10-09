@@ -4,11 +4,29 @@ query "gerente/chamados" verb=GET {
   auth = "usuarios"
 
   input {
+    // A fronteira HTTP recebe os identificadores como texto para distinguir
+    // ausência (string vazia) de `0` explicitamente informado no runtime.
+    text numero? filters=trim
+    text status? filters=trim
+    text ativo_id? filters=trim
+    timestamp data_inicio?
+    timestamp data_fim?
+    text ordenar_por? filters=trim
+    text direcao? filters=trim
   }
 
   stack {
     function.run "service_desk/listar_chamados_gerente" {
-      input = {usuarios_id: $auth.id}
+      input = {
+        usuarios_id: $auth.id,
+        numero: $input.numero,
+        status: $input.status,
+        ativo_id: $input.ativo_id,
+        data_inicio: $input.data_inicio,
+        data_fim: $input.data_fim,
+        ordenar_por: $input.ordenar_por,
+        direcao: $input.direcao
+      }
     } as $resultado
   }
 

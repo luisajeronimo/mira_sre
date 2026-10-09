@@ -8,13 +8,105 @@ from app.components.layout import casca_conteudo, estado_carregamento, estado_re
 from app.states.auth import AuthState
 
 
+def _cabecalho_ordenavel(texto: str, coluna: str) -> rx.Component:
+    return rx.table.column_header_cell(
+        rx.button(
+            rx.hstack(
+                rx.text(texto),
+                rx.cond(
+                    ChamadosGerenteState.ordenar_por == coluna,
+                    rx.text(ChamadosGerenteState.direcao),
+                    rx.text("Ordenar"),
+                ),
+                spacing="1",
+                align="center",
+            ),
+            on_click=ChamadosGerenteState.alternar_ordenacao(coluna),
+            variant="ghost",
+            aria_label="Ordenar por " + texto,
+        )
+    )
+
+
 def _lista() -> rx.Component:
     return rx.vstack(
         cabecalho("Chamados", "Acompanhe os chamados da sua loja."),
         rx.hstack(
-            rx.link(rx.button("Abrir chamado"), href="/gerente/chamados/novo"),
-            align="center",
+            rx.link(
+                rx.button("Criar chamado", color_scheme="pink"),
+                href="/gerente/chamados/novo",
+            ),
+            justify="end",
             width="100%",
+        ),
+        rx.card(
+            rx.vstack(
+                rx.text("Filtros", weight="bold"),
+                rx.hstack(
+                    rx.input(
+                        value=ChamadosGerenteState.filtro_numero,
+                        on_change=ChamadosGerenteState.alterar_filtro_numero,
+                        type="number",
+                        min="1",
+                        placeholder="Número",
+                    ),
+                    rx.select(
+                        ChamadosGerenteState.status_filtros(),
+                        value=ChamadosGerenteState.filtro_status,
+                        on_change=ChamadosGerenteState.alterar_filtro_status,
+                        placeholder="Status",
+                    ),
+                    rx.select(
+                        ChamadosGerenteState.ativos,
+                        value=ChamadosGerenteState.filtro_ativo,
+                        on_change=ChamadosGerenteState.alterar_filtro_ativo,
+                        placeholder="Totem",
+                    ),
+                    rx.input(
+                        value=ChamadosGerenteState.filtro_data_inicio,
+                        on_change=ChamadosGerenteState.alterar_filtro_data_inicio,
+                        type="date",
+                        aria_label="Abertura a partir de",
+                    ),
+                    rx.input(
+                        value=ChamadosGerenteState.filtro_data_fim,
+                        on_change=ChamadosGerenteState.alterar_filtro_data_fim,
+                        type="date",
+                        aria_label="Abertura até",
+                    ),
+                    rx.button("Aplicar", on_click=ChamadosGerenteState.aplicar_filtros),
+                    rx.button(
+                        "Limpar filtros",
+                        variant="outline",
+                        on_click=ChamadosGerenteState.limpar_filtros_lista,
+                    ),
+                    wrap="wrap",
+                    width="100%",
+                ),
+                rx.cond(
+                    ChamadosGerenteState.filtros_aplicados.length() > 0,
+                    rx.hstack(
+                        rx.text("Aplicados:", size="2", weight="medium"),
+                        rx.foreach(
+                            ChamadosGerenteState.filtros_aplicados,
+                            lambda filtro: rx.badge(filtro, color_scheme="gray"),
+                        ),
+                        wrap="wrap",
+                    ),
+                ),
+                align="start",
+                spacing="3",
+                width="100%",
+            ),
+            width="100%",
+        ),
+        rx.text(
+            ChamadosGerenteState.total_chamados.to_string()
+            + " chamados • "
+            + ChamadosGerenteState.chamados.length().to_string()
+            + " exibidos",
+            color="gray",
+            size="2",
         ),
         erro(ChamadosGerenteState.mensagem_chamados),
         rx.cond(
@@ -23,36 +115,61 @@ def _lista() -> rx.Component:
             rx.cond(
                 ChamadosGerenteState.chamados.length() == 0,
                 rx.callout("Nenhum chamado encontrado.", icon="info"),
-                rx.vstack(
-                    rx.foreach(
-                        ChamadosGerenteState.chamados,
-                        lambda item: rx.card(
-                            rx.vstack(
-                                rx.hstack(
-                                    rx.vstack(
-                                        rx.text("Chamado #" + item["id"].to_string(), weight="bold"),
-                                        rx.heading(item["titulo"], size="4"),
-                                        align="start",
-                                        spacing="1",
-                                    ),
-                                    rx.badge(item["status"]),
-                                    justify="between",
-                                    width="100%",
+                rx.box(
+                    rx.table.root(
+                        rx.table.header(
+                            rx.table.row(
+                                _cabecalho_ordenavel("Número", "numero"),
+                                _cabecalho_ordenavel("Título + ocorrência", "titulo"),
+                                _cabecalho_ordenavel("Status", "status"),
+                                _cabecalho_ordenavel("Prioridade", "prioridade"),
+                                _cabecalho_ordenavel("Totem", "totem"),
+                                _cabecalho_ordenavel("Categoria", "categoria"),
+                                _cabecalho_ordenavel("Data de abertura", "criado_em"),
+                                _cabecalho_ordenavel(
+                                    "Data da última atualização",
+                                    "ultima_atualizacao_em",
                                 ),
-                                rx.text(item["categoria_nome"], color="gray"),
-                                rx.text(item["criado_em_texto"], size="2", color="gray"),
-                                rx.link(
-                                    "Ver detalhe",
-                                    href="/gerente/chamados/" + item["id"].to_string(),
-                                ),
-                                align="start",
-                                width="100%",
-                            ),
-                            width="100%",
+                            )
                         ),
+                        rx.table.body(
+                            rx.foreach(
+                                ChamadosGerenteState.chamados,
+                                lambda item: rx.table.row(
+                                    rx.table.cell(
+                                        rx.link(
+                                            "#" + item["id"].to_string(),
+                                            href="/gerente/chamados/"
+                                            + item["id"].to_string(),
+                                        )
+                                    ),
+                                    rx.table.cell(
+                                        rx.vstack(
+                                            rx.text(item["titulo"], weight="medium"),
+                                            rx.text(
+                                                item["ocorrencia"],
+                                                size="2",
+                                                color="gray",
+                                            ),
+                                            align="start",
+                                            spacing="1",
+                                        )
+                                    ),
+                                    rx.table.cell(rx.badge(item["status"])),
+                                    rx.table.cell(item["prioridade"]),
+                                    rx.table.cell(item["ativo_nome"]),
+                                    rx.table.cell(item["categoria_nome"]),
+                                    rx.table.cell(item["criado_em_texto"]),
+                                    rx.table.cell(
+                                        item["ultima_atualizacao_em_texto"]
+                                    ),
+                                ),
+                            )
+                        ),
+                        width="100%",
                     ),
+                    overflow_x="auto",
                     width="100%",
-                    spacing="3",
                 ),
             ),
         ),
@@ -63,37 +180,87 @@ def _lista() -> rx.Component:
 
 def _formulario() -> rx.Component:
     return rx.vstack(
-        cabecalho("Abrir chamado", "Registre uma solicitação para sua loja."),
+        cabecalho("Criar chamado", "Registre uma solicitação para sua loja."),
         erro(ChamadosGerenteState.mensagem_formulario),
-        rx.cond(
-            ChamadosGerenteState.mensagem_sucesso != "",
-            rx.callout(
-                ChamadosGerenteState.mensagem_sucesso,
-                icon="check",
-                color_scheme="green",
-            ),
-        ),
-        rx.form(
-            rx.vstack(
-                rx.select(ChamadosGerenteState.ativos, name="ativos_referencia_id", placeholder="Selecione o ativo", required=True, width="100%"),
-                rx.select(ChamadosGerenteState.categorias, name="categorias_servico_id", placeholder="Selecione a categoria", required=True, width="100%"),
-                rx.select(ChamadosGerenteState.prioridades(), name="prioridade", placeholder="Selecione a prioridade", required=True, width="100%"),
-                rx.input(name="titulo", placeholder="Título", required=True, width="100%"),
-                rx.text_area(name="descricao", placeholder="Descrição", required=True, width="100%"),
-                rx.hstack(
-                    rx.link("Cancelar", href="/gerente"),
-                    rx.button(
-                        rx.cond(ChamadosGerenteState.enviando, "Enviando...", "Abrir chamado"),
-                        type="submit",
-                        disabled=ChamadosGerenteState.enviando,
+        rx.vstack(
+            rx.select.root(
+                rx.select.trigger(placeholder="Selecione o Totem", width="100%"),
+                rx.select.content(
+                    rx.foreach(
+                        ChamadosGerenteState.ativos_formulario,
+                        lambda ativo: rx.select.item(
+                            ativo["nome"],
+                            value=ativo["id"].to_string(),
+                        ),
                     ),
-                    spacing="3",
                 ),
-                spacing="3",
+                value=ChamadosGerenteState.ativo_formulario,
+                on_change=ChamadosGerenteState.alterar_ativo_formulario,
                 width="100%",
             ),
-            on_submit=ChamadosGerenteState.abrir_chamado,
-            reset_on_submit=False,
+            rx.select.root(
+                rx.select.trigger(placeholder="Selecione a categoria", width="100%"),
+                rx.select.content(
+                    rx.foreach(
+                        ChamadosGerenteState.categorias_formulario,
+                        lambda categoria: rx.select.item(
+                            categoria["nome"],
+                            value=categoria["id"].to_string(),
+                        ),
+                    ),
+                ),
+                value=ChamadosGerenteState.categoria_formulario,
+                on_change=ChamadosGerenteState.alterar_categoria_formulario,
+                width="100%",
+            ),
+            rx.select(
+                ChamadosGerenteState.prioridades(),
+                value=ChamadosGerenteState.prioridade_formulario,
+                on_change=ChamadosGerenteState.alterar_prioridade_formulario,
+                placeholder="Selecione a prioridade",
+                width="100%",
+            ),
+            rx.input(
+                value=ChamadosGerenteState.titulo_formulario,
+                on_change=ChamadosGerenteState.alterar_titulo_formulario,
+                placeholder="Título",
+                width="100%",
+            ),
+            rx.text_area(
+                value=ChamadosGerenteState.descricao_formulario,
+                on_change=ChamadosGerenteState.alterar_descricao_formulario,
+                placeholder="Descrição detalhada",
+                width="100%",
+            ),
+            rx.hstack(
+                rx.button(
+                    rx.cond(ChamadosGerenteState.enviando, "Enviando...", "Salvar"),
+                    on_click=ChamadosGerenteState.abrir_chamado,
+                    disabled=ChamadosGerenteState.enviando,
+                    color_scheme="pink",
+                ),
+                rx.button(
+                    "Limpar",
+                    variant="outline",
+                    on_click=ChamadosGerenteState.limpar_formulario,
+                    disabled=ChamadosGerenteState.enviando,
+                ),
+                rx.button(
+                    "Descartar",
+                    variant="outline",
+                    on_click=ChamadosGerenteState.descartar_formulario,
+                    disabled=ChamadosGerenteState.enviando,
+                ),
+                rx.button(
+                    "Voltar para lista de chamados",
+                    variant="ghost",
+                    on_click=ChamadosGerenteState.voltar_para_lista,
+                    disabled=ChamadosGerenteState.enviando,
+                ),
+                wrap="wrap",
+                spacing="3",
+            ),
+            spacing="3",
             width="100%",
         ),
         spacing="5",

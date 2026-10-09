@@ -22,6 +22,14 @@ def _timestamp_para_texto(valor: int | None) -> str:
         return "Não informado"
 
 
+def _timestamp_funcional_para_texto(valor: int) -> str:
+    """Formata timestamp obrigatório já validado pelo contrato do chamado."""
+
+    return datetime.fromtimestamp(valor / 1000, tz=timezone.utc).astimezone().strftime(
+        "%d/%m/%Y %H:%M"
+    )
+
+
 def _numero_para_texto(valor: float | None) -> str:
     if valor is None:
         return "Não informado"
@@ -29,21 +37,31 @@ def _numero_para_texto(valor: float | None) -> str:
 
 
 def _resumo_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
+    descricao = chamado.descricao or ""
+    ocorrencia = descricao
+    if len(descricao) > 80:
+        ocorrencia = descricao[:80] + "…"
     return {
         "id": chamado.id,
         "titulo": chamado.titulo,
+        "descricao": descricao,
+        "ocorrencia": ocorrencia or "Não informado",
         "status": chamado.status,
         "prioridade": chamado.prioridade,
         "origem": chamado.origem or "Não informado",
-        "criado_em_texto": _timestamp_para_texto(chamado.criado_em),
+        "criado_em_texto": _timestamp_funcional_para_texto(chamado.criado_em),
+        "ultima_atualizacao_em_texto": _timestamp_funcional_para_texto(
+            chamado.ultima_atualizacao_em
+        ),
+        "ativo_nome": chamado.ativo.nome_ativo,
         "categoria_nome": chamado.categoria.nome,
     }
 
 
 def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
     dados = asdict(chamado)
-    dados["criado_em_texto"] = _timestamp_para_texto(chamado.criado_em)
-    dados["ultima_atualizacao_em_texto"] = _timestamp_para_texto(
+    dados["criado_em_texto"] = _timestamp_funcional_para_texto(chamado.criado_em)
+    dados["ultima_atualizacao_em_texto"] = _timestamp_funcional_para_texto(
         chamado.ultima_atualizacao_em
     )
     dados["sla_horas_texto"] = _numero_para_texto(chamado.sla_horas_aplicado)
@@ -83,7 +101,7 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
         "status": chamado.status,
         "prioridade": chamado.prioridade,
         "origem": chamado.origem or "Não informado",
-        "criado_em_texto": _timestamp_para_texto(chamado.criado_em),
+        "criado_em_texto": _timestamp_funcional_para_texto(chamado.criado_em),
         "sla_horas_texto": _numero_para_texto(chamado.sla_horas_aplicado),
         "atribuido_em_texto": _timestamp_para_texto(chamado.atribuido_em),
         "categoria_nome": chamado.categoria.nome,
@@ -95,10 +113,14 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
 class ChamadoView(TypedDict):
     id: int
     titulo: str
+    descricao: str
+    ocorrencia: str
     status: str
     prioridade: str
     origem: str
     criado_em_texto: str
+    ultima_atualizacao_em_texto: str
+    ativo_nome: str
     categoria_nome: str
 
 

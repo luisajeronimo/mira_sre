@@ -387,6 +387,27 @@ class XanoServiceDeskCliente(XanoCliente):
             for item in _colecao(dados)
         ]
 
+    async def listar_ativos_monitoramento(
+        self, token: str
+    ) -> list[AtivoServiceDesk]:
+        dados = await self._requisitar(
+            "GET",
+            "/ativos_referencia",
+            token=token,
+        )
+        return [
+            AtivoServiceDesk(
+                id=_inteiro(item.get("id"), "id"),
+                nome_ativo=_texto(item.get("nome_ativo"), "nome_ativo"),
+                tipo=_texto(item.get("tipo"), "tipo"),
+                status_atual=_texto(
+                    item.get("status_atual"),
+                    "status_atual",
+                ),
+            )
+            for item in _colecao(dados)
+        ]
+
     async def listar_categorias(
         self,
         token: str,

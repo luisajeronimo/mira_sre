@@ -14,6 +14,8 @@ from app.pages import (
     primeiro_acesso,
     tecnico_chamados,
 )
+from app.monitoramento.pages import monitoramento
+from app.monitoramento.state import MonitoramentoState
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
 from app.pages.administracao import AdministracaoState
@@ -71,4 +73,11 @@ app.add_page(
     route="/diretoria",
     title="Diretoria | MIRA",
     on_load=AuthState.carregar_diretoria,
+)
+
+app.add_page(
+    monitoramento,
+    route="/monitoramento",
+    title="Monitoramento | MIRA",
+    on_load=MonitoramentoState.carregar,
 )

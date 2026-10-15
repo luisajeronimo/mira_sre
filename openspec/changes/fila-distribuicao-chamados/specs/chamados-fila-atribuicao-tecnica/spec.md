@@ -3,31 +3,31 @@
 ## MODIFIED Requirements
 
 ### Requirement: Fila técnica oferece somente as visões aprovadas
-O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnico, Diretoria e Administrador, aplicando consulta, pesquisa por número e filtros no Xano. Sem filtros aplicados, `Todos` DEVE significar todos os chamados dentro do escopo global, sem restrição implícita por status, responsável, origem, solicitante, data ou Loja. A situação de atribuição pode filtrar chamados sem responsável, atribuídos ao Técnico autenticado ou atribuídos a outros Técnicos, quando aplicável ao perfil. O Gerente NÃO DEVE acessar esta fila.
+O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnico, Diretoria e Administrador, aplicando no Xano os mesmos filtros explícitos da listagem do Gerente: número, status, Totem e período de abertura. Sem filtros aplicados, `Todos` DEVE significar todos os chamados dentro do escopo global, sem restrição implícita por status, responsável, origem, solicitante, data ou Loja. O responsável atual é exibido como dado da tabela e gerido no detalhe; a fila NÃO DEVE (MUST NOT) oferecer visões, abas ou filtros de navegação por situação de atribuição. O Gerente NÃO DEVE acessar esta fila.
 
 #### Scenario: Visão de chamados não atribuídos
-- **WHEN** um perfil autorizado aplica o filtro de chamados sem responsável
-- **THEN** o Xano retorna chamados sem Técnico responsável, sem limitar o resultado a `status = "Novo"`
+- **WHEN** um cliente informa o parâmetro legado de situação de atribuição
+- **THEN** o Xano responde HTTP 422 sem executar consulta implícita
 
 #### Scenario: Visão de chamados atribuídos a mim
-- **WHEN** um Técnico autenticado aplica o filtro de atribuições próprias
-- **THEN** o Xano retorna chamados atribuídos ao Técnico autenticado, sem limitar o resultado a `status = "Novo"`
+- **WHEN** um cliente informa o parâmetro legado de situação de atribuição
+- **THEN** a interface não apresenta essa visão e o Xano responde HTTP 422
 
 #### Scenario: Chamado atribuído a outro Técnico
-- **WHEN** um perfil autorizado aplica o filtro de chamados atribuídos a outros Técnicos
-- **THEN** chamados atribuídos a outros Técnicos permanecem consultáveis
+- **WHEN** um chamado possui responsável diferente do usuário autenticado
+- **THEN** ele continua na tabela global sem criar uma visão ou filtro específico
+
+#### Scenario: Visão inválida
+- **WHEN** uma requisição informa situação de atribuição
+- **THEN** o Xano responde HTTP 422 sem retornar dados de um filtro implícito
 
 #### Scenario: Todos sem filtro
-- **WHEN** um perfil autorizado consulta a fila sem filtro de situação de atribuição nem número
+- **WHEN** um perfil autorizado consulta a fila sem filtros
 - **THEN** o Xano retorna todos os chamados globais permitidos, inclusive atribuídos, não atribuídos, terminais e não terminais
 
 #### Scenario: Status nulo ou inelegível
 - **WHEN** um chamado possui status nulo ou qualquer status persistido
 - **THEN** o Xano não infere nem altera o status e a fila não o exclui apenas por ser diferente de `Novo`
-
-#### Scenario: Visão inválida
-- **WHEN** uma requisição informa situação de atribuição não suportada ou incompatível com o perfil
-- **THEN** o Xano responde HTTP 422 sem retornar dados de um filtro implícito
 
 #### Scenario: Ordenação e ausência de paginação
 - **WHEN** a consulta válida retorna chamados
@@ -37,9 +37,13 @@ O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnic
 - **WHEN** um usuário autenticado de Diretoria ou Administrador consulta a fila
 - **THEN** o Xano retorna a mesma visão global de chamados permitida ao Técnico
 
-#### Scenario: Filtro por responsável e pesquisa por número
-- **WHEN** um perfil autorizado filtra por situação de atribuição ou pesquisa pelo número do chamado
-- **THEN** o Xano retorna somente os chamados que correspondem ao filtro informado, incluindo os atribuídos a outros Técnicos quando solicitados
+#### Scenario: Interseção de filtros explícitos
+- **WHEN** um perfil autorizado pesquisa por número ou combina status, Totem e período de abertura
+- **THEN** o Xano retorna somente os chamados que correspondem à interseção dos filtros enviados
+
+#### Scenario: Responsável não cria visão de navegação
+- **WHEN** um chamado possui ou não possui Técnico responsável
+- **THEN** ele permanece na única tabela global e a interface não apresenta `Atribuídos a outros Técnicos` ou outra visão de atribuição
 
 #### Scenario: Falha de consulta não confirma filtro no Reflex
 - **WHEN** uma pesquisa ou filtro solicitado falha antes de o Xano retornar a lista
@@ -50,7 +54,7 @@ O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnic
 - **THEN** o Xano responde HTTP 403 sem expor chamados fora dos contratos próprios do Gerente
 
 ### Requirement: Técnico pode consultar detalhe global somente leitura
-O sistema DEVE (MUST) fornecer detalhe global de chamado para Técnico, Diretoria e Administrador, incluindo o responsável atual, `atribuido_em` e a timeline do chamado. A leitura NÃO DEVE (MUST NOT) alterar o chamado. Estados terminais continuam consultáveis, mas impedem operações de atribuição incompatíveis.
+O sistema DEVE (MUST) fornecer detalhe global de chamado para Técnico, Diretoria e Administrador em um DTO canônico, incluindo número, título, descrição, status, prioridade, origem, solicitante, Loja, Totem, categoria, SLA, responsável atual, `atribuido_em` e timeline. A leitura NÃO DEVE (MUST NOT) alterar o chamado. Estados terminais continuam consultáveis, mas impedem operações de atribuição incompatíveis.
 
 #### Scenario: Detalhe antes da assunção
 - **WHEN** um perfil autorizado consulta chamado ainda sem responsável
@@ -67,6 +71,10 @@ O sistema DEVE (MUST) fornecer detalhe global de chamado para Técnico, Diretori
 #### Scenario: Dados protegidos por rota indevida
 - **WHEN** um Gerente tenta usar o detalhe da fila global
 - **THEN** o Xano responde HTTP 403 sem expor o chamado
+
+#### Scenario: Contrato de detalhe incompatível
+- **WHEN** o backend omite campo obrigatório do DTO canônico
+- **THEN** o service recusa a resposta e a interface informa erro de carregamento sem renderizar valores `undefined`
 
 ### Requirement: Schema registra a atribuição sem backfill
 O sistema DEVE (MUST) manter `atribuido_em` como timestamp opcional em `chamados`, representando o início da atribuição atual. O Xano define o timestamp ao atribuir ou reatribuir, limpa-o ao liberar e preserva registros históricos sem preenchimento retroativo.

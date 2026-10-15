@@ -9,6 +9,7 @@ import app.chamados.tecnico.state as chamados_module
 from app.services.service_desk import (
     ChamadoDetalhe,
     ChamadoResumo,
+    ListaChamadosGerente,
     DetalheChamadoTecnico,
     EventoTimelineChamado,
     ReferenciaAtivo,
@@ -16,7 +17,7 @@ from app.services.service_desk import (
     ReferenciaLoja,
     ReferenciaUsuario,
 )
-from app.services.xano import XanoConflito, XanoContratoInvalido, XanoNaoAutorizado
+from app.services.xano import XanoConflito, XanoContratoInvalido, XanoIndisponivel, XanoNaoAutorizado
 from app.states.auth import MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
 from app.chamados.shared import _detalhe_para_dict, _tecnico_para_dict
 from app.chamados.tecnico import ChamadosTecnicoState
@@ -84,6 +85,7 @@ class ClienteTecnicoFalso:
         erro_assuncao=None,
         resultado_detalhe=None,
         erro_detalhe=None,
+        erro_ativos=None,
         listas=None,
     ):
         self.resultado_assuncao = resultado_assuncao or detalhe_tecnico(
@@ -92,18 +94,24 @@ class ClienteTecnicoFalso:
         self.erro_assuncao = erro_assuncao
         self.resultado_detalhe = resultado_detalhe
         self.erro_detalhe = erro_detalhe
+        self.erro_ativos = erro_ativos
         self.listas = listas or {}
         self.consultas = []
         self.assuncoes = []
         self.detalhes = []
         self.atribuicoes = []
 
-    async def listar_chamados_tecnico(self, token, situacao_atribuicao="todos", numero=None):
-        self.consultas.append((token, situacao_atribuicao, numero))
-        resultado = self.listas.get(situacao_atribuicao, [])
+    async def listar_chamados_tecnico(self, token, **filtros):
+        self.consultas.append((token, filtros))
+        resultado = self.listas.get("resultado", [])
         if isinstance(resultado, Exception):
             raise resultado
-        return resultado
+        return ListaChamadosGerente(items=resultado, total=len(resultado))
+
+    async def listar_ativos_monitoramento(self, token):
+        if self.erro_ativos is not None:
+            raise self.erro_ativos
+        return []
 
     async def alterar_responsavel_tecnico(
         self, token, chamado_id, acao, tecnico_id=None
@@ -143,19 +151,8 @@ def liberar_validacao_de_sessao(monkeypatch):
     monkeypatch.setattr(ChamadosTecnicoState, "_validar_acesso_fila", validar)
 
 
-@pytest.mark.parametrize(
-    ("role", "situacao"),
-    [
-        ("tecnico", "todos"),
-        ("tecnico", "sem_responsavel"),
-        ("tecnico", "atribuidos_a_mim"),
-        ("tecnico", "atribuidos_a_outros"),
-        ("diretoria", "todos"),
-        ("diretoria", "atribuidos_a_outros"),
-        ("administrador", "sem_responsavel"),
-    ],
-)
-def test_aplicar_filtros_consulta_situacao_escolhida(monkeypatch, role, situacao):
+@pytest.mark.parametrize("role", ["tecnico", "diretoria", "administrador"])
+def test_aplicar_filtros_consulta_filtros_explicitos(monkeypatch, role):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso()
     monkeypatch.setattr(
@@ -165,11 +162,13 @@ def test_aplicar_filtros_consulta_situacao_escolhida(monkeypatch, role, situacao
     )
     estado = novo_estado_tecnico(role)
 
-    estado.situacao_atribuicao = situacao
+    estado.filtro_numero = "102"
+    estado.filtro_status = "Novo"
     executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
 
-    assert estado.situacao_atribuicao_aplicada == situacao
-    assert cliente.consultas == [("token-de-teste", situacao, None)]
+    assert estado.numero_aplicado == 102
+    assert estado.status_aplicado == "Novo"
+    assert cliente.consultas == [("token-de-teste", {"numero": 102, "status": "Novo", "ativo_id": None, "data_inicio": None, "data_fim": None})]
     assert estado.carregando_fila is False
 
 
@@ -194,35 +193,6 @@ def test_fila_global_redireciona_perfil_fora_do_escopo(monkeypatch):
     assert asyncio.run(estado._validar_acesso_fila()) == "/gerente"
 
 
-def test_situacoes_de_atribuicao_respeitam_o_perfil():
-    tecnico = novo_estado_tecnico("tecnico")
-    diretoria = novo_estado_tecnico("diretoria")
-    administrador = novo_estado_tecnico("administrador")
-
-    assert tecnico.situacoes_atribuicao_disponiveis() == [
-        "todos",
-        "sem_responsavel",
-        "atribuidos_a_mim",
-        "atribuidos_a_outros",
-    ]
-    assert diretoria.situacoes_atribuicao_disponiveis() == ["todos", "sem_responsavel", "atribuidos_a_outros"]
-    assert administrador.situacoes_atribuicao_disponiveis() == ["todos", "sem_responsavel", "atribuidos_a_outros"]
-
-
-def test_perfil_nao_tecnico_nao_pode_aplicar_atribuidos_a_mim(monkeypatch):
-    estado = novo_estado_tecnico("diretoria")
-    estado.situacao_atribuicao = "atribuidos_a_mim"
-
-    eventos = executar_evento(
-        ChamadosTecnicoState.aplicar_filtros,
-        estado,
-    )
-
-    assert eventos == []
-    assert estado.situacao_atribuicao_aplicada == "todos"
-    assert estado.mensagem_fila == "Selecione uma situação de atribuição válida."
-
-
 def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso()
@@ -232,11 +202,11 @@ def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
         lambda: cliente,
     )
     estado = novo_estado_tecnico("diretoria")
-    estado.numero = " 102 "
+    estado.filtro_numero = " 102 "
 
     executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
 
-    assert cliente.consultas == [("token-de-teste", "todos", "102")]
+    assert cliente.consultas == [("token-de-teste", {"numero": 102, "status": None, "ativo_id": None, "data_inicio": None, "data_fim": None})]
 
 
 def test_limpar_filtros_recarrega_fila_sem_numero(monkeypatch):
@@ -248,39 +218,62 @@ def test_limpar_filtros_recarrega_fila_sem_numero(monkeypatch):
         lambda: cliente,
     )
     estado = novo_estado_tecnico("administrador")
-    estado.numero = "102"
+    estado.filtro_numero = "102"
 
     executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
 
-    assert estado.numero == ""
-    assert cliente.consultas == [("token-de-teste", "todos", None)]
+    assert estado.filtro_numero == ""
+    assert cliente.consultas == [("token-de-teste", {"numero": None, "status": None, "ativo_id": None, "data_inicio": None, "data_fim": None})]
 
 
 def test_falha_da_consulta_preserva_filtro_e_resultado_aplicados(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     anterior = _tecnico_para_dict(resumo_tecnico())
     cliente = ClienteTecnicoFalso(
-        listas={"sem_responsavel": XanoContratoInvalido("contrato incompatível")}
+        listas={"resultado": XanoContratoInvalido("contrato incompatível")}
     )
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado_tecnico()
     estado.chamados = [anterior]
-    estado.situacao_atribuicao = "sem_responsavel"
+    estado.filtro_status = "Novo"
 
     executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
 
-    assert cliente.consultas == [("token-de-teste", "sem_responsavel", None)]
-    assert estado.situacao_atribuicao_aplicada == "todos"
-    assert estado.situacao_atribuicao == "todos"
-    assert estado.numero == ""
+    assert cliente.consultas[0][1]["status"] == "Novo"
+    assert estado.status_aplicado == ""
+    assert estado.filtro_status == ""
     assert estado.chamados == [anterior]
     assert "identidade" not in estado.mensagem_fila.casefold()
     assert "resposta do serviço" in estado.mensagem_fila
 
 
+def test_falha_ao_carregar_totens_nao_substitui_resultado_confirmado(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    anterior = _tecnico_para_dict(resumo_tecnico())
+    cliente = ClienteTecnicoFalso(
+        listas={"resultado": [resumo_tecnico()]},
+        erro_ativos=XanoIndisponivel("falha"),
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.chamados = [anterior]
+    estado.total_chamados = 1
+    estado.filtro_status_confirmado = "Novo"
+    estado.status_aplicado = "Novo"
+    estado.filtros_aplicados = ["Status: Novo"]
+    estado.filtro_status = "Encerrado"
+
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
+
+    assert estado.chamados == [anterior]
+    assert estado.total_chamados == 1
+    assert estado.filtro_status == "Novo"
+    assert estado.filtros_aplicados == ["Status: Novo"]
+
+
 def test_erro_403_na_fila_preserva_sessao(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
-    cliente = ClienteTecnicoFalso(listas={"todos": XanoNaoAutorizado("negado")})
+    cliente = ClienteTecnicoFalso(listas={"resultado": XanoNaoAutorizado("negado")})
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado_tecnico()
 
@@ -294,34 +287,34 @@ def test_numero_invalido_nao_submete_nem_altera_filtro_aplicado(monkeypatch):
     cliente = ClienteTecnicoFalso()
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado_tecnico()
-    estado.numero = "abc"
+    estado.filtro_numero = "abc"
 
     executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
 
     assert cliente.consultas == []
-    assert estado.numero_aplicado == ""
+    assert estado.numero_aplicado is None
     assert estado.mensagem_fila == "Informe um número de chamado válido."
 
 
 def test_limpar_filtros_com_falha_restaura_os_valores_aplicados(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso(
-        listas={"todos": XanoContratoInvalido("contrato incompatível")}
+        listas={"resultado": XanoContratoInvalido("contrato incompatível")}
     )
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado_tecnico()
-    estado.situacao_atribuicao = "sem_responsavel"
-    estado.situacao_atribuicao_aplicada = "sem_responsavel"
-    estado.numero = "101"
-    estado.numero_aplicado = "101"
-    estado.filtros_aplicados = ["Sem responsável", "Número: 101"]
+    estado.filtro_status_confirmado = "Novo"
+    estado.filtro_numero_confirmado = "101"
+    estado.status_aplicado = "Novo"
+    estado.numero_aplicado = 101
+    estado.filtros_aplicados = ["Status: Novo", "Número: 101"]
 
     executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
 
-    assert cliente.consultas == [("token-de-teste", "todos", None)]
-    assert estado.situacao_atribuicao == "sem_responsavel"
-    assert estado.numero == "101"
-    assert estado.filtros_aplicados == ["Sem responsável", "Número: 101"]
+    assert cliente.consultas[0][1]["numero"] is None
+    assert estado.filtro_status == "Novo"
+    assert estado.filtro_numero == "101"
+    assert estado.filtros_aplicados == ["Status: Novo", "Número: 101"]
 
 
 def test_contrato_invalido_no_detalhe_nao_vira_erro_de_identidade(monkeypatch):
@@ -342,7 +335,8 @@ def test_fila_global_reutiliza_tabela_e_filtros_sem_abas_de_visao():
     fonte = inspect.getsource(paginas_chamados._fila_tecnico)
 
     assert "rx.table.root" in fonte
-    assert "Situação de atribuição" in fonte
+    assert "Situação de atribuição" not in fonte
+    assert "Atribuídos a outros Técnicos" not in fonte
     assert 'item["tecnico_nome"]' in fonte
     assert "selecionar_visao" not in fonte
     assert '"Não atribuídos"' not in fonte
@@ -474,7 +468,7 @@ def test_assuncao_bem_sucedida_atualiza_detalhe_timeline_e_fila(monkeypatch):
     assert cliente.assuncoes == [("token-de-teste", 32)]
     assert cliente.atribuicoes == [("token-de-teste", 32, "assumir", None)]
     assert cliente.detalhes == [("token-de-teste", 32)]
-    assert cliente.consultas == [("token-de-teste", "todos", None)]
+    assert cliente.consultas[0][1]["numero"] is None
     assert estado.chamado["status"] == "Novo"
     assert estado.chamado["tecnico_nome"] == "Técnico 9"
     assert estado.chamado["atribuido_em_texto"] != "Não informado"
@@ -574,7 +568,7 @@ def test_conflito_informa_e_recarrega_sem_substituir_detalhe_local(monkeypatch):
     executar_evento(ChamadosTecnicoState.assumir, estado, 32)
 
     assert cliente.assuncoes == [("token-de-teste", 32)]
-    assert cliente.consultas == [("token-de-teste", "todos", None)]
+    assert cliente.consultas[0][1]["numero"] is None
     assert estado.chamado == detalhe_anterior
     assert estado.mensagem_assuncao == "A atribuição do chamado foi alterada por outra operação."
     assert estado.assumindo_id is None
@@ -600,7 +594,7 @@ def test_excecao_inesperada_libera_loading_e_nao_expoe_detalhe(monkeypatch):
     assert estado.carregando_fila is False
     assert estado.mensagem_assuncao == MENSAGEM_INDISPONIVEL
     assert "sensível" not in estado.mensagem_assuncao
-    assert cliente.consultas == [("token-de-teste", "todos", None)]
+    assert cliente.consultas[0][1]["numero"] is None
 
 
 def test_detalhe_tecnico_oferece_gestao_de_responsavel_e_timeline_sem_status():

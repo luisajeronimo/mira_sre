@@ -2,16 +2,17 @@
 
 ## Why
 
-A fila consolidada atende somente Técnicos, limita a consulta a chamados `Novo` e permite apenas autoatribuição. Isso não oferece a visão global de distribuição prevista para Técnico, Diretoria e Administrador nem permite acompanhar de forma auditável as mudanças de responsável.
+A implementação atual da fila global divergiu da listagem do Gerente: mantém visões de atribuição como navegação, não aplica os mesmos filtros explícitos e não possui evidência de integração do contrato real. Isso impede Técnico, Diretoria e Administrador de consultar a distribuição global de forma confiável e encobre erros de contrato no detalhe.
 
 ## What Changes
 
-- Ampliar a fila existente para consulta global por Técnico, Diretoria e Administrador, com pesquisa pelo número e identificação de chamados sem responsável, próprios e atribuídos a outros Técnicos.
+- Alinhar a fila existente ao padrão da listagem do Gerente: uma tabela global com filtros explícitos de número, status, Totem e período; sem filtros, `Todos` representa todos os chamados globais.
+- Remover as visões e filtros de navegação por situação de atribuição, inclusive `Atribuídos a outros Técnicos`; o responsável continua visível na tabela e administrável no detalhe.
 - Permitir assumir, atribuir, reatribuir e liberar o Técnico responsável em chamados não terminais, preservando o status e validando no Xano que o responsável é Técnico.
 - Preservar idempotência ao repetir `Assumir` pelo Técnico já responsável, sem renovar `atribuido_em` nem duplicar o evento.
 - Apresentar comentários existentes e eventos estruturados de atribuição, reatribuição e liberação em uma única timeline cronológica.
 - Aplicar a autorização e registrar a alteração do responsável e seu evento na mesma operação Xano.
-- Manter a fila e o detalhe Reflex existentes, ampliando seus contratos e componentes conforme necessário.
+- Manter a fila e o detalhe Reflex existentes, com DTO único e contrato validado contra respostas reais do Xano.
 
 ## Capabilities
 

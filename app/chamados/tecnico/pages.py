@@ -16,30 +16,36 @@ def _fila_tecnico() -> rx.Component:
                 rx.text("Filtros", weight="bold"),
                 rx.hstack(
                     rx.input(
-                        value=ChamadosTecnicoState.numero,
+                        value=ChamadosTecnicoState.filtro_numero,
                         placeholder="Número do chamado",
-                        on_change=ChamadosTecnicoState.atualizar_numero,
+                        on_change=ChamadosTecnicoState.alterar_filtro_numero,
                         type="number",
                         min="1",
                         aria_label="Pesquisar chamado por número",
                     ),
-                    rx.select.root(
-                        rx.select.trigger(placeholder="Situação de atribuição"),
-                        rx.select.content(
-                            rx.select.item("Todos", value="todos"),
-                            rx.select.item("Sem responsável", value="sem_responsavel"),
-                            rx.cond(
-                                AuthState.role == "tecnico",
-                                rx.select.item("Atribuídos a mim", value="atribuidos_a_mim"),
-                                rx.fragment(),
-                            ),
-                            rx.select.item(
-                                "Atribuídos a outros Técnicos",
-                                value="atribuidos_a_outros",
-                            ),
-                        ),
-                        value=ChamadosTecnicoState.situacao_atribuicao,
-                        on_change=ChamadosTecnicoState.atualizar_situacao_atribuicao,
+                    rx.select(
+                        ChamadosTecnicoState.status_filtros(),
+                        value=ChamadosTecnicoState.filtro_status,
+                        on_change=ChamadosTecnicoState.alterar_filtro_status,
+                        placeholder="Status",
+                    ),
+                    rx.select(
+                        ChamadosTecnicoState.ativos,
+                        value=ChamadosTecnicoState.filtro_ativo,
+                        on_change=ChamadosTecnicoState.alterar_filtro_ativo,
+                        placeholder="Totem",
+                    ),
+                    rx.input(
+                        value=ChamadosTecnicoState.filtro_data_inicio,
+                        on_change=ChamadosTecnicoState.alterar_filtro_data_inicio,
+                        type="date",
+                        aria_label="Abertura a partir de",
+                    ),
+                    rx.input(
+                        value=ChamadosTecnicoState.filtro_data_fim,
+                        on_change=ChamadosTecnicoState.alterar_filtro_data_fim,
+                        type="date",
+                        aria_label="Abertura até",
                     ),
                     rx.button(
                         "Aplicar",

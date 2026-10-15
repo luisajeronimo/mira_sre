@@ -635,24 +635,32 @@ class XanoServiceDeskCliente(XanoCliente):
     async def listar_chamados_tecnico(
         self,
         token: str,
-        situacao_atribuicao: str = "todos",
-        numero: str | None = None,
-    ) -> list[ChamadoResumo]:
-        params: dict[str, str] = {}
-        if situacao_atribuicao != "todos":
-            params["situacao_atribuicao"] = situacao_atribuicao
-        if numero is not None and numero.strip():
-            params["numero"] = numero.strip()
+        *,
+        numero: int | None = None,
+        status: str | None = None,
+        ativo_id: int | None = None,
+        data_inicio: int | None = None,
+        data_fim: int | None = None,
+    ) -> ListaChamadosGerente:
+        """Lista global com o mesmo envelope e filtros da lista do Gerente."""
+
+        params: dict[str, str | int] = {}
+        for campo, valor in (
+            ("numero", numero),
+            ("status", status),
+            ("ativo_id", ativo_id),
+            ("data_inicio", data_inicio),
+            ("data_fim", data_fim),
+        ):
+            if valor is not None and valor != "":
+                params[campo] = valor
         dados = await self._requisitar(
             "GET",
             "/tecnico/chamados",
             token=token,
             params=params,
         )
-        return [
-            _resumo(item, permitir_status_nulo=True)
-            for item in _colecao(dados)
-        ]
+        return _lista_chamados_gerente(dados)
 
     async def obter_chamado_tecnico(
         self,

@@ -24,7 +24,7 @@ Restrições relevantes: o Xano permanece autoridade de perfil, persistência e 
 
 ### Evoluir os contratos existentes
 
-- Ampliar `GET /tecnico/chamados` para os três perfis globais e acrescentar pesquisa por número e filtro simples da situação de atribuição. A tela usa uma única tabela global, no padrão da listagem do Gerente: sem filtro, `Todos` é o conjunto global completo e não restringe status, responsável, origem, solicitante, data ou Loja. Estados terminais continuam visíveis.
+- Ampliar `GET /tecnico/chamados` para os três perfis globais e aplicar os mesmos filtros explícitos da listagem do Gerente: número, status, Totem e período de abertura. A tela usa uma única tabela global: sem filtro, `Todos` é o conjunto global completo e não restringe status, responsável, origem, solicitante, data ou Loja. Estados terminais continuam visíveis. Situação de atribuição não é uma visão ou filtro da fila; o responsável é coluna da tabela e é administrado no detalhe.
 - Ampliar `GET /tecnico/chamados/{id}` para os mesmos perfis e retornar a timeline e uma lista mínima de Técnicos válidos (`id`, `nome`) para o seletor de atribuição. Essa lista no detalhe evita depender do CRUD genérico de usuários, que não fornece a consulta autorizada necessária, ou criar uma rota só para o seletor.
 - Evoluir `POST /tecnico/chamados/{id}/assumir` para um comando de responsável com `acao` (`assumir`, `atribuir` ou `liberar`). `assumir` continua derivando o responsável de `$auth.id`; `atribuir` recebe o Técnico alvo; `liberar` não recebe alvo. Para manter o uso atual, ausência de `acao` equivale a `assumir`. Nenhuma ação aceita `status` ou `atribuido_em` do cliente. Um único comando evita rotas paralelas para as operações do mesmo domínio.
 - Validar no Xano a sessão, o papel, o estado do chamado e o perfil Técnico do usuário alvo. Técnico, Diretoria e Administrador podem atribuir/reatribuir; somente o Técnico responsável pode liberar como Técnico. Diretoria e Administrador podem liberar qualquer atribuição. Os CRUDs genéricos permanecem negados.
@@ -43,9 +43,10 @@ Restrições relevantes: o Xano permanece autoridade de perfil, persistência e 
 
 ### Reutilizar a tela e o State Reflex
 
-- Adaptar a página de fila, `ChamadosTecnicoState`, service e detalhe atuais para os perfis autorizados, mantendo uma tabela, pesquisa, filtros simples, seletor de responsável e timeline no detalhe. O State separa os valores editados dos filtros efetivamente aplicados: somente uma resposta bem-sucedida confirma a consulta e altera sua indicação visual.
+- Adaptar a página de fila, `ChamadosTecnicoState`, service e detalhe atuais para os perfis autorizados, reutilizando a estrutura de tabela e filtros da listagem do Gerente e adicionando a coluna de responsável. O State separa valores editados, consulta enviada e filtros confirmados: somente uma resposta bem-sucedida substitui o resultado e altera sua indicação visual. Uma falha invalida a tentativa, preserva o último resultado e seus filtros confirmados, e não apresenta o rascunho como aplicado.
 - Respostas 401 encerram a sessão; 403 preservam a sessão e informam autorização negada. Falhas de contrato, rede ou filtro são mostradas como erro de carregamento ou de filtro, sem serem apresentadas como falha de identidade.
 - A interface oculta ações incompatíveis com perfil/estado para orientar o uso, mas cada operação continua sendo autorizada e validada no Xano.
+- O mesmo DTO canônico de chamado é usado pela lista, detalhe, service e State. Campos obrigatórios ausentes são falha de contrato, nunca valores silenciosamente convertidos em `undefined`.
 
 ### Alternativas consideradas
 

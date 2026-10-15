@@ -352,7 +352,7 @@ def test_criador_sistema_invalido_falha_fechado(valor):
         executar(cliente.obter_chamado("token", 101))
 
 
-def test_contratos_tecnicos_enviam_filtro_de_atribuicao_e_pesquisa_por_numero():
+def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
     requisicoes = []
 
     def responder(requisicao: httpx.Request) -> httpx.Response:
@@ -366,7 +366,7 @@ def test_contratos_tecnicos_enviam_filtro_de_atribuicao_e_pesquisa_por_numero():
                             "id": 101,
                             "titulo": "Falha",
                             "descricao": "Descrição",
-                            "status": None,
+                                "status": "Novo",
                             "prioridade": "Alta",
                             "origem": "manual",
                             "criado_em": 1780000000000,
@@ -378,7 +378,7 @@ def test_contratos_tecnicos_enviam_filtro_de_atribuicao_e_pesquisa_por_numero():
                             "solicitante": {"id": 8, "nome": "Gerente"},
                             "tecnico": {"id": None, "nome": None},
                         }
-                    ],
+                    ], "total": 1,
                 },
             )
         if requisicao.method == "GET":
@@ -421,16 +421,14 @@ def test_contratos_tecnicos_enviam_filtro_de_atribuicao_e_pesquisa_por_numero():
         transport=httpx.MockTransport(responder),
     )
     fila = executar(cliente.listar_chamados_tecnico("token"))
-    busca = executar(
-        cliente.listar_chamados_tecnico("token", "atribuidos_a_outros", " 102 ")
-    )
+    busca = executar(cliente.listar_chamados_tecnico("token", numero=102, status="Novo", ativo_id=1, data_inicio=1780000000000, data_fim=1780100000000))
     detalhe = executar(cliente.obter_chamado_tecnico("token", 101))
     assumido = executar(cliente.assumir_chamado_tecnico("token", 101))
 
-    assert fila[0].tecnico is None
-    assert fila[0].atribuido_em is None
-    assert fila[0].status is None
-    assert busca[0].id == 101
+    assert fila.items[0].tecnico is None
+    assert fila.items[0].atribuido_em is None
+    assert fila.items[0].status == "Novo"
+    assert busca.items[0].id == 101
     assert detalhe.chamado.atribuido_em == 1780000001000
     assert [evento.tipo for evento in detalhe.timeline] == [
         "comentario",
@@ -441,10 +439,7 @@ def test_contratos_tecnicos_enviam_filtro_de_atribuicao_e_pesquisa_por_numero():
     assert assumido.atribuido_em == 1780000001000
     assert requisicoes[0].url.path.endswith("/tecnico/chamados")
     assert dict(requisicoes[0].url.params) == {}
-    assert dict(requisicoes[1].url.params) == {
-        "situacao_atribuicao": "atribuidos_a_outros",
-        "numero": "102",
-    }
+    assert dict(requisicoes[1].url.params) == {"numero": "102", "status": "Novo", "ativo_id": "1", "data_inicio": "1780000000000", "data_fim": "1780100000000"}
     assert requisicoes[3].method == "POST"
     assert json.loads(requisicoes[3].read()) == {"acao": "assumir"}
 

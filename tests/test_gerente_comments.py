@@ -260,7 +260,7 @@ def test_xanoscript_preserva_timestamps_e_visibilidade_fechada():
     assert "timestamp? ultima_atualizacao_em?" in chamados
     assert 'values = ["publica", "interna"]' in interacoes
     assert "ultima_atualizacao_em: $criado_em" in manual
-    assert "ultima_atualizacao_em: $atribuido_em" in assumir
+    assert "ultima_atualizacao_em: $instante" in assumir
     assert "ultima_atualizacao_em: $criado_em" in heartbeat
     assert '$db.interacoes_chamado.visibilidade == "publica"' in listar
     assert 'sort = {interacoes_chamado.criado_em: "desc"}' in listar

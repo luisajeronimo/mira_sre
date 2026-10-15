@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import reflex as rx
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app.chamados.shared import (
     DetalheView,
@@ -39,11 +41,24 @@ from app.states.auth import (
 class ChamadosTecnicoState(AuthState):
     """Mantém a fila global e as operações de responsável do chamado."""
 
-    situacao_atribuicao: str = "todos"
-    situacao_atribuicao_aplicada: str = "todos"
-    numero: str = ""
-    numero_aplicado: str = ""
+    filtro_numero: str = ""
+    filtro_status: str = ""
+    filtro_ativo: str = ""
+    filtro_data_inicio: str = ""
+    filtro_data_fim: str = ""
+    filtro_numero_confirmado: str = ""
+    filtro_status_confirmado: str = ""
+    filtro_ativo_confirmado: str = ""
+    filtro_data_inicio_confirmada: str = ""
+    filtro_data_fim_confirmada: str = ""
+    numero_aplicado: int | None = None
+    status_aplicado: str = ""
+    ativo_id_aplicado: int | None = None
+    data_inicio_aplicada: int | None = None
+    data_fim_aplicada: int | None = None
     filtros_aplicados: list[str] = []
+    ativos: list[str] = []
+    total_chamados: int = 0
     chamados: list[TecnicoView] = []
     chamado: DetalheView = {}
     timeline: list[TimelineView] = []
@@ -60,17 +75,9 @@ class ChamadosTecnicoState(AuthState):
     mensagem_responsavel: str = ""
     mensagem_sucesso_responsavel: str = ""
 
-    def situacoes_atribuicao_disponiveis(self) -> list[str]:
-        if self.role == "tecnico":
-            return [
-                "todos",
-                "sem_responsavel",
-                "atribuidos_a_mim",
-                "atribuidos_a_outros",
-            ]
-        if self.role in {"diretoria", "administrador"}:
-            return ["todos", "sem_responsavel", "atribuidos_a_outros"]
-        return []
+    @staticmethod
+    def status_filtros() -> list[str]:
+        return ["Novo", "Em Atendimento", "Aguardando Solicitante", "Aguardando Mudança", "Resolvido", "Solução Rejeitada", "Encerrado", "Cancelado"]
 
     def _limpar_mensagens_tecnico(self) -> None:
         self.mensagem_fila = ""
@@ -110,6 +117,12 @@ class ChamadosTecnicoState(AuthState):
         return await self._revalidar("tecnico")
 
     async def _validar_acesso_fila(self) -> str | None:
+        if (
+            self.sessao_confirmada
+            and self._auth_token
+            and self.role in {"tecnico", "diretoria", "administrador"}
+        ):
+            return None
         destino = await self._revalidar()
         if destino is not None:
             return destino
@@ -170,49 +183,75 @@ class ChamadosTecnicoState(AuthState):
         return None
 
     @rx.event
-    def atualizar_situacao_atribuicao(self, situacao: str) -> None:
-        self.situacao_atribuicao = situacao
-
+    def alterar_filtro_numero(self, valor: str) -> None: self.filtro_numero = valor
     @rx.event
-    def atualizar_numero(self, valor: str):
-        self.numero = valor
+    def alterar_filtro_status(self, valor: str) -> None: self.filtro_status = valor
+    @rx.event
+    def alterar_filtro_ativo(self, valor: str) -> None: self.filtro_ativo = valor
+    @rx.event
+    def alterar_filtro_data_inicio(self, valor: str) -> None: self.filtro_data_inicio = valor
+    @rx.event
+    def alterar_filtro_data_fim(self, valor: str) -> None: self.filtro_data_fim = valor
+
+    @staticmethod
+    def _id_da_opcao(valor: str) -> int | None:
+        try: resultado = int(valor.split(" — ", 1)[0]) if valor else None
+        except (TypeError, ValueError): return None
+        return resultado if resultado and resultado > 0 else None
+
+    @staticmethod
+    def _inicio_do_dia(data: str) -> int:
+        return int(datetime.strptime(data, "%Y-%m-%d").replace(tzinfo=ZoneInfo("America/Sao_Paulo")).timestamp() * 1000)
+
+    def _filtros_solicitados(self) -> tuple[int | None, str, int | None, int | None, int | None, list[str]] | None:
+        numero = self.filtro_numero.strip()
+        if numero and (not numero.isdigit() or int(numero) <= 0):
+            self.mensagem_fila = "Informe um número de chamado válido."; return None
+        if self.filtro_status and self.filtro_status not in self.status_filtros():
+            self.mensagem_fila = "Informe um status válido."; return None
+        ativo_id = self._id_da_opcao(self.filtro_ativo)
+        if self.filtro_ativo and ativo_id is None:
+            self.mensagem_fila = "Selecione um Totem válido."; return None
+        try:
+            inicio = self._inicio_do_dia(self.filtro_data_inicio) if self.filtro_data_inicio else None
+            fim = self._inicio_do_dia(self.filtro_data_fim) + 86_400_000 if self.filtro_data_fim else None
+        except ValueError:
+            self.mensagem_fila = "Informe um período de abertura válido."; return None
+        if inicio is not None and fim is not None and inicio >= fim:
+            self.mensagem_fila = "A data inicial deve ser anterior à data final."; return None
+        etiquetas = ([f"Número: {numero}"] if numero else []) + ([f"Status: {self.filtro_status}"] if self.filtro_status else []) + ([f"Totem: {self.filtro_ativo.split(' — ', 1)[-1]}"] if self.filtro_ativo else []) + ([f"Abertura a partir de: {self.filtro_data_inicio}"] if self.filtro_data_inicio else []) + ([f"Abertura até: {self.filtro_data_fim}"] if self.filtro_data_fim else [])
+        return (int(numero) if numero else None, self.filtro_status, ativo_id, inicio, fim, etiquetas)
+
+    def _restaurar_filtros_confirmados(self) -> None:
+        self.filtro_numero = self.filtro_numero_confirmado
+        self.filtro_status = self.filtro_status_confirmado
+        self.filtro_ativo = self.filtro_ativo_confirmado
+        self.filtro_data_inicio = self.filtro_data_inicio_confirmada
+        self.filtro_data_fim = self.filtro_data_fim_confirmada
 
     @rx.event
     async def aplicar_filtros(self):
-        numero = self.numero.strip()
-        if numero and (not numero.isdigit() or int(numero) <= 0):
-            self.mensagem_fila = "Informe um número de chamado válido."
-            return
-        if self.situacao_atribuicao not in self.situacoes_atribuicao_disponiveis():
-            self.mensagem_fila = "Selecione uma situação de atribuição válida."
-            return
+        filtros = self._filtros_solicitados()
+        if filtros is None: return
         async for evento in self._carregar_fila(
-            situacao=self.situacao_atribuicao,
-            numero=numero,
+            filtros=filtros,
             confirmar_filtros=True,
         ):
             yield evento
 
     @rx.event
     async def limpar_filtros(self):
-        self.numero = ""
-        self.situacao_atribuicao = "todos"
+        filtros = (None, "", None, None, None, [])
         async for evento in self._carregar_fila(
-            situacao="todos",
-            numero="",
+            filtros=filtros,
             confirmar_filtros=True,
         ):
             yield evento
 
-    def _restaurar_filtros_solicitados(self) -> None:
-        self.situacao_atribuicao = self.situacao_atribuicao_aplicada
-        self.numero = self.numero_aplicado
-
     @rx.event
     async def carregar_fila(self):
         async for evento in self._carregar_fila(
-            situacao=self.situacao_atribuicao_aplicada,
-            numero=self.numero_aplicado,
+            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados),
             confirmar_filtros=False,
         ):
             yield evento
@@ -220,8 +259,7 @@ class ChamadosTecnicoState(AuthState):
     async def _carregar_fila(
         self,
         *,
-        situacao: str,
-        numero: str,
+        filtros: tuple[int | None, str, int | None, int | None, int | None, list[str]],
         confirmar_filtros: bool,
     ):
         if self.carregando_fila:
@@ -240,38 +278,42 @@ class ChamadosTecnicoState(AuthState):
             if not self.sessao_confirmada:
                 return
             try:
-                resultado = await criar_cliente_service_desk().listar_chamados_tecnico(
-                    self._auth_token,
-                    situacao,
-                    numero or None,
-                )
-                self.chamados = [_tecnico_para_dict(item) for item in resultado]
+                numero, status, ativo_id, inicio, fim, etiquetas = filtros
+                cliente = criar_cliente_service_desk()
+                resultado = await cliente.listar_chamados_tecnico(self._auth_token, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim)
+                ativos_carregados: list[str] | None = None
+                if not self.ativos:
+                    ativos = await cliente.listar_ativos_monitoramento(self._auth_token)
+                    ativos_carregados = [f"{item.id} — {item.nome_ativo}" for item in ativos]
+                # A consulta só substitui o resultado confirmado depois que os
+                # dados auxiliares necessários à mesma tela também chegaram.
+                self.chamados = [_tecnico_para_dict(item) for item in resultado.items]
+                self.total_chamados = resultado.total
+                if ativos_carregados is not None:
+                    self.ativos = ativos_carregados
                 if confirmar_filtros:
-                    self.situacao_atribuicao_aplicada = situacao
-                    self.numero_aplicado = numero
-                    filtros: list[str] = []
-                    if situacao != "todos":
-                        filtros.append(
-                            {
-                                "sem_responsavel": "Sem responsável",
-                                "atribuidos_a_mim": "Atribuídos a mim",
-                                "atribuidos_a_outros": "Atribuídos a outros Técnicos",
-                            }[situacao]
-                        )
-                    if numero:
-                        filtros.append(f"Número: {numero}")
-                    self.filtros_aplicados = filtros
+                    self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados = filtros
+                    self.filtro_numero = str(numero) if numero is not None else ""
+                    self.filtro_status = status
+                    self.filtro_ativo = next((item for item in self.ativos if item.startswith(f"{ativo_id} —")), "") if ativo_id else ""
+                    self.filtro_data_inicio = self.filtro_data_inicio if inicio is not None else ""
+                    self.filtro_data_fim = self.filtro_data_fim if fim is not None else ""
+                    self.filtro_numero_confirmado = self.filtro_numero
+                    self.filtro_status_confirmado = self.filtro_status
+                    self.filtro_ativo_confirmado = self.filtro_ativo
+                    self.filtro_data_inicio_confirmada = self.filtro_data_inicio
+                    self.filtro_data_fim_confirmada = self.filtro_data_fim
             except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
                 destino = self._registrar_erro_fila(erro)
-                if confirmar_filtros and destino is None:
-                    self._restaurar_filtros_solicitados()
+                if confirmar_filtros:
+                    self._restaurar_filtros_confirmados()
                 if destino is not None:
                     yield rx.redirect(destino)
                     return
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             self._registrar_erro_fila(erro)
             if confirmar_filtros:
-                self._restaurar_filtros_solicitados()
+                self._restaurar_filtros_confirmados()
         finally:
             self.carregando_fila = False
 

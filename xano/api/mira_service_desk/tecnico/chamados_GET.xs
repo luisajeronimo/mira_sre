@@ -5,11 +5,12 @@ query "tecnico/chamados" verb=GET {
 
   input {
     text visao? filters=trim
+    text numero? filters=trim
   }
 
   stack {
     function.run "service_desk/listar_chamados_tecnico" {
-      input = {usuarios_id: $auth.id, visao: $input.visao}
+      input = {usuarios_id: $auth.id, visao: $input.visao, numero: $input.numero}
     } as $resultado
   }
 

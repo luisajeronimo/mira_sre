@@ -8,7 +8,28 @@ from typing import Any, TypedDict
 
 import reflex as rx
 
-from app.services.service_desk import ChamadoDetalhe, ChamadoResumo, ComentarioPublico
+from app.services.service_desk import (
+    ChamadoDetalhe,
+    ChamadoResumo,
+    ComentarioPublico,
+    EventoTimelineChamado,
+)
+
+
+_STATUS_ATRIBUICAO_PERMITIDA = frozenset(
+    {
+        "Novo",
+        "Em Atendimento",
+        "Aguardando Solicitante",
+        "Aguardando Mudança",
+        "Resolvido",
+        "Solução Rejeitada",
+    }
+)
+
+
+def _status_permite_atribuicao(status: str | None) -> bool:
+    return status in _STATUS_ATRIBUICAO_PERMITIDA
 
 
 def _timestamp_para_texto(valor: int | None) -> str:
@@ -60,6 +81,7 @@ def _resumo_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
 
 def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
     dados = asdict(chamado)
+    dados["status"] = chamado.status or "Não informado"
     dados["criado_em_texto"] = _timestamp_funcional_para_texto(chamado.criado_em)
     dados["ultima_atualizacao_em_texto"] = _timestamp_funcional_para_texto(
         chamado.ultima_atualizacao_em
@@ -79,7 +101,10 @@ def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
         if chamado.criador_sistema == "bot_fiscalizacao"
         else ""
     )
-    dados["pode_assumir"] = chamado.status == "Novo" and chamado.tecnico is None
+    dados["pode_assumir"] = (
+        _status_permite_atribuicao(chamado.status) and chamado.tecnico is None
+    )
+    dados["pode_atribuir"] = _status_permite_atribuicao(chamado.status)
     return dados
 
 
@@ -89,6 +114,37 @@ def comentario_publico_para_dict(comentario: ComentarioPublico) -> dict[str, Any
         "conteudo": comentario.conteudo,
         "criado_em_texto": _timestamp_para_texto(comentario.criado_em),
         "autor_nome": comentario.autor.nome if comentario.autor is not None else "Não informado",
+    }
+
+
+def evento_timeline_para_dict(evento: EventoTimelineChamado) -> dict[str, Any]:
+    titulos = {
+        "comentario": "Comentário",
+        "atribuicao": "Atribuição",
+        "reatribuicao": "Reatribuição",
+        "liberacao": "Liberação",
+    }
+    return {
+        "id": evento.id,
+        "tipo": evento.tipo,
+        "titulo": titulos[evento.tipo],
+        "conteudo": evento.conteudo or "",
+        "visibilidade": evento.visibilidade,
+        "visibilidade_texto": (
+            "Público" if evento.visibilidade == "publica" else "Interno"
+        ),
+        "criado_em_texto": _timestamp_funcional_para_texto(evento.criado_em),
+        "autor_nome": (
+            evento.autor.nome if evento.autor is not None else "Não informado"
+        ),
+        "tecnico_anterior_nome": (
+            evento.tecnico_anterior.nome
+            if evento.tecnico_anterior is not None
+            else ""
+        ),
+        "tecnico_novo_nome": (
+            evento.tecnico_novo.nome if evento.tecnico_novo is not None else ""
+        ),
     }
 
 
@@ -106,7 +162,9 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
         "atribuido_em_texto": _timestamp_para_texto(chamado.atribuido_em),
         "categoria_nome": chamado.categoria.nome,
         "tecnico_nome": tecnico.nome if tecnico is not None else "Não atribuído",
-        "pode_assumir": chamado.status == "Novo" and tecnico is None,
+        "pode_assumir": (
+            _status_permite_atribuicao(chamado.status) and tecnico is None
+        ),
     }
 
 
@@ -141,6 +199,8 @@ class DetalheView(TypedDict, total=False):
     solicitante_nome: str
     criador_sistema_nome: str
     pode_assumir: bool
+    pode_atribuir: bool
+    pode_liberar: bool
 
 
 class ComentarioView(TypedDict):
@@ -148,6 +208,24 @@ class ComentarioView(TypedDict):
     conteudo: str
     criado_em_texto: str
     autor_nome: str
+
+
+class TimelineView(TypedDict):
+    id: int
+    tipo: str
+    titulo: str
+    conteudo: str
+    visibilidade: str
+    visibilidade_texto: str
+    criado_em_texto: str
+    autor_nome: str
+    tecnico_anterior_nome: str
+    tecnico_novo_nome: str
+
+
+class TecnicoOpcaoView(TypedDict):
+    id: int
+    nome: str
 
 
 class TecnicoView(TypedDict, total=False):

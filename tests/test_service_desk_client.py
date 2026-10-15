@@ -47,6 +47,15 @@ def detalhe_valido(**alteracoes):
     return {"chamado": chamado}
 
 
+def detalhe_tecnico_valido(*, timeline=None, tecnicos=None, **alteracoes):
+    chamado = detalhe_valido(**alteracoes)["chamado"]
+    return {
+        "chamado": chamado,
+        "timeline": timeline or [],
+        "tecnicos": tecnicos or [],
+    }
+
+
 def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
     requisicoes = []
 
@@ -352,7 +361,40 @@ def test_contratos_tecnicos_enviam_visao_e_pesquisa_por_numero():
                     ],
                 },
             )
-        return httpx.Response(200, json=detalhe_valido(atribuido_em=1780000001000))
+        if requisicao.method == "GET":
+            return httpx.Response(
+                200,
+                json=detalhe_tecnico_valido(
+                    atribuido_em=1780000001000,
+                    timeline=[
+                        {
+                            "id": 11,
+                            "tipo": "comentario",
+                            "conteudo": "Comentário legado",
+                            "visibilidade": "publica",
+                            "criado_em": 1780000001000,
+                            "autor": {"id": 8, "nome": "Gerente"},
+                            "tecnico_anterior": None,
+                            "tecnico_novo": None,
+                        },
+                        {
+                            "id": 12,
+                            "tipo": "atribuicao",
+                            "conteudo": None,
+                            "visibilidade": "interna",
+                            "criado_em": 1780000002000,
+                            "autor": {"id": 12, "nome": "Técnico"},
+                            "tecnico_anterior": None,
+                            "tecnico_novo": {"id": 12, "nome": "Técnico"},
+                        },
+                    ],
+                    tecnicos=[{"id": 12, "nome": "Técnico"}],
+                ),
+            )
+        return httpx.Response(
+            200,
+            json=detalhe_valido(atribuido_em=1780000001000),
+        )
 
     cliente = XanoServiceDeskCliente(
         BASE_URL,
@@ -369,7 +411,13 @@ def test_contratos_tecnicos_enviam_visao_e_pesquisa_por_numero():
     assert fila[0].atribuido_em is None
     assert fila[0].status is None
     assert busca[0].id == 101
-    assert detalhe.atribuido_em == 1780000001000
+    assert detalhe.chamado.atribuido_em == 1780000001000
+    assert [evento.tipo for evento in detalhe.timeline] == [
+        "comentario",
+        "atribuicao",
+    ]
+    assert detalhe.timeline[0].criado_em < detalhe.timeline[1].criado_em
+    assert detalhe.tecnicos[0].id == 12
     assert assumido.atribuido_em == 1780000001000
     assert requisicoes[0].url.path.endswith("/tecnico/chamados")
     assert dict(requisicoes[0].url.params) == {"visao": "todos"}
@@ -378,7 +426,39 @@ def test_contratos_tecnicos_enviam_visao_e_pesquisa_por_numero():
         "numero": "102",
     }
     assert requisicoes[3].method == "POST"
-    assert json.loads(requisicoes[3].read()) == {}
+    assert json.loads(requisicoes[3].read()) == {"acao": "assumir"}
+
+
+@pytest.mark.parametrize(
+    ("acao", "tecnico_id", "esperado"),
+    [
+        ("atribuir", 12, {"acao": "atribuir", "tecnico_id": 12}),
+        ("liberar", None, {"acao": "liberar"}),
+    ],
+)
+def test_comando_responsavel_envia_payload_minimo(acao, tecnico_id, esperado):
+    requisicoes = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        requisicoes.append(requisicao)
+        return httpx.Response(200, json=detalhe_valido())
+
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(responder),
+    )
+
+    executar(
+        cliente.alterar_responsavel_tecnico(
+            "token",
+            101,
+            acao,
+            tecnico_id,
+        )
+    )
+
+    assert requisicoes[0].url.path.endswith("/tecnico/chamados/101/assumir")
+    assert json.loads(requisicoes[0].read()) == esperado
 
 
 def test_conflito_tecnico_e_classificado_sem_expor_corpo():

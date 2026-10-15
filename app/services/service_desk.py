@@ -19,6 +19,9 @@ from app.services.xano import (
 ORIGENS_CHAMADO = frozenset({"manual", "automatico"})
 CRIADORES_SISTEMA_CHAMADO = frozenset({"bot_fiscalizacao"})
 PRIORIDADES_CHAMADO = ("Baixa", "Média", "Alta", "Urgente")
+TIPOS_EVENTO_TIMELINE = frozenset(
+    {"comentario", "atribuicao", "reatribuicao", "liberacao"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +103,7 @@ class ChamadoDetalhe:
     id: int
     titulo: str
     descricao: str | None
-    status: str
+    status: str | None
     prioridade: str
     origem: str | None
     criado_em: int
@@ -112,6 +115,25 @@ class ChamadoDetalhe:
     tecnico: ReferenciaUsuario | None
     atribuido_em: int | None = None
     criador_sistema: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EventoTimelineChamado:
+    id: int
+    tipo: str
+    conteudo: str | None
+    visibilidade: str
+    criado_em: int
+    autor: ReferenciaUsuario | None
+    tecnico_anterior: ReferenciaUsuario | None
+    tecnico_novo: ReferenciaUsuario | None
+
+
+@dataclass(frozen=True, slots=True)
+class DetalheChamadoTecnico:
+    chamado: ChamadoDetalhe
+    timeline: list[EventoTimelineChamado]
+    tecnicos: list[ReferenciaUsuario]
 
 
 def _inteiro(valor: Any, campo: str) -> int:
@@ -309,12 +331,20 @@ def _lista_chamados_gerente(dados: dict[str, Any]) -> ListaChamadosGerente:
     )
 
 
-def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
+def _detalhe(
+    dados: dict[str, Any],
+    *,
+    permitir_status_nulo: bool = False,
+) -> ChamadoDetalhe:
     return ChamadoDetalhe(
         id=_inteiro(dados.get("id"), "id"),
         titulo=_texto(dados.get("titulo"), "titulo"),
         descricao=_texto_opcional(dados.get("descricao"), "descricao"),
-        status=_texto(dados.get("status"), "status"),
+        status=(
+            _texto_opcional(dados.get("status"), "status")
+            if permitir_status_nulo
+            else _texto(dados.get("status"), "status")
+        ),
         prioridade=_texto(dados.get("prioridade"), "prioridade"),
         origem=_origem(dados.get("origem")),
         criado_em=_inteiro(dados.get("criado_em"), "criado_em"),
@@ -338,6 +368,56 @@ def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
             "atribuido_em",
         ),
         criador_sistema=_criador_sistema(dados.get("criador_sistema")),
+    )
+
+
+def _evento_timeline(dados: Any) -> EventoTimelineChamado:
+    evento = _objeto(dados, "timeline")
+    tipo = _texto(evento.get("tipo"), "timeline.tipo")
+    if tipo not in TIPOS_EVENTO_TIMELINE:
+        raise XanoContratoInvalido(
+            "Campo inválido na resposta: timeline.tipo."
+        )
+    return EventoTimelineChamado(
+        id=_inteiro(evento.get("id"), "timeline.id"),
+        tipo=tipo,
+        conteudo=_texto_opcional(evento.get("conteudo"), "timeline.conteudo"),
+        visibilidade=_texto(evento.get("visibilidade"), "timeline.visibilidade"),
+        criado_em=_inteiro(evento.get("criado_em"), "timeline.criado_em"),
+        autor=_referencia_usuario(evento.get("autor"), "timeline.autor"),
+        tecnico_anterior=_referencia_usuario(
+            evento.get("tecnico_anterior"),
+            "timeline.tecnico_anterior",
+        ),
+        tecnico_novo=_referencia_usuario(
+            evento.get("tecnico_novo"),
+            "timeline.tecnico_novo",
+        ),
+    )
+
+
+def _detalhe_tecnico(dados: dict[str, Any]) -> DetalheChamadoTecnico:
+    timeline = dados.get("timeline")
+    tecnicos = dados.get("tecnicos")
+    if not isinstance(timeline, list) or not isinstance(tecnicos, list):
+        raise XanoContratoInvalido(
+            "O Xano retornou um detalhe técnico incompatível."
+        )
+    tecnicos_validos: list[ReferenciaUsuario] = []
+    for tecnico in tecnicos:
+        referencia = _referencia_usuario(tecnico, "tecnicos")
+        if referencia is None:
+            raise XanoContratoInvalido(
+                "O Xano retornou um Técnico inválido no detalhe."
+            )
+        tecnicos_validos.append(referencia)
+    return DetalheChamadoTecnico(
+        chamado=_detalhe(
+            _objeto(dados.get("chamado"), "chamado"),
+            permitir_status_nulo=True,
+        ),
+        timeline=[_evento_timeline(evento) for evento in timeline],
+        tecnicos=tecnicos_validos,
     )
 
 
@@ -556,11 +636,29 @@ class XanoServiceDeskCliente(XanoCliente):
         self,
         token: str,
         chamado_id: int,
-    ) -> ChamadoDetalhe:
+    ) -> DetalheChamadoTecnico:
         dados = await self._requisitar(
             "GET",
             f"/tecnico/chamados/{chamado_id}",
             token=token,
+        )
+        return _detalhe_tecnico(dados)
+
+    async def alterar_responsavel_tecnico(
+        self,
+        token: str,
+        chamado_id: int,
+        acao: str,
+        tecnico_id: int | None = None,
+    ) -> ChamadoDetalhe:
+        payload: dict[str, Any] = {"acao": acao}
+        if acao == "atribuir" and tecnico_id is not None:
+            payload["tecnico_id"] = tecnico_id
+        dados = await self._requisitar(
+            "POST",
+            f"/tecnico/chamados/{chamado_id}/assumir",
+            token=token,
+            json=payload,
         )
         return _detalhe(_objeto(dados.get("chamado"), "chamado"))
 
@@ -569,13 +667,11 @@ class XanoServiceDeskCliente(XanoCliente):
         token: str,
         chamado_id: int,
     ) -> ChamadoDetalhe:
-        dados = await self._requisitar(
-            "POST",
-            f"/tecnico/chamados/{chamado_id}/assumir",
-            token=token,
-            json={},
+        return await self.alterar_responsavel_tecnico(
+            token,
+            chamado_id,
+            "assumir",
         )
-        return _detalhe(_objeto(dados.get("chamado"), "chamado"))
 
 
 def criar_cliente_service_desk() -> XanoServiceDeskCliente:

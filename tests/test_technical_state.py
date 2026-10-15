@@ -9,6 +9,8 @@ import app.chamados.tecnico.state as chamados_module
 from app.services.service_desk import (
     ChamadoDetalhe,
     ChamadoResumo,
+    DetalheChamadoTecnico,
+    EventoTimelineChamado,
     ReferenciaAtivo,
     ReferenciaCategoria,
     ReferenciaUsuario,
@@ -72,22 +74,50 @@ def detalhe_tecnico(
 
 
 class ClienteTecnicoFalso:
-    def __init__(self, *, resultado_assuncao=None, erro_assuncao=None, listas=None):
-        self.resultado_assuncao = resultado_assuncao
+    def __init__(
+        self,
+        *,
+        resultado_assuncao=None,
+        erro_assuncao=None,
+        resultado_detalhe=None,
+        erro_detalhe=None,
+        listas=None,
+    ):
+        self.resultado_assuncao = resultado_assuncao or detalhe_tecnico(
+            tecnico=ReferenciaUsuario(id=9, nome="Técnico 9")
+        )
         self.erro_assuncao = erro_assuncao
+        self.resultado_detalhe = resultado_detalhe
+        self.erro_detalhe = erro_detalhe
         self.listas = listas or {}
         self.visoes = []
         self.assuncoes = []
+        self.detalhes = []
+        self.atribuicoes = []
 
     async def listar_chamados_tecnico(self, token, visao, numero=None):
         self.visoes.append((token, visao, numero))
         return self.listas.get(visao, [])
 
-    async def assumir_chamado_tecnico(self, token, chamado_id):
-        self.assuncoes.append((token, chamado_id))
+    async def alterar_responsavel_tecnico(
+        self, token, chamado_id, acao, tecnico_id=None
+    ):
+        self.atribuicoes.append((token, chamado_id, acao, tecnico_id))
+        if acao == "assumir":
+            self.assuncoes.append((token, chamado_id))
         if self.erro_assuncao is not None:
             raise self.erro_assuncao
         return self.resultado_assuncao
+
+    async def obter_chamado_tecnico(self, token, chamado_id):
+        self.detalhes.append((token, chamado_id))
+        if self.erro_detalhe is not None:
+            raise self.erro_detalhe
+        return self.resultado_detalhe or DetalheChamadoTecnico(
+            chamado=self.resultado_assuncao,
+            timeline=[],
+            tecnicos=[ReferenciaUsuario(id=9, nome="Técnico 9")],
+        )
 
 
 def novo_estado_tecnico(role="tecnico"):
@@ -233,9 +263,52 @@ def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():
         detalhe_tecnico(atribuido_em=1780000001000)
     )["pode_assumir"] is True
     assert _tecnico_para_dict(tecnico_atribuido)["pode_assumir"] is False
-    assert _tecnico_para_dict(status_diferente)["pode_assumir"] is False
+    assert _tecnico_para_dict(status_diferente)["pode_assumir"] is True
     assert _tecnico_para_dict(status_nulo)["status"] == "Não informado"
     assert _tecnico_para_dict(status_nulo)["pode_assumir"] is False
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        "Novo",
+        "Em Atendimento",
+        "Aguardando Solicitante",
+        "Aguardando Mudança",
+        "Resolvido",
+        "Solução Rejeitada",
+    ],
+)
+def test_assumir_e_atribuir_sao_elegiveis_em_qualquer_status_nao_terminal(status):
+    resumo = _tecnico_para_dict(resumo_tecnico(status=status))
+    detalhe = _detalhe_para_dict(detalhe_tecnico(status=status))
+
+    assert resumo["pode_assumir"] is True
+    assert detalhe["pode_assumir"] is True
+    assert detalhe["pode_atribuir"] is True
+
+
+@pytest.mark.parametrize("status", ["Encerrado", "Cancelado", None, "Desconhecido"])
+def test_status_terminal_ou_nao_reconhecido_nao_oferece_acoes(status):
+    resumo = _tecnico_para_dict(resumo_tecnico(status=status))
+    detalhe = _detalhe_para_dict(
+        detalhe_tecnico(
+            status=status,
+            tecnico=ReferenciaUsuario(id=13, nome="Outro Técnico"),
+        )
+    )
+    estado = novo_estado_tecnico("administrador")
+    estado._atualizar_chamado(
+        detalhe_tecnico(
+            status=status,
+            tecnico=ReferenciaUsuario(id=13, nome="Outro Técnico"),
+        )
+    )
+
+    assert resumo["pode_assumir"] is False
+    assert detalhe["pode_assumir"] is False
+    assert detalhe["pode_atribuir"] is False
+    assert estado.chamado["pode_liberar"] is False
 
 
 def test_detalhe_mostra_nome_do_bot_somente_quando_persistido():
@@ -263,13 +336,31 @@ def test_detalhes_apresentam_autoria_persistida_sem_ampliar_listagens():
     assert "criador_sistema" not in fila_tecnica
 
 
-def test_assuncao_bem_sucedida_recarrega_fila_e_preserva_confirmacao(monkeypatch):
+def test_assuncao_bem_sucedida_atualiza_detalhe_timeline_e_fila(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso(
         resultado_assuncao=detalhe_tecnico(
             tecnico=ReferenciaUsuario(id=9, nome="Técnico 9"),
         ),
-        listas={"nao_atribuidos": []},
+        resultado_detalhe=DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(
+                tecnico=ReferenciaUsuario(id=9, nome="Técnico 9"),
+            ),
+            timeline=[
+                EventoTimelineChamado(
+                    id=55,
+                    tipo="atribuicao",
+                    conteudo=None,
+                    visibilidade="interna",
+                    criado_em=1780000001000,
+                    autor=ReferenciaUsuario(id=9, nome="Técnico 9"),
+                    tecnico_anterior=None,
+                    tecnico_novo=ReferenciaUsuario(id=9, nome="Técnico 9"),
+                )
+            ],
+            tecnicos=[ReferenciaUsuario(id=9, nome="Técnico 9")],
+        ),
+        listas={"todos": []},
     )
     monkeypatch.setattr(
         chamados_module,
@@ -277,18 +368,61 @@ def test_assuncao_bem_sucedida_recarrega_fila_e_preserva_confirmacao(monkeypatch
         lambda: cliente,
     )
     estado = novo_estado_tecnico()
+    estado.chamados = [_tecnico_para_dict(resumo_tecnico())]
 
     executar_evento(ChamadosTecnicoState.assumir, estado, 32)
 
     assert cliente.assuncoes == [("token-de-teste", 32)]
+    assert cliente.atribuicoes == [("token-de-teste", 32, "assumir", None)]
+    assert cliente.detalhes == [("token-de-teste", 32)]
     assert cliente.visoes == [("token-de-teste", "todos", None)]
     assert estado.chamado["status"] == "Novo"
     assert estado.chamado["tecnico_nome"] == "Técnico 9"
     assert estado.chamado["atribuido_em_texto"] != "Não informado"
-    assert estado.mensagem_assuncao == "Chamado assumido com sucesso."
+    assert estado.mensagem_sucesso_responsavel == "Chamado assumido."
+    assert estado.timeline[0]["tipo"] == "atribuicao"
+    assert estado.timeline[0]["tecnico_novo_nome"] == "Técnico 9"
     assert estado.assumindo_id is None
     assert estado.carregando_fila is False
     assert estado.chamados == []
+
+
+def test_falha_ao_carregar_outro_detalhe_limpa_timeline_anterior(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(erro_detalhe=RuntimeError("falha de rede"))
+    monkeypatch.setattr(
+        chamados_module,
+        "criar_cliente_service_desk",
+        lambda: cliente,
+    )
+    estado = novo_estado_tecnico()
+    evento_chamado_anterior = EventoTimelineChamado(
+        id=55,
+        tipo="atribuicao",
+        conteudo=None,
+        visibilidade="interna",
+        criado_em=1780000001000,
+        autor=ReferenciaUsuario(id=9, nome="Técnico 9"),
+        tecnico_anterior=None,
+        tecnico_novo=ReferenciaUsuario(id=9, nome="Técnico 9"),
+    )
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(),
+            timeline=[evento_chamado_anterior],
+            tecnicos=[ReferenciaUsuario(id=9, nome="Técnico 9")],
+        )
+    )
+    object.__setattr__(estado, "chamado_id", "33")
+
+    executar_evento(ChamadosTecnicoState.carregar_detalhe_tecnico, estado)
+
+    assert cliente.detalhes == [("token-de-teste", 33)]
+    assert estado.chamado == {}
+    assert estado.timeline == []
+    assert estado.tecnicos == []
+    assert estado.tecnico_alvo_id == ""
+    assert estado.mensagem_detalhe_tecnico == MENSAGEM_INDISPONIVEL
 
 
 def test_conflito_informa_e_recarrega_sem_substituir_detalhe_local(monkeypatch):
@@ -300,15 +434,20 @@ def test_conflito_informa_e_recarrega_sem_substituir_detalhe_local(monkeypatch):
         lambda: cliente,
     )
     estado = novo_estado_tecnico()
-    detalhe_anterior = {"id": 32, "tecnico_nome": "Não atribuído"}
+    detalhe_anterior = {
+        "id": 32,
+        "tecnico_nome": "Não atribuído",
+        "pode_assumir": True,
+    }
     estado.chamado = detalhe_anterior
+    estado.chamados = [_tecnico_para_dict(resumo_tecnico())]
 
     executar_evento(ChamadosTecnicoState.assumir, estado, 32)
 
     assert cliente.assuncoes == [("token-de-teste", 32)]
     assert cliente.visoes == [("token-de-teste", "todos", None)]
     assert estado.chamado == detalhe_anterior
-    assert estado.mensagem_assuncao == "Este chamado foi assumido por outro Técnico."
+    assert estado.mensagem_assuncao == "A atribuição do chamado foi alterada por outra operação."
     assert estado.assumindo_id is None
     assert estado.carregando_fila is False
 
@@ -324,6 +463,7 @@ def test_excecao_inesperada_libera_loading_e_nao_expoe_detalhe(monkeypatch):
         lambda: cliente,
     )
     estado = novo_estado_tecnico()
+    estado.chamados = [_tecnico_para_dict(resumo_tecnico())]
 
     executar_evento(ChamadosTecnicoState.assumir, estado, 32)
 
@@ -334,7 +474,7 @@ def test_excecao_inesperada_libera_loading_e_nao_expoe_detalhe(monkeypatch):
     assert cliente.visoes == [("token-de-teste", "todos", None)]
 
 
-def test_telas_tecnicas_nao_exibem_acoes_de_tratativa_ou_reatribuicao():
+def test_detalhe_tecnico_oferece_gestao_de_responsavel_e_timeline_sem_status():
     fonte = "\n".join(
         (
             inspect.getsource(paginas_chamados._fila_tecnico),
@@ -342,14 +482,134 @@ def test_telas_tecnicas_nao_exibem_acoes_de_tratativa_ou_reatribuicao():
         )
     ).casefold()
 
-    for acao in (
-        "resolver",
-        "diagnóstico",
-        "diagnostico",
-        "work log",
-        "reatribuir",
-        "liberar",
-        "cancelar",
-        "alterar status",
-    ):
+    for acao in ("assumir", "atribuir técnico", "reatribuir técnico", "liberar responsável", "linha do tempo"):
+        assert acao in fonte
+    for acao in ("resolver", "alterar status", "mudar status"):
         assert acao not in fonte
+
+
+def test_atribuir_preserva_status_e_recarrega_timeline_do_xano(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    tecnico_anterior = ReferenciaUsuario(id=13, nome="Técnico A")
+    tecnico_novo = ReferenciaUsuario(id=14, nome="Técnico B")
+    chamado_atribuido = detalhe_tecnico(
+        status="Resolvido",
+        tecnico=tecnico_novo,
+        atribuido_em=1780000002000,
+    )
+    evento = EventoTimelineChamado(
+        id=56,
+        tipo="reatribuicao",
+        conteudo=None,
+        visibilidade="interna",
+        criado_em=1780000002000,
+        autor=ReferenciaUsuario(id=7, nome="Diretoria"),
+        tecnico_anterior=tecnico_anterior,
+        tecnico_novo=tecnico_novo,
+    )
+    cliente = ClienteTecnicoFalso(
+        resultado_assuncao=chamado_atribuido,
+        resultado_detalhe=DetalheChamadoTecnico(
+            chamado=chamado_atribuido,
+            timeline=[evento],
+            tecnicos=[tecnico_anterior, tecnico_novo],
+        ),
+        listas={"todos": []},
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico("diretoria")
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(status="Resolvido", tecnico=tecnico_anterior),
+            timeline=[],
+            tecnicos=[tecnico_anterior, tecnico_novo],
+        )
+    )
+    estado.selecionar_tecnico_alvo("14")
+
+    executar_evento(ChamadosTecnicoState.atribuir_responsavel, estado)
+
+    assert cliente.atribuicoes == [("token-de-teste", 32, "atribuir", 14)]
+    assert cliente.detalhes == [("token-de-teste", 32)]
+    assert estado.chamado["status"] == "Resolvido"
+    assert estado.chamado["tecnico_nome"] == "Técnico B"
+    assert estado.timeline[0]["titulo"] == "Reatribuição"
+    assert estado.timeline[0]["tecnico_anterior_nome"] == "Técnico A"
+    assert estado.timeline[0]["tecnico_novo_nome"] == "Técnico B"
+
+
+@pytest.mark.parametrize(
+    ("role", "usuario_id", "responsavel_id", "pode_liberar"),
+    [
+        ("tecnico", 13, 13, True),
+        ("tecnico", 13, 14, False),
+        ("diretoria", 7, 14, True),
+        ("administrador", 6, 14, True),
+    ],
+)
+def test_liberacao_visivel_conforme_perfil_e_responsavel(
+    role, usuario_id, responsavel_id, pode_liberar
+):
+    estado = novo_estado_tecnico(role)
+    object.__setattr__(estado, "usuario_id", usuario_id)
+
+    estado._atualizar_chamado(
+        detalhe_tecnico(
+            status="Em Atendimento",
+            tecnico=ReferenciaUsuario(id=responsavel_id, nome="Técnico responsável"),
+        )
+    )
+
+    assert estado.chamado["pode_liberar"] is pode_liberar
+
+
+def test_liberar_nao_envia_tecnico_id_nem_altera_status(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(
+        resultado_assuncao=detalhe_tecnico(status="Em Atendimento", tecnico=None),
+        resultado_detalhe=DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(status="Em Atendimento", tecnico=None),
+            timeline=[],
+            tecnicos=[ReferenciaUsuario(id=13, nome="Técnico A")],
+        ),
+        listas={"todos": []},
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico("administrador")
+    estado._atualizar_chamado(
+        detalhe_tecnico(
+            status="Em Atendimento",
+            tecnico=ReferenciaUsuario(id=13, nome="Técnico A"),
+        )
+    )
+
+    executar_evento(ChamadosTecnicoState.liberar_responsavel, estado)
+
+    assert cliente.atribuicoes == [("token-de-teste", 32, "liberar", None)]
+    assert estado.chamado["status"] == "Em Atendimento"
+    assert estado.chamado["tecnico_nome"] == "Não atribuído"
+
+
+def test_operacao_de_atribuicao_e_bloqueada_visualmente_em_terminal(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico("diretoria")
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(
+                status="Cancelado",
+                tecnico=ReferenciaUsuario(id=13, nome="Técnico A"),
+            ),
+            timeline=[],
+            tecnicos=[ReferenciaUsuario(id=14, nome="Técnico B")],
+        )
+    )
+    estado.tecnico_alvo_id = "14"
+
+    executar_evento(ChamadosTecnicoState.atribuir_responsavel, estado)
+    executar_evento(ChamadosTecnicoState.liberar_responsavel, estado)
+
+    assert cliente.atribuicoes == []
+    assert estado.chamado["pode_atribuir"] is False
+    assert estado.chamado["pode_liberar"] is False

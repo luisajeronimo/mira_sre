@@ -72,6 +72,14 @@ def _fila_tecnico() -> rx.Component:
         erro(ChamadosTecnicoState.mensagem_fila),
         erro(ChamadosTecnicoState.mensagem_assuncao),
         rx.cond(
+            ChamadosTecnicoState.mensagem_sucesso_responsavel != "",
+            rx.callout(
+                ChamadosTecnicoState.mensagem_sucesso_responsavel,
+                icon="check",
+                color_scheme="green",
+            ),
+        ),
+        rx.cond(
             ChamadosTecnicoState.carregando_fila,
             rx.center(rx.spinner(size="3"), width="100%", padding="4rem"),
             rx.cond(
@@ -127,9 +135,18 @@ def _fila_tecnico() -> rx.Component:
 
 def _detalhe_tecnico() -> rx.Component:
     return rx.vstack(
-        cabecalho("Detalhe técnico", "Consulta somente leitura, com autoatribuição aprovada."),
+        cabecalho("Detalhe técnico", "Consulta global, responsável e histórico do chamado."),
         erro(ChamadosTecnicoState.mensagem_detalhe_tecnico),
         erro(ChamadosTecnicoState.mensagem_assuncao),
+        erro(ChamadosTecnicoState.mensagem_responsavel),
+        rx.cond(
+            ChamadosTecnicoState.mensagem_sucesso_responsavel != "",
+            rx.callout(
+                ChamadosTecnicoState.mensagem_sucesso_responsavel,
+                icon="check",
+                color_scheme="green",
+            ),
+        ),
         rx.cond(
             ChamadosTecnicoState.carregando_detalhe_tecnico,
             rx.spinner(size="3"),
@@ -161,11 +178,132 @@ def _detalhe_tecnico() -> rx.Component:
                         ),
                         rx.fragment(),
                     ),
+                    rx.cond(
+                        (
+                            (AuthState.role == "tecnico")
+                            | (AuthState.role == "diretoria")
+                            | (AuthState.role == "administrador")
+                        )
+                        & ChamadosTecnicoState.chamado["pode_atribuir"],
+                        rx.vstack(
+                            rx.text("Atribuir ou reatribuir responsável", weight="bold"),
+                            rx.select.root(
+                                rx.select.trigger(
+                                    placeholder="Selecione um Técnico",
+                                    width="100%",
+                                ),
+                                rx.select.content(
+                                    rx.foreach(
+                                        ChamadosTecnicoState.tecnicos,
+                                        lambda tecnico: rx.select.item(
+                                            tecnico["nome"],
+                                            value=tecnico["id"].to_string(),
+                                        ),
+                                    ),
+                                ),
+                                value=ChamadosTecnicoState.tecnico_alvo_id,
+                                on_change=ChamadosTecnicoState.selecionar_tecnico_alvo,
+                                width="100%",
+                            ),
+                            rx.button(
+                                rx.cond(
+                                    ChamadosTecnicoState.chamado["tecnico_nome"] == "Não atribuído",
+                                    "Atribuir Técnico",
+                                    "Reatribuir Técnico",
+                                ),
+                                on_click=ChamadosTecnicoState.atribuir_responsavel,
+                                disabled=(
+                                    (ChamadosTecnicoState.tecnico_alvo_id == "")
+                                    | (ChamadosTecnicoState.alterando_responsavel_id != None)
+                                    | (ChamadosTecnicoState.assumindo_id != None)
+                                ),
+                            ),
+                            align="start",
+                            spacing="2",
+                            width="100%",
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        ChamadosTecnicoState.chamado["pode_liberar"],
+                        rx.button(
+                            rx.cond(
+                                ChamadosTecnicoState.alterando_responsavel_id
+                                == ChamadosTecnicoState.chamado["id"],
+                                "Liberando...",
+                                "Liberar responsável",
+                            ),
+                            on_click=ChamadosTecnicoState.liberar_responsavel,
+                            disabled=(
+                                (ChamadosTecnicoState.alterando_responsavel_id != None)
+                                | (ChamadosTecnicoState.assumindo_id != None)
+                            ),
+                            variant="outline",
+                        ),
+                        rx.fragment(),
+                    ),
                     align="start",
                     spacing="2",
+                    width="100%",
                 ),
                 width="100%",
             ),
+        ),
+        rx.cond(
+            (ChamadosTecnicoState.carregando_detalhe_tecnico == False)
+            & (ChamadosTecnicoState.mensagem_detalhe_tecnico == "")
+            & (ChamadosTecnicoState.chamado["id"] != None),
+            rx.vstack(
+                rx.heading("Linha do tempo", size="4"),
+                rx.cond(
+                    ChamadosTecnicoState.timeline.length() == 0,
+                    rx.callout(
+                        "Nenhum comentário ou evento registrado.",
+                        icon="info",
+                    ),
+                    rx.vstack(
+                        rx.foreach(
+                            ChamadosTecnicoState.timeline,
+                            lambda item: rx.card(
+                                rx.vstack(
+                                    rx.hstack(
+                                        rx.heading(item["titulo"], size="3"),
+                                        rx.badge(item["visibilidade_texto"]),
+                                        rx.text(item["criado_em_texto"], color="gray"),
+                                        justify="between",
+                                        width="100%",
+                                    ),
+                                    rx.text("Por: " + item["autor_nome"], color="gray"),
+                                    rx.cond(
+                                        item["conteudo"] != "",
+                                        rx.text(item["conteudo"], white_space="pre-wrap"),
+                                        rx.fragment(),
+                                    ),
+                                    rx.cond(
+                                        item["tecnico_anterior_nome"] != "",
+                                        rx.text("De: " + item["tecnico_anterior_nome"]),
+                                        rx.fragment(),
+                                    ),
+                                    rx.cond(
+                                        item["tecnico_novo_nome"] != "",
+                                        rx.text("Para: " + item["tecnico_novo_nome"]),
+                                        rx.fragment(),
+                                    ),
+                                    align="start",
+                                    spacing="2",
+                                    width="100%",
+                                ),
+                                width="100%",
+                            ),
+                        ),
+                        spacing="3",
+                        width="100%",
+                    ),
+                ),
+                spacing="5",
+                width="100%",
+            ),
+            rx.fragment(),
         ),
         rx.link("Voltar à fila", href="/tecnico"),
         spacing="5",

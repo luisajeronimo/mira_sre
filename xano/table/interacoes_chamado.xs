@@ -10,11 +10,22 @@ table interacoes_chamado {
   
     text mensagem? filters=trim
     timestamp? criado_em?
+    enum? tipo_evento? {
+      values = ["comentario", "atribuicao", "reatribuicao", "liberacao"]
+    }
     enum? visibilidade? {
       values = ["publica", "interna"]
     }
     int chamados_id? {
       table = "chamados"
+    }
+
+    int? tecnico_anterior_id? {
+      table = "usuarios"
+    }
+
+    int? tecnico_novo_id? {
+      table = "usuarios"
     }
   
     int usuarios_id? {

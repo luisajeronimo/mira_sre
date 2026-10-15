@@ -2,8 +2,8 @@
 
 ## 1. Dados e histórico
 
-- [ ] 1.1 Estender `interacoes_chamado` com tipo de evento e Técnico anterior/novo opcionais, preservando registros existentes; validar schema aditivo e leitura de comentários legados sem backfill.
-- [ ] 1.2 Alinhar `docs/domain-model.md` com a regra de que somente Técnico pode ser responsável, mantendo a gestão de atribuição por Diretoria e Administrador e a relação `Chamado → 0..1 Técnico responsável`.
+- [x] 1.1 Estender `interacoes_chamado` com tipo de evento e Técnico anterior/novo opcionais, preservando registros existentes; validar schema aditivo e leitura de comentários legados sem backfill.
+- [x] 1.2 Alinhar `docs/domain-model.md` com a regra de que somente Técnico pode ser responsável, mantendo a gestão de atribuição por Diretoria e Administrador e a relação `Chamado → 0..1 Técnico responsável`.
 
 ## 2. Xano: APIs e regras
 

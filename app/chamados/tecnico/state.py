@@ -283,7 +283,7 @@ class ChamadosTecnicoState(AuthState):
                 resultado = await cliente.listar_chamados_tecnico(self._auth_token, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim)
                 ativos_carregados: list[str] | None = None
                 if not self.ativos:
-                    ativos = await cliente.listar_ativos_monitoramento(self._auth_token)
+                    ativos = await cliente.listar_ativos_tecnico(self._auth_token)
                     ativos_carregados = [f"{item.id} — {item.nome_ativo}" for item in ativos]
                 # A consulta só substitui o resultado confirmado depois que os
                 # dados auxiliares necessários à mesma tela também chegaram.

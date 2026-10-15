@@ -108,7 +108,7 @@ class ClienteTecnicoFalso:
             raise resultado
         return ListaChamadosGerente(items=resultado, total=len(resultado))
 
-    async def listar_ativos_monitoramento(self, token):
+    async def listar_ativos_tecnico(self, token):
         if self.erro_ativos is not None:
             raise self.erro_ativos
         return []
@@ -340,6 +340,15 @@ def test_fila_global_reutiliza_tabela_e_filtros_sem_abas_de_visao():
     assert 'item["tecnico_nome"]' in fonte
     assert "selecionar_visao" not in fonte
     assert '"Não atribuídos"' not in fonte
+
+
+def test_erro_da_fila_nao_renderiza_empty_state_simultaneamente():
+    fonte = inspect.getsource(paginas_chamados._fila_tecnico)
+
+    assert 'ChamadosTecnicoState.mensagem_fila != ""' in fonte
+    assert fonte.index('ChamadosTecnicoState.mensagem_fila != ""') < fonte.index(
+        'ChamadosTecnicoState.chamados.length() == 0'
+    )
 
 
 def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():

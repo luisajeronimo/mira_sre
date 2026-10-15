@@ -76,6 +76,37 @@ def test_detalhe_tecnico_mapeia_loja_do_contrato_global():
     assert detalhe.chamado.loja.nome == "Loja Centro"
 
 
+def test_catalogo_tecnico_usa_rota_do_service_desk():
+    requisicoes = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        requisicoes.append(requisicao)
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": 1,
+                        "nome_ativo": "Totem 01",
+                        "tipo": "Totem",
+                        "status_atual": "online",
+                    }
+                ]
+            },
+        )
+
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(responder),
+    )
+
+    ativos = executar(cliente.listar_ativos_tecnico("token"))
+
+    assert ativos[0].nome_ativo == "Totem 01"
+    assert str(requisicoes[0].url) == f"{BASE_URL}/tecnico/ativos"
+    assert requisicoes[0].headers["Authorization"] == "Bearer token"
+
+
 def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
     requisicoes = []
 

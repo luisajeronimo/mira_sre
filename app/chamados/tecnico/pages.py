@@ -92,9 +92,12 @@ def _fila_tecnico() -> rx.Component:
             ChamadosTecnicoState.carregando_fila,
             rx.center(rx.spinner(size="3"), width="100%", padding="4rem"),
             rx.cond(
-                ChamadosTecnicoState.chamados.length() == 0,
-                rx.callout("Nenhum chamado encontrado.", icon="info"),
-                rx.box(
+                ChamadosTecnicoState.mensagem_fila != "",
+                rx.fragment(),
+                rx.cond(
+                    ChamadosTecnicoState.chamados.length() == 0,
+                    rx.callout("Nenhum chamado encontrado.", icon="info"),
+                    rx.box(
                     rx.table.root(
                         rx.table.header(
                             rx.table.row(
@@ -153,8 +156,9 @@ def _fila_tecnico() -> rx.Component:
                         ),
                         width="100%",
                     ),
-                    overflow_x="auto",
-                    width="100%",
+                        overflow_x="auto",
+                        width="100%",
+                    ),
                 ),
             ),
         ),

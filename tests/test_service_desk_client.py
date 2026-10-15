@@ -56,6 +56,26 @@ def detalhe_tecnico_valido(*, timeline=None, tecnicos=None, **alteracoes):
     }
 
 
+def test_detalhe_tecnico_mapeia_loja_do_contrato_global():
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json=detalhe_tecnico_valido(
+                    loja={"id": 3, "nome": "Loja Centro"},
+                ),
+            )
+        ),
+    )
+
+    detalhe = executar(cliente.obter_chamado_tecnico("token", 101))
+
+    assert detalhe.chamado.loja is not None
+    assert detalhe.chamado.loja.id == 3
+    assert detalhe.chamado.loja.nome == "Loja Centro"
+
+
 def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
     requisicoes = []
 
@@ -332,7 +352,7 @@ def test_criador_sistema_invalido_falha_fechado(valor):
         executar(cliente.obter_chamado("token", 101))
 
 
-def test_contratos_tecnicos_enviam_visao_e_pesquisa_por_numero():
+def test_contratos_tecnicos_enviam_filtro_de_atribuicao_e_pesquisa_por_numero():
     requisicoes = []
 
     def responder(requisicao: httpx.Request) -> httpx.Response:
@@ -400,7 +420,7 @@ def test_contratos_tecnicos_enviam_visao_e_pesquisa_por_numero():
         BASE_URL,
         transport=httpx.MockTransport(responder),
     )
-    fila = executar(cliente.listar_chamados_tecnico("token", "todos"))
+    fila = executar(cliente.listar_chamados_tecnico("token"))
     busca = executar(
         cliente.listar_chamados_tecnico("token", "atribuidos_a_outros", " 102 ")
     )
@@ -420,9 +440,9 @@ def test_contratos_tecnicos_enviam_visao_e_pesquisa_por_numero():
     assert detalhe.tecnicos[0].id == 12
     assert assumido.atribuido_em == 1780000001000
     assert requisicoes[0].url.path.endswith("/tecnico/chamados")
-    assert dict(requisicoes[0].url.params) == {"visao": "todos"}
+    assert dict(requisicoes[0].url.params) == {}
     assert dict(requisicoes[1].url.params) == {
-        "visao": "atribuidos_a_outros",
+        "situacao_atribuicao": "atribuidos_a_outros",
         "numero": "102",
     }
     assert requisicoes[3].method == "POST"

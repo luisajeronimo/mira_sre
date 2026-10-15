@@ -3,30 +3,34 @@
 ## MODIFIED Requirements
 
 ### Requirement: Fila técnica oferece somente as visões aprovadas
-O sistema DEVE (MUST) oferecer a fila global de chamados para Técnico, Diretoria e Administrador, aplicando consulta e filtros no Xano. A fila DEVE incluir chamados de qualquer status e responsável, permitir pesquisa por número e distinguir chamados sem responsável, atribuídos ao Técnico autenticado e atribuídos a outros Técnicos. O Gerente NÃO DEVE acessar esta fila.
+O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnico, Diretoria e Administrador, aplicando consulta, pesquisa por número e filtros no Xano. Sem filtros aplicados, `Todos` DEVE significar todos os chamados dentro do escopo global, sem restrição implícita por status, responsável, origem, solicitante, data ou Loja. A situação de atribuição pode filtrar chamados sem responsável, atribuídos ao Técnico autenticado ou atribuídos a outros Técnicos, quando aplicável ao perfil. O Gerente NÃO DEVE acessar esta fila.
 
 #### Scenario: Visão de chamados não atribuídos
-- **WHEN** um perfil autorizado consulta a visão de chamados sem responsável
+- **WHEN** um perfil autorizado aplica o filtro de chamados sem responsável
 - **THEN** o Xano retorna chamados sem Técnico responsável, sem limitar o resultado a `status = "Novo"`
 
 #### Scenario: Visão de chamados atribuídos a mim
-- **WHEN** um Técnico autenticado consulta sua visão de atribuições
+- **WHEN** um Técnico autenticado aplica o filtro de atribuições próprias
 - **THEN** o Xano retorna chamados atribuídos ao Técnico autenticado, sem limitar o resultado a `status = "Novo"`
 
 #### Scenario: Chamado atribuído a outro Técnico
-- **WHEN** um perfil autorizado consulta a fila global ou a visão de outros responsáveis
+- **WHEN** um perfil autorizado aplica o filtro de chamados atribuídos a outros Técnicos
 - **THEN** chamados atribuídos a outros Técnicos permanecem consultáveis
+
+#### Scenario: Todos sem filtro
+- **WHEN** um perfil autorizado consulta a fila sem filtro de situação de atribuição nem número
+- **THEN** o Xano retorna todos os chamados globais permitidos, inclusive atribuídos, não atribuídos, terminais e não terminais
 
 #### Scenario: Status nulo ou inelegível
 - **WHEN** um chamado possui status nulo ou qualquer status persistido
 - **THEN** o Xano não infere nem altera o status e a fila não o exclui apenas por ser diferente de `Novo`
 
 #### Scenario: Visão inválida
-- **WHEN** uma requisição informa valor de visão não suportado
-- **THEN** o Xano responde HTTP 422 sem retornar dados de uma visão implícita
+- **WHEN** uma requisição informa situação de atribuição não suportada ou incompatível com o perfil
+- **THEN** o Xano responde HTTP 422 sem retornar dados de um filtro implícito
 
 #### Scenario: Ordenação e ausência de paginação
-- **WHEN** qualquer visão válida retorna chamados
+- **WHEN** a consulta válida retorna chamados
 - **THEN** os itens são ordenados por `id` decrescente e a resposta não introduz paginação ou busca avançada nesta capacidade
 
 #### Scenario: Consulta global por Diretoria ou Administrador
@@ -36,6 +40,10 @@ O sistema DEVE (MUST) oferecer a fila global de chamados para Técnico, Diretori
 #### Scenario: Filtro por responsável e pesquisa por número
 - **WHEN** um perfil autorizado filtra por situação de atribuição ou pesquisa pelo número do chamado
 - **THEN** o Xano retorna somente os chamados que correspondem ao filtro informado, incluindo os atribuídos a outros Técnicos quando solicitados
+
+#### Scenario: Falha de consulta não confirma filtro no Reflex
+- **WHEN** uma pesquisa ou filtro solicitado falha antes de o Xano retornar a lista
+- **THEN** o Reflex mantém o último filtro aplicado e seu resultado coerentes e informa a falha sem indicar o novo filtro como aplicado
 
 #### Scenario: Gerente tenta consultar a fila global
 - **WHEN** um Gerente tenta consultar a fila global
@@ -185,7 +193,7 @@ O Reflex DEVE (MUST) reutilizar a fila e o detalhe existentes para Técnico, Dir
 
 #### Scenario: Técnico carrega a fila
 - **WHEN** um Técnico autenticado acessa a fila
-- **THEN** o Reflex consulta o Xano e apresenta o resultado global com estados de carregamento, vazio, sucesso e erro
+- **THEN** o Reflex consulta o Xano e apresenta a tabela global com estados de carregamento, vazio, sucesso e erro
 
 #### Scenario: Ações disponíveis por perfil e estado
 - **WHEN** a interface apresenta um chamado não terminal
@@ -210,6 +218,10 @@ O Reflex DEVE (MUST) reutilizar a fila e o detalhe existentes para Técnico, Dir
 #### Scenario: Sessão ou autorização rejeitada
 - **WHEN** uma rota da fila responde HTTP 401 ou 403
 - **THEN** o Reflex encerra a sessão em 401, preserva a sessão em 403 e não trata proteção visual como autorização
+
+#### Scenario: Erro de contrato ou carregamento da fila
+- **WHEN** a consulta da fila recebe resposta incompatível, falha de rede ou filtro inválido
+- **THEN** o Reflex informa o erro correspondente sem encerrar a sessão nem apresentar a falha como problema de identidade
 
 #### Scenario: Jornada permanece somente leitura além da assunção
 - **WHEN** um usuário consulta fila ou detalhe nesta change

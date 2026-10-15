@@ -42,6 +42,11 @@ function "service_desk/obter_chamado_tecnico" {
           type: "left"
           where: $db.chamados.ativos_referencia_id == $db.ativo.id
         }
+        loja: {
+          table: "lojas"
+          type: "left"
+          where: $db.ativo.lojas_id == $db.loja.id
+        }
         categoria: {
           table: "categorias_servico"
           type: "left"
@@ -61,6 +66,8 @@ function "service_desk/obter_chamado_tecnico" {
       eval = {
         ativo_id: $db.ativo.id
         ativo_nome: $db.ativo.nome_ativo
+        loja_id: $db.loja.id
+        loja_nome: $db.loja.nome
         categoria_id: $db.categoria.id
         categoria_nome: $db.categoria.nome
         solicitante_usuario_id: $db.solicitante.id
@@ -72,7 +79,7 @@ function "service_desk/obter_chamado_tecnico" {
       return = {type: "single"}
       mock = {
         "retorna detalhe": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: 3, loja_nome: "Loja Centro", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "retorna detalhe legado": ```
           {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
@@ -205,6 +212,7 @@ function "service_desk/obter_chamado_tecnico" {
     expect.to_be_null ($response.chamado.criador_sistema)
     expect.to_be_null ($response.chamado.tecnico)
     expect.to_be_null ($response.chamado.atribuido_em)
+    expect.to_equal ($response.chamado.loja) { value = {id: 3, nome: "Loja Centro"} }
     expect.to_be_empty ($response.timeline)
     expect.to_equal ($response.tecnicos) { value = [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}] }
   }

@@ -92,6 +92,7 @@ def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
         chamado.tecnico.nome if chamado.tecnico is not None else "Não atribuído"
     )
     dados["ativo_nome"] = chamado.ativo.nome_ativo
+    dados["loja_nome"] = chamado.loja.nome if chamado.loja is not None else "Não informado"
     dados["categoria_nome"] = chamado.categoria.nome
     dados["solicitante_nome"] = (
         chamado.solicitante.nome if chamado.solicitante is not None else "Não informado"
@@ -160,6 +161,7 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
         "criado_em_texto": _timestamp_funcional_para_texto(chamado.criado_em),
         "sla_horas_texto": _numero_para_texto(chamado.sla_horas_aplicado),
         "atribuido_em_texto": _timestamp_para_texto(chamado.atribuido_em),
+        "ativo_nome": chamado.ativo.nome_ativo,
         "categoria_nome": chamado.categoria.nome,
         "tecnico_nome": tecnico.nome if tecnico is not None else "Não atribuído",
         "pode_assumir": (
@@ -195,6 +197,7 @@ class DetalheView(TypedDict, total=False):
     atribuido_em_texto: str
     tecnico_nome: str
     ativo_nome: str
+    loja_nome: str
     categoria_nome: str
     solicitante_nome: str
     criador_sistema_nome: str
@@ -238,6 +241,7 @@ class TecnicoView(TypedDict, total=False):
     criado_em_texto: str
     sla_horas_texto: str
     atribuido_em_texto: str
+    ativo_nome: str
     categoria_nome: str
     tecnico_nome: str
     pode_assumir: bool

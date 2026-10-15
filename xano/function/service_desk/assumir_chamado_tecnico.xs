@@ -17,6 +17,9 @@ function "service_desk/assumir_chamado_tecnico" {
         "assume padrão": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
+        "assume ação vazia": ```
+          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+          ```
         "assume idempotente": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
@@ -66,7 +69,14 @@ function "service_desk/assumir_chamado_tecnico" {
     } as $usuario
 
     var $acao {
-      value = $input.acao ?? "assumir"
+      value = $input.acao
+    }
+    conditional {
+      if ($acao == null || $acao == "") {
+        var.update $acao {
+          value = "assumir"
+        }
+      }
     }
 
     precondition ($acao == "assumir" || $acao == "atribuir" || $acao == "liberar") {
@@ -115,6 +125,7 @@ function "service_desk/assumir_chamado_tecnico" {
       field_value = $input.chamados_id
       mock = {
         "assume padrão": {id: 101, status: "Novo", tecnico_id: null}
+        "assume ação vazia": {id: 101, status: "Novo", tecnico_id: null}
         "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000}
         "assume outro técnico": {id: 101, status: "Novo", tecnico_id: 13, atribuido_em: 1780000001000}
         "atribui em Resolvido": {id: 101, status: "Resolvido", tecnico_id: null}
@@ -205,6 +216,7 @@ function "service_desk/assumir_chamado_tecnico" {
           field_value = $input.chamados_id
           mock = {
             "assume padrão": {id: 101, status: "Novo", tecnico_id: null}
+            "assume ação vazia": {id: 101, status: "Novo", tecnico_id: null}
             "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000}
             "atribui em Resolvido": {id: 101, status: "Resolvido", tecnico_id: null}
             "reatribui": {id: 101, status: "Em Atendimento", tecnico_id: 12, atribuido_em: 1780000001000}
@@ -385,6 +397,7 @@ function "service_desk/assumir_chamado_tecnico" {
               value = now
               mock = {
                 "assume padrão": 1780000002000
+                "assume ação vazia": 1780000002000
                 "atribui em Resolvido": 1780000002000
                 "reatribui": 1780000002000
                 "libera própria": 1780000002000
@@ -403,6 +416,7 @@ function "service_desk/assumir_chamado_tecnico" {
               }
               mock = {
                 "assume padrão": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
+                "assume ação vazia": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
                 "atribui em Resolvido": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
                 "reatribui": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
                 "libera própria": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
@@ -423,6 +437,7 @@ function "service_desk/assumir_chamado_tecnico" {
               }
               mock = {
                 "assume padrão": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 12}
+                "assume ação vazia": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 12}
                 "atribui em Resolvido": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 4, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 10}
                 "reatribui": {id: 21, tipo_evento: "reatribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 12, tecnico_novo_id: 10}
                 "libera própria": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 12, tecnico_novo_id: null}
@@ -442,6 +457,7 @@ function "service_desk/assumir_chamado_tecnico" {
           field_value = $input.chamados_id
           mock = {
             "assume padrão": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000002000}
+            "assume ação vazia": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000002000}
             "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000}
           }
         } as $pos_edicao
@@ -471,6 +487,7 @@ function "service_desk/assumir_chamado_tecnico" {
       input = {usuarios_id: $usuario.id, chamados_id: $input.chamados_id}
       mock = {
         "assume padrão": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000002000}}
+        "assume ação vazia": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000002000}}
         "assume idempotente": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000001000}}
         "atribui em Resolvido": {chamado: {id: 101, status: "Resolvido", tecnico: {id: 10, nome: "Técnico alvo"}, atribuido_em: 1780000002000}}
         "reatribui": {chamado: {id: 101, status: "Em Atendimento", tecnico: {id: 10, nome: "Outro Técnico"}, atribuido_em: 1780000002000}}
@@ -487,6 +504,13 @@ function "service_desk/assumir_chamado_tecnico" {
 
   test "assume padrão" {
     input = {usuarios_id: 12, chamados_id: 101}
+    expect.to_equal ($response.chamado.status) { value = "Novo" }
+    expect.to_equal ($response.chamado.tecnico.id) { value = 12 }
+    expect.to_equal ($response.chamado.atribuido_em) { value = 1780000002000 }
+  }
+
+  test "assume ação vazia" {
+    input = {usuarios_id: 12, chamados_id: 101, acao: ""}
     expect.to_equal ($response.chamado.status) { value = "Novo" }
     expect.to_equal ($response.chamado.tecnico.id) { value = 12 }
     expect.to_equal ($response.chamado.atribuido_em) { value = 1780000002000 }

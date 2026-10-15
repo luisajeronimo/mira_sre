@@ -11,62 +11,65 @@ from app.states.auth import AuthState
 def _fila_tecnico() -> rx.Component:
     return rx.vstack(
         cabecalho("Fila técnica", "Consulte a fila global e a distribuição atual dos chamados."),
-        rx.hstack(
-            rx.button(
-                "Todos",
-                variant=rx.cond(ChamadosTecnicoState.visao == "todos", "solid", "outline"),
-                on_click=ChamadosTecnicoState.selecionar_visao("todos"),
-                disabled=ChamadosTecnicoState.carregando_fila,
-            ),
-            rx.button(
-                "Não atribuídos",
-                variant=rx.cond(ChamadosTecnicoState.visao == "nao_atribuidos", "solid", "outline"),
-                on_click=ChamadosTecnicoState.selecionar_visao("nao_atribuidos"),
-                disabled=ChamadosTecnicoState.carregando_fila,
-            ),
-            rx.cond(
-                AuthState.role == "tecnico",
-                rx.button(
-                    "Atribuídos a mim",
-                    variant=rx.cond(ChamadosTecnicoState.visao == "atribuidos_a_mim", "solid", "outline"),
-                    on_click=ChamadosTecnicoState.selecionar_visao("atribuidos_a_mim"),
-                    disabled=ChamadosTecnicoState.carregando_fila,
+        rx.card(
+            rx.vstack(
+                rx.text("Filtros", weight="bold"),
+                rx.hstack(
+                    rx.input(
+                        value=ChamadosTecnicoState.numero,
+                        placeholder="Número do chamado",
+                        on_change=ChamadosTecnicoState.atualizar_numero,
+                        type="number",
+                        min="1",
+                        aria_label="Pesquisar chamado por número",
+                    ),
+                    rx.select.root(
+                        rx.select.trigger(placeholder="Situação de atribuição"),
+                        rx.select.content(
+                            rx.select.item("Todos", value="todos"),
+                            rx.select.item("Sem responsável", value="sem_responsavel"),
+                            rx.cond(
+                                AuthState.role == "tecnico",
+                                rx.select.item("Atribuídos a mim", value="atribuidos_a_mim"),
+                                rx.fragment(),
+                            ),
+                            rx.select.item(
+                                "Atribuídos a outros Técnicos",
+                                value="atribuidos_a_outros",
+                            ),
+                        ),
+                        value=ChamadosTecnicoState.situacao_atribuicao,
+                        on_change=ChamadosTecnicoState.atualizar_situacao_atribuicao,
+                    ),
+                    rx.button(
+                        "Aplicar",
+                        on_click=ChamadosTecnicoState.aplicar_filtros,
+                        disabled=ChamadosTecnicoState.carregando_fila,
+                    ),
+                    rx.button(
+                        "Limpar filtros",
+                        variant="outline",
+                        on_click=ChamadosTecnicoState.limpar_filtros,
+                        disabled=ChamadosTecnicoState.carregando_fila,
+                    ),
+                    wrap="wrap",
+                    width="100%",
                 ),
-                rx.fragment(),
-            ),
-            rx.button(
-                "Atribuídos a outros Técnicos",
-                variant=rx.cond(ChamadosTecnicoState.visao == "atribuidos_a_outros", "solid", "outline"),
-                on_click=ChamadosTecnicoState.selecionar_visao("atribuidos_a_outros"),
-                disabled=ChamadosTecnicoState.carregando_fila,
-            ),
-            spacing="3",
-            wrap="wrap",
-        ),
-        rx.hstack(
-            rx.input(
-                value=ChamadosTecnicoState.numero,
-                placeholder="Número do chamado",
-                on_change=ChamadosTecnicoState.atualizar_numero,
-                aria_label="Pesquisar chamado por número",
-                width="min(100%, 20rem)",
-            ),
-            rx.button(
-                "Pesquisar",
-                on_click=ChamadosTecnicoState.pesquisar_numero,
-                disabled=ChamadosTecnicoState.carregando_fila,
-            ),
-            rx.cond(
-                ChamadosTecnicoState.numero != "",
-                rx.button(
-                    "Limpar",
-                    variant="outline",
-                    on_click=ChamadosTecnicoState.limpar_pesquisa,
-                    disabled=ChamadosTecnicoState.carregando_fila,
+                rx.cond(
+                    ChamadosTecnicoState.filtros_aplicados.length() > 0,
+                    rx.hstack(
+                        rx.text("Aplicados:", size="2", weight="medium"),
+                        rx.foreach(
+                            ChamadosTecnicoState.filtros_aplicados,
+                            lambda filtro: rx.badge(filtro, color_scheme="gray"),
+                        ),
+                        wrap="wrap",
+                    ),
                 ),
-                rx.fragment(),
+                align="start",
+                spacing="3",
+                width="100%",
             ),
-            spacing="3",
             width="100%",
         ),
         erro(ChamadosTecnicoState.mensagem_fila),
@@ -85,46 +88,67 @@ def _fila_tecnico() -> rx.Component:
             rx.cond(
                 ChamadosTecnicoState.chamados.length() == 0,
                 rx.callout("Nenhum chamado encontrado.", icon="info"),
-                rx.vstack(
-                    rx.foreach(
-                        ChamadosTecnicoState.chamados,
-                        lambda item: rx.card(
-                            rx.vstack(
-                                rx.hstack(
-                                    rx.vstack(
-                                        rx.text("Chamado #" + item["id"].to_string(), weight="bold"),
-                                        rx.heading(item["titulo"], size="4"),
-                                        align="start",
-                                        spacing="1",
-                                    ),
-                                    rx.badge(item["status"]),
-                                    justify="between",
-                                    width="100%",
-                                ),
-                                rx.text("Prioridade: " + item["prioridade"]),
-                                rx.text("Categoria: " + item["categoria_nome"], color="gray"),
-                                rx.text("Técnico: " + item["tecnico_nome"], color="gray"),
-                                rx.hstack(
-                                    rx.link("Ver detalhe", href="/tecnico/chamados/" + item["id"].to_string()),
-                                    rx.cond(
-                                        (AuthState.role == "tecnico") & item["pode_assumir"],
-                                        rx.button(
-                                            rx.cond(ChamadosTecnicoState.assumindo_id == item["id"], "Assumindo...", "Assumir"),
-                                            on_click=ChamadosTecnicoState.assumir(item["id"]),
-                                            disabled=ChamadosTecnicoState.assumindo_id != None,
-                                        ),
-                                        rx.fragment(),
-                                    ),
-                                    spacing="3",
-                                ),
-                                align="start",
-                                width="100%",
-                            ),
-                            width="100%",
+                rx.box(
+                    rx.table.root(
+                        rx.table.header(
+                            rx.table.row(
+                                rx.table.column_header_cell("Número"),
+                                rx.table.column_header_cell("Título"),
+                                rx.table.column_header_cell("Status"),
+                                rx.table.column_header_cell("Prioridade"),
+                                rx.table.column_header_cell("Totem"),
+                                rx.table.column_header_cell("Categoria"),
+                                rx.table.column_header_cell("Responsável"),
+                                rx.table.column_header_cell("Atribuído em"),
+                                rx.table.column_header_cell("Ações"),
+                            )
                         ),
+                        rx.table.body(
+                            rx.foreach(
+                                ChamadosTecnicoState.chamados,
+                                lambda item: rx.table.row(
+                                    rx.table.cell(
+                                        rx.link(
+                                            "#" + item["id"].to_string(),
+                                            href="/tecnico/chamados/" + item["id"].to_string(),
+                                        )
+                                    ),
+                                    rx.table.cell(item["titulo"]),
+                                    rx.table.cell(rx.badge(item["status"])),
+                                    rx.table.cell(item["prioridade"]),
+                                    rx.table.cell(item["ativo_nome"]),
+                                    rx.table.cell(item["categoria_nome"]),
+                                    rx.table.cell(item["tecnico_nome"]),
+                                    rx.table.cell(item["atribuido_em_texto"]),
+                                    rx.table.cell(
+                                        rx.hstack(
+                                            rx.link(
+                                                "Ver detalhe",
+                                                href="/tecnico/chamados/" + item["id"].to_string(),
+                                            ),
+                                            rx.cond(
+                                                (AuthState.role == "tecnico") & item["pode_assumir"],
+                                                rx.button(
+                                                    rx.cond(
+                                                        ChamadosTecnicoState.assumindo_id == item["id"],
+                                                        "Assumindo...",
+                                                        "Assumir",
+                                                    ),
+                                                    on_click=ChamadosTecnicoState.assumir(item["id"]),
+                                                    disabled=ChamadosTecnicoState.assumindo_id != None,
+                                                ),
+                                                rx.fragment(),
+                                            ),
+                                            spacing="3",
+                                        )
+                                    ),
+                                ),
+                            )
+                        ),
+                        width="100%",
                     ),
+                    overflow_x="auto",
                     width="100%",
-                    spacing="3",
                 ),
             ),
         ),
@@ -150,7 +174,9 @@ def _detalhe_tecnico() -> rx.Component:
         rx.cond(
             ChamadosTecnicoState.carregando_detalhe_tecnico,
             rx.spinner(size="3"),
-            rx.card(
+            rx.cond(
+                ChamadosTecnicoState.detalhe_tecnico_carregado,
+                rx.card(
                 rx.vstack(
                     rx.text("Chamado #" + ChamadosTecnicoState.chamado["id"].to_string(), weight="bold"),
                     rx.heading(ChamadosTecnicoState.chamado["titulo"], size="5"),
@@ -158,6 +184,10 @@ def _detalhe_tecnico() -> rx.Component:
                     rx.text("Status: " + ChamadosTecnicoState.chamado["status"]),
                     rx.text("Prioridade: " + ChamadosTecnicoState.chamado["prioridade"]),
                     rx.text("Origem: " + ChamadosTecnicoState.chamado["origem"]),
+                    rx.text("Loja: " + ChamadosTecnicoState.chamado["loja_nome"]),
+                    rx.text("Totem: " + ChamadosTecnicoState.chamado["ativo_nome"]),
+                    rx.text("Categoria: " + ChamadosTecnicoState.chamado["categoria_nome"]),
+                    rx.text("Solicitante: " + ChamadosTecnicoState.chamado["solicitante_nome"]),
                     rx.cond(
                         ChamadosTecnicoState.chamado["criador_sistema_nome"] != "",
                         rx.text(
@@ -168,6 +198,12 @@ def _detalhe_tecnico() -> rx.Component:
                     rx.text("SLA aplicado: " + ChamadosTecnicoState.chamado["sla_horas_texto"]),
                     rx.text("Técnico: " + ChamadosTecnicoState.chamado["tecnico_nome"]),
                     rx.text("Atribuído em: " + ChamadosTecnicoState.chamado["atribuido_em_texto"]),
+                    rx.text("Aberto em: " + ChamadosTecnicoState.chamado["criado_em_texto"], color="gray"),
+                    rx.text(
+                        "Última atualização: "
+                        + ChamadosTecnicoState.chamado["ultima_atualizacao_em_texto"],
+                        color="gray",
+                    ),
                     rx.cond(
                         (AuthState.role == "tecnico")
                         & ChamadosTecnicoState.chamado["pode_assumir"],
@@ -248,11 +284,13 @@ def _detalhe_tecnico() -> rx.Component:
                 ),
                 width="100%",
             ),
+                rx.fragment(),
+            ),
         ),
         rx.cond(
             (ChamadosTecnicoState.carregando_detalhe_tecnico == False)
             & (ChamadosTecnicoState.mensagem_detalhe_tecnico == "")
-            & (ChamadosTecnicoState.chamado["id"] != None),
+            & ChamadosTecnicoState.detalhe_tecnico_carregado,
             rx.vstack(
                 rx.heading("Linha do tempo", size="4"),
                 rx.cond(

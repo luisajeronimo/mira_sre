@@ -30,7 +30,6 @@ from app.services.xano import (
 )
 from app.states.auth import (
     MENSAGEM_EXPIRADA,
-    MENSAGEM_IDENTIDADE_INVALIDA,
     MENSAGEM_INDISPONIVEL,
     MENSAGEM_NAO_AUTORIZADO,
     AuthState,
@@ -40,8 +39,11 @@ from app.states.auth import (
 class ChamadosTecnicoState(AuthState):
     """Mantém a fila global e as operações de responsável do chamado."""
 
-    visao: str = "todos"
+    situacao_atribuicao: str = "todos"
+    situacao_atribuicao_aplicada: str = "todos"
     numero: str = ""
+    numero_aplicado: str = ""
+    filtros_aplicados: list[str] = []
     chamados: list[TecnicoView] = []
     chamado: DetalheView = {}
     timeline: list[TimelineView] = []
@@ -49,6 +51,7 @@ class ChamadosTecnicoState(AuthState):
     tecnico_alvo_id: str = ""
     carregando_fila: bool = False
     carregando_detalhe_tecnico: bool = False
+    detalhe_tecnico_carregado: bool = False
     assumindo_id: int | None = None
     alterando_responsavel_id: int | None = None
     mensagem_fila: str = ""
@@ -57,16 +60,16 @@ class ChamadosTecnicoState(AuthState):
     mensagem_responsavel: str = ""
     mensagem_sucesso_responsavel: str = ""
 
-    def visoes(self) -> list[str]:
+    def situacoes_atribuicao_disponiveis(self) -> list[str]:
         if self.role == "tecnico":
             return [
                 "todos",
-                "nao_atribuidos",
+                "sem_responsavel",
                 "atribuidos_a_mim",
                 "atribuidos_a_outros",
             ]
         if self.role in {"diretoria", "administrador"}:
-            return ["todos", "nao_atribuidos", "atribuidos_a_outros"]
+            return ["todos", "sem_responsavel", "atribuidos_a_outros"]
         return []
 
     def _limpar_mensagens_tecnico(self) -> None:
@@ -101,6 +104,7 @@ class ChamadosTecnicoState(AuthState):
             for tecnico in detalhe.tecnicos
         ]
         self.tecnico_alvo_id = ""
+        self.detalhe_tecnico_carregado = True
 
     async def _validar_tecnico(self) -> str | None:
         return await self._revalidar("tecnico")
@@ -113,7 +117,29 @@ class ChamadosTecnicoState(AuthState):
             return self.destino_por_perfil(self.role) or "/login"
         return None
 
+    def _registrar_erro_fila(self, erro: Exception) -> str | None:
+        if isinstance(erro, XanoNaoAutenticado):
+            self._limpar_sessao(MENSAGEM_EXPIRADA)
+            return "/login"
+        if isinstance(erro, XanoNaoAutorizado):
+            self.mensagem_fila = MENSAGEM_NAO_AUTORIZADO
+            return None
+        if isinstance(erro, XanoEntradaInvalida):
+            self.mensagem_fila = "Os filtros informados são inválidos."
+            return None
+        if isinstance(erro, XanoIndisponivel):
+            self.mensagem_fila = MENSAGEM_INDISPONIVEL
+            return None
+        if isinstance(erro, XanoContratoInvalido):
+            self.mensagem_fila = (
+                "Não foi possível carregar a fila porque a resposta do serviço é incompatível."
+            )
+            return None
+        self.mensagem_fila = MENSAGEM_INDISPONIVEL
+        return None
+
     def _registrar_erro_tecnico(self, erro: Exception, destino: str) -> str | None:
+        """Mantém o tratamento específico de detalhe e ações de responsável."""
         if isinstance(erro, XanoNaoAutenticado):
             self._limpar_sessao(MENSAGEM_EXPIRADA)
             return "/login"
@@ -133,41 +159,78 @@ class ChamadosTecnicoState(AuthState):
             setattr(self, destino, MENSAGEM_INDISPONIVEL)
             return None
         if isinstance(erro, XanoContratoInvalido):
-            setattr(self, destino, MENSAGEM_IDENTIDADE_INVALIDA)
+            mensagem = (
+                "Não foi possível carregar os dados porque a resposta do serviço é incompatível."
+                if destino == "mensagem_detalhe_tecnico"
+                else "Não foi possível concluir a operação porque a resposta do serviço é incompatível."
+            )
+            setattr(self, destino, mensagem)
             return None
         setattr(self, destino, MENSAGEM_INDISPONIVEL)
         return None
 
     @rx.event
-    async def selecionar_visao(self, visao: str):
-        if visao not in self.visoes():
-            self.mensagem_fila = "Visão inválida."
-            return
-        self.visao = visao
-        async for evento in self.carregar_fila():
-            yield evento
+    def atualizar_situacao_atribuicao(self, situacao: str) -> None:
+        self.situacao_atribuicao = situacao
 
     @rx.event
     def atualizar_numero(self, valor: str):
         self.numero = valor
 
     @rx.event
-    async def pesquisar_numero(self):
-        async for evento in self.carregar_fila():
+    async def aplicar_filtros(self):
+        numero = self.numero.strip()
+        if numero and (not numero.isdigit() or int(numero) <= 0):
+            self.mensagem_fila = "Informe um número de chamado válido."
+            return
+        if self.situacao_atribuicao not in self.situacoes_atribuicao_disponiveis():
+            self.mensagem_fila = "Selecione uma situação de atribuição válida."
+            return
+        async for evento in self._carregar_fila(
+            situacao=self.situacao_atribuicao,
+            numero=numero,
+            confirmar_filtros=True,
+        ):
             yield evento
 
     @rx.event
-    async def limpar_pesquisa(self):
+    async def limpar_filtros(self):
         self.numero = ""
-        async for evento in self.carregar_fila():
+        self.situacao_atribuicao = "todos"
+        async for evento in self._carregar_fila(
+            situacao="todos",
+            numero="",
+            confirmar_filtros=True,
+        ):
             yield evento
+
+    def _restaurar_filtros_solicitados(self) -> None:
+        self.situacao_atribuicao = self.situacao_atribuicao_aplicada
+        self.numero = self.numero_aplicado
 
     @rx.event
     async def carregar_fila(self):
+        async for evento in self._carregar_fila(
+            situacao=self.situacao_atribuicao_aplicada,
+            numero=self.numero_aplicado,
+            confirmar_filtros=False,
+        ):
+            yield evento
+
+    async def _carregar_fila(
+        self,
+        *,
+        situacao: str,
+        numero: str,
+        confirmar_filtros: bool,
+    ):
         if self.carregando_fila:
             return
         self.carregando_fila = True
-        self._limpar_mensagens_tecnico()
+        self.mensagem_fila = ""
+        self.mensagem_assuncao = ""
+        self.mensagem_responsavel = ""
+        self.mensagem_sucesso_responsavel = ""
         yield
         try:
             destino = await self._validar_acesso_fila()
@@ -176,22 +239,39 @@ class ChamadosTecnicoState(AuthState):
                 return
             if not self.sessao_confirmada:
                 return
-            if self.visao not in self.visoes():
-                self.visao = "todos"
             try:
                 resultado = await criar_cliente_service_desk().listar_chamados_tecnico(
                     self._auth_token,
-                    self.visao,
-                    self.numero.strip() or None,
+                    situacao,
+                    numero or None,
                 )
                 self.chamados = [_tecnico_para_dict(item) for item in resultado]
+                if confirmar_filtros:
+                    self.situacao_atribuicao_aplicada = situacao
+                    self.numero_aplicado = numero
+                    filtros: list[str] = []
+                    if situacao != "todos":
+                        filtros.append(
+                            {
+                                "sem_responsavel": "Sem responsável",
+                                "atribuidos_a_mim": "Atribuídos a mim",
+                                "atribuidos_a_outros": "Atribuídos a outros Técnicos",
+                            }[situacao]
+                        )
+                    if numero:
+                        filtros.append(f"Número: {numero}")
+                    self.filtros_aplicados = filtros
             except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
-                destino = self._registrar_erro_tecnico(erro, "mensagem_fila")
+                destino = self._registrar_erro_fila(erro)
+                if confirmar_filtros and destino is None:
+                    self._restaurar_filtros_solicitados()
                 if destino is not None:
                     yield rx.redirect(destino)
                     return
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
-            self._registrar_erro_tecnico(erro, "mensagem_fila")
+            self._registrar_erro_fila(erro)
+            if confirmar_filtros:
+                self._restaurar_filtros_solicitados()
         finally:
             self.carregando_fila = False
 
@@ -200,6 +280,7 @@ class ChamadosTecnicoState(AuthState):
         if self.carregando_detalhe_tecnico:
             return
         self.carregando_detalhe_tecnico = True
+        self.detalhe_tecnico_carregado = False
         self.chamado = {}
         self.timeline = []
         self.tecnicos = []

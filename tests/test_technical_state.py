@@ -13,10 +13,11 @@ from app.services.service_desk import (
     EventoTimelineChamado,
     ReferenciaAtivo,
     ReferenciaCategoria,
+    ReferenciaLoja,
     ReferenciaUsuario,
 )
-from app.services.xano import XanoConflito
-from app.states.auth import MENSAGEM_INDISPONIVEL
+from app.services.xano import XanoConflito, XanoContratoInvalido, XanoNaoAutorizado
+from app.states.auth import MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
 from app.chamados.shared import _detalhe_para_dict, _tecnico_para_dict
 from app.chamados.tecnico import ChamadosTecnicoState
 
@@ -53,6 +54,7 @@ def detalhe_tecnico(
     tecnico=None,
     atribuido_em=1780000001000,
     criador_sistema=None,
+    loja=None,
 ):
     return ChamadoDetalhe(
         id=32,
@@ -70,6 +72,7 @@ def detalhe_tecnico(
         tecnico=tecnico,
         atribuido_em=atribuido_em,
         criador_sistema=criador_sistema,
+        loja=loja,
     )
 
 
@@ -90,14 +93,17 @@ class ClienteTecnicoFalso:
         self.resultado_detalhe = resultado_detalhe
         self.erro_detalhe = erro_detalhe
         self.listas = listas or {}
-        self.visoes = []
+        self.consultas = []
         self.assuncoes = []
         self.detalhes = []
         self.atribuicoes = []
 
-    async def listar_chamados_tecnico(self, token, visao, numero=None):
-        self.visoes.append((token, visao, numero))
-        return self.listas.get(visao, [])
+    async def listar_chamados_tecnico(self, token, situacao_atribuicao="todos", numero=None):
+        self.consultas.append((token, situacao_atribuicao, numero))
+        resultado = self.listas.get(situacao_atribuicao, [])
+        if isinstance(resultado, Exception):
+            raise resultado
+        return resultado
 
     async def alterar_responsavel_tecnico(
         self, token, chamado_id, acao, tecnico_id=None
@@ -138,18 +144,18 @@ def liberar_validacao_de_sessao(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("role", "visao"),
+    ("role", "situacao"),
     [
         ("tecnico", "todos"),
-        ("tecnico", "nao_atribuidos"),
+        ("tecnico", "sem_responsavel"),
         ("tecnico", "atribuidos_a_mim"),
         ("tecnico", "atribuidos_a_outros"),
         ("diretoria", "todos"),
         ("diretoria", "atribuidos_a_outros"),
-        ("administrador", "nao_atribuidos"),
+        ("administrador", "sem_responsavel"),
     ],
 )
-def test_selecionar_visao_consulta_a_visao_escolhida(monkeypatch, role, visao):
+def test_aplicar_filtros_consulta_situacao_escolhida(monkeypatch, role, situacao):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso()
     monkeypatch.setattr(
@@ -159,10 +165,11 @@ def test_selecionar_visao_consulta_a_visao_escolhida(monkeypatch, role, visao):
     )
     estado = novo_estado_tecnico(role)
 
-    executar_evento(ChamadosTecnicoState.selecionar_visao, estado, visao)
+    estado.situacao_atribuicao = situacao
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
 
-    assert estado.visao == visao
-    assert cliente.visoes == [("token-de-teste", visao, None)]
+    assert estado.situacao_atribuicao_aplicada == situacao
+    assert cliente.consultas == [("token-de-teste", situacao, None)]
     assert estado.carregando_fila is False
 
 
@@ -187,33 +194,33 @@ def test_fila_global_redireciona_perfil_fora_do_escopo(monkeypatch):
     assert asyncio.run(estado._validar_acesso_fila()) == "/gerente"
 
 
-def test_visoes_de_responsavel_respeitam_o_perfil():
+def test_situacoes_de_atribuicao_respeitam_o_perfil():
     tecnico = novo_estado_tecnico("tecnico")
     diretoria = novo_estado_tecnico("diretoria")
     administrador = novo_estado_tecnico("administrador")
 
-    assert tecnico.visoes() == [
+    assert tecnico.situacoes_atribuicao_disponiveis() == [
         "todos",
-        "nao_atribuidos",
+        "sem_responsavel",
         "atribuidos_a_mim",
         "atribuidos_a_outros",
     ]
-    assert diretoria.visoes() == ["todos", "nao_atribuidos", "atribuidos_a_outros"]
-    assert administrador.visoes() == ["todos", "nao_atribuidos", "atribuidos_a_outros"]
+    assert diretoria.situacoes_atribuicao_disponiveis() == ["todos", "sem_responsavel", "atribuidos_a_outros"]
+    assert administrador.situacoes_atribuicao_disponiveis() == ["todos", "sem_responsavel", "atribuidos_a_outros"]
 
 
-def test_perfil_nao_tecnico_nao_pode_escolher_atribuidos_a_mim(monkeypatch):
+def test_perfil_nao_tecnico_nao_pode_aplicar_atribuidos_a_mim(monkeypatch):
     estado = novo_estado_tecnico("diretoria")
+    estado.situacao_atribuicao = "atribuidos_a_mim"
 
     eventos = executar_evento(
-        ChamadosTecnicoState.selecionar_visao,
+        ChamadosTecnicoState.aplicar_filtros,
         estado,
-        "atribuidos_a_mim",
     )
 
     assert eventos == []
-    assert estado.visao == "todos"
-    assert estado.mensagem_fila == "Visão inválida."
+    assert estado.situacao_atribuicao_aplicada == "todos"
+    assert estado.mensagem_fila == "Selecione uma situação de atribuição válida."
 
 
 def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
@@ -227,12 +234,12 @@ def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
     estado = novo_estado_tecnico("diretoria")
     estado.numero = " 102 "
 
-    executar_evento(ChamadosTecnicoState.pesquisar_numero, estado)
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
 
-    assert cliente.visoes == [("token-de-teste", "todos", "102")]
+    assert cliente.consultas == [("token-de-teste", "todos", "102")]
 
 
-def test_limpar_pesquisa_recarrega_fila_sem_numero(monkeypatch):
+def test_limpar_filtros_recarrega_fila_sem_numero(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso()
     monkeypatch.setattr(
@@ -243,10 +250,102 @@ def test_limpar_pesquisa_recarrega_fila_sem_numero(monkeypatch):
     estado = novo_estado_tecnico("administrador")
     estado.numero = "102"
 
-    executar_evento(ChamadosTecnicoState.limpar_pesquisa, estado)
+    executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
 
     assert estado.numero == ""
-    assert cliente.visoes == [("token-de-teste", "todos", None)]
+    assert cliente.consultas == [("token-de-teste", "todos", None)]
+
+
+def test_falha_da_consulta_preserva_filtro_e_resultado_aplicados(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    anterior = _tecnico_para_dict(resumo_tecnico())
+    cliente = ClienteTecnicoFalso(
+        listas={"sem_responsavel": XanoContratoInvalido("contrato incompatível")}
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.chamados = [anterior]
+    estado.situacao_atribuicao = "sem_responsavel"
+
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
+
+    assert cliente.consultas == [("token-de-teste", "sem_responsavel", None)]
+    assert estado.situacao_atribuicao_aplicada == "todos"
+    assert estado.situacao_atribuicao == "todos"
+    assert estado.numero == ""
+    assert estado.chamados == [anterior]
+    assert "identidade" not in estado.mensagem_fila.casefold()
+    assert "resposta do serviço" in estado.mensagem_fila
+
+
+def test_erro_403_na_fila_preserva_sessao(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(listas={"todos": XanoNaoAutorizado("negado")})
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert estado.sessao_confirmada is True
+    assert estado.mensagem_fila == MENSAGEM_NAO_AUTORIZADO
+
+
+def test_numero_invalido_nao_submete_nem_altera_filtro_aplicado(monkeypatch):
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.numero = "abc"
+
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
+
+    assert cliente.consultas == []
+    assert estado.numero_aplicado == ""
+    assert estado.mensagem_fila == "Informe um número de chamado válido."
+
+
+def test_limpar_filtros_com_falha_restaura_os_valores_aplicados(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(
+        listas={"todos": XanoContratoInvalido("contrato incompatível")}
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.situacao_atribuicao = "sem_responsavel"
+    estado.situacao_atribuicao_aplicada = "sem_responsavel"
+    estado.numero = "101"
+    estado.numero_aplicado = "101"
+    estado.filtros_aplicados = ["Sem responsável", "Número: 101"]
+
+    executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
+
+    assert cliente.consultas == [("token-de-teste", "todos", None)]
+    assert estado.situacao_atribuicao == "sem_responsavel"
+    assert estado.numero == "101"
+    assert estado.filtros_aplicados == ["Sem responsável", "Número: 101"]
+
+
+def test_contrato_invalido_no_detalhe_nao_vira_erro_de_identidade(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(erro_detalhe=XanoContratoInvalido("contrato"))
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    object.__setattr__(estado, "chamado_id", "32")
+
+    executar_evento(ChamadosTecnicoState.carregar_detalhe_tecnico, estado)
+
+    assert estado.sessao_confirmada is True
+    assert "identidade" not in estado.mensagem_detalhe_tecnico.casefold()
+    assert "resposta do serviço" in estado.mensagem_detalhe_tecnico
+
+
+def test_fila_global_reutiliza_tabela_e_filtros_sem_abas_de_visao():
+    fonte = inspect.getsource(paginas_chamados._fila_tecnico)
+
+    assert "rx.table.root" in fonte
+    assert "Situação de atribuição" in fonte
+    assert 'item["tecnico_nome"]' in fonte
+    assert "selecionar_visao" not in fonte
+    assert '"Não atribuídos"' not in fonte
 
 
 def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():
@@ -375,7 +474,7 @@ def test_assuncao_bem_sucedida_atualiza_detalhe_timeline_e_fila(monkeypatch):
     assert cliente.assuncoes == [("token-de-teste", 32)]
     assert cliente.atribuicoes == [("token-de-teste", 32, "assumir", None)]
     assert cliente.detalhes == [("token-de-teste", 32)]
-    assert cliente.visoes == [("token-de-teste", "todos", None)]
+    assert cliente.consultas == [("token-de-teste", "todos", None)]
     assert estado.chamado["status"] == "Novo"
     assert estado.chamado["tecnico_nome"] == "Técnico 9"
     assert estado.chamado["atribuido_em_texto"] != "Não informado"
@@ -423,6 +522,36 @@ def test_falha_ao_carregar_outro_detalhe_limpa_timeline_anterior(monkeypatch):
     assert estado.tecnicos == []
     assert estado.tecnico_alvo_id == ""
     assert estado.mensagem_detalhe_tecnico == MENSAGEM_INDISPONIVEL
+    assert estado.detalhe_tecnico_carregado is False
+
+
+def test_detalhe_confirmado_expoe_campos_do_contrato_e_evitar_renderizacao_vazia():
+    estado = novo_estado_tecnico("diretoria")
+
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(loja=ReferenciaLoja(id=3, nome="Loja Centro")),
+            timeline=[],
+            tecnicos=[],
+        )
+    )
+
+    assert estado.detalhe_tecnico_carregado is True
+    assert estado.chamado["id"] == 32
+    assert estado.chamado["ativo_nome"] == "Totem de teste"
+    assert estado.chamado["loja_nome"] == "Loja Centro"
+    assert estado.chamado["categoria_nome"] == "Falha de Rede"
+    assert estado.chamado["solicitante_nome"] == "Gerente"
+
+
+def test_pagina_do_detalhe_so_renderiza_campos_apos_carga_confirmada():
+    fonte = inspect.getsource(paginas_chamados._detalhe_tecnico)
+
+    assert "ChamadosTecnicoState.detalhe_tecnico_carregado" in fonte
+    assert "ChamadosTecnicoState.chamado[\"loja_nome\"]" in fonte
+    assert "ChamadosTecnicoState.chamado[\"ativo_nome\"]" in fonte
+    assert "ChamadosTecnicoState.chamado[\"categoria_nome\"]" in fonte
+    assert "ChamadosTecnicoState.chamado[\"solicitante_nome\"]" in fonte
 
 
 def test_conflito_informa_e_recarrega_sem_substituir_detalhe_local(monkeypatch):
@@ -445,7 +574,7 @@ def test_conflito_informa_e_recarrega_sem_substituir_detalhe_local(monkeypatch):
     executar_evento(ChamadosTecnicoState.assumir, estado, 32)
 
     assert cliente.assuncoes == [("token-de-teste", 32)]
-    assert cliente.visoes == [("token-de-teste", "todos", None)]
+    assert cliente.consultas == [("token-de-teste", "todos", None)]
     assert estado.chamado == detalhe_anterior
     assert estado.mensagem_assuncao == "A atribuição do chamado foi alterada por outra operação."
     assert estado.assumindo_id is None
@@ -471,7 +600,7 @@ def test_excecao_inesperada_libera_loading_e_nao_expoe_detalhe(monkeypatch):
     assert estado.carregando_fila is False
     assert estado.mensagem_assuncao == MENSAGEM_INDISPONIVEL
     assert "sensível" not in estado.mensagem_assuncao
-    assert cliente.visoes == [("token-de-teste", "todos", None)]
+    assert cliente.consultas == [("token-de-teste", "todos", None)]
 
 
 def test_detalhe_tecnico_oferece_gestao_de_responsavel_e_timeline_sem_status():

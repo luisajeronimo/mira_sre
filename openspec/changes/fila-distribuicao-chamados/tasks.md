@@ -7,14 +7,14 @@
 
 ## 2. Xano: APIs e regras
 
-- [ ] 2.1 Ampliar listagem e detalhe existentes para consulta global por Técnico, Diretoria e Administrador, pesquisa por número, filtros simples de responsável, roster mínimo de Técnicos e timeline única; validar cenários de autorização, conteúdo, timestamp e ordenação.
-- [ ] 2.2 Evoluir o comando existente de assunção para assumir, atribuir, reatribuir e liberar, validando perfil, Técnico alvo e estados terminais; persistir responsável, timestamps e evento na mesma transação e validar idempotência, conflitos e status inalterado nos testes Xano.
+- [x] 2.1 Ampliar listagem e detalhe existentes para consulta global por Técnico, Diretoria e Administrador, pesquisa por número, filtros simples de responsável, roster mínimo de Técnicos e timeline única; validar cenários de autorização, conteúdo, timestamp e ordenação.
+- [x] 2.2 Evoluir o comando existente de assunção para assumir, atribuir, reatribuir e liberar, validando perfil, Técnico alvo e estados terminais; persistir responsável, timestamps e evento na mesma transação e validar idempotência, conflitos e status inalterado nos testes Xano.
 
 ## 3. Reflex
 
-- [x] 3.1 Adaptar proteção de rota, página, State e service existentes para os três perfis autorizados, fila global, pesquisa, filtros e responsável atual; validar estados de carregamento/erro e os testes Reflex relevantes.
+- [x] 3.1 Adaptar proteção de rota, página, State e service existentes para os três perfis autorizados, tabela global única, pesquisa, filtros aplicados e responsável atual; validar estados de carregamento/erro, sessão, autorização e os testes Reflex relevantes.
 - [x] 3.2 Adaptar o detalhe existente para timeline cronológica, seleção de Técnico e ações de atribuição conforme perfil e estado; validar que `Encerrado` e `Cancelado` não oferecem ações e que nenhuma ação muda status.
 
 ## 4. Validação integrada
 
-- [ ] 4.1 Validar o fluxo de consulta, assunção, atribuição, reatribuição e liberação de ponta a ponta, incluindo evento junto à alteração do responsável; executar validação OpenSpec estrita e revisar `git diff --check`.
+- [x] 4.1 Validar o fluxo de consulta, assunção, atribuição, reatribuição e liberação de ponta a ponta, incluindo evento junto à alteração do responsável; executar validação OpenSpec estrita e revisar `git diff --check`.

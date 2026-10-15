@@ -60,6 +60,12 @@ class ReferenciaUsuario:
 
 
 @dataclass(frozen=True, slots=True)
+class ReferenciaLoja:
+    id: int
+    nome: str
+
+
+@dataclass(frozen=True, slots=True)
 class AutorComentarioPublico:
     nome: str
 
@@ -115,6 +121,7 @@ class ChamadoDetalhe:
     tecnico: ReferenciaUsuario | None
     atribuido_em: int | None = None
     criador_sistema: str | None = None
+    loja: ReferenciaLoja | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,6 +240,18 @@ def _referencia_usuario(
     return ReferenciaUsuario(
         id=_inteiro(dados.get("id"), f"{campo}.id"),
         nome=_texto(dados.get("nome"), f"{campo}.nome"),
+    )
+
+
+def _referencia_loja(valor: Any) -> ReferenciaLoja | None:
+    if valor is None:
+        return None
+    dados = _objeto(valor, "loja")
+    if dados.get("id") is None and dados.get("nome") is None:
+        return None
+    return ReferenciaLoja(
+        id=_inteiro(dados.get("id"), "loja.id"),
+        nome=_texto(dados.get("nome"), "loja.nome"),
     )
 
 
@@ -368,6 +387,7 @@ def _detalhe(
             "atribuido_em",
         ),
         criador_sistema=_criador_sistema(dados.get("criador_sistema")),
+        loja=_referencia_loja(dados.get("loja")),
     )
 
 
@@ -615,10 +635,12 @@ class XanoServiceDeskCliente(XanoCliente):
     async def listar_chamados_tecnico(
         self,
         token: str,
-        visao: str,
+        situacao_atribuicao: str = "todos",
         numero: str | None = None,
     ) -> list[ChamadoResumo]:
-        params: dict[str, str] = {"visao": visao}
+        params: dict[str, str] = {}
+        if situacao_atribuicao != "todos":
+            params["situacao_atribuicao"] = situacao_atribuicao
         if numero is not None and numero.strip():
             params["numero"] = numero.strip()
         dados = await self._requisitar(

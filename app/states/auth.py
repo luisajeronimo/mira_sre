@@ -116,7 +116,10 @@ class AuthState(rx.State):
             self._limpar_sessao(MENSAGEM_EXPIRADA)
             return "/login"
         except XanoNaoAutorizado:
-            self.sessao_confirmada = False
+            # 403 confirma somente que a revalidação não foi autorizada; não
+            # prova que uma sessão humana já confirmada expirou ou mudou.
+            # Preservar a identidade evita que telas protegidas exibam uma
+            # revalidação falsa enquanto o contrato funcional informa o erro.
             self.mensagem_erro = MENSAGEM_NAO_AUTORIZADO
             return None
         except XanoIndisponivel:

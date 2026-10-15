@@ -84,7 +84,8 @@ Identificar quem acessa o sistema, seu papel e o escopo de atuação permitido.
 
 - um Gerente pertence a uma Loja;
 - um usuário humano pode atuar como solicitante de chamados;
-- Técnico, Diretoria e Administrador podem ser responsáveis por chamados;
+- somente usuários com perfil Técnico podem ser responsáveis por chamados;
+- Diretoria e Administrador podem gerir atribuições, sem se tornarem responsáveis;
 - usuários podem registrar interações conforme suas permissões.
 
 ### Regras estruturais
@@ -362,12 +363,14 @@ Na abertura manual, o Gerente escolhe diretamente a prioridade. O MIRA não util
 #### Atribuição
 
 - um Chamado pode existir sem Técnico responsável;
+- somente um usuário com perfil `Técnico` pode ser responsável por um Chamado;
+- Diretoria e Administrador podem atribuir, reatribuir e liberar o Técnico responsável, mas não se tornam responsáveis pelo Chamado;
 - assumir um Chamado registra o Técnico e o momento da atribuição;
 - assumir não altera automaticamente o status `Novo`;
 - repetir a assunção pelo mesmo Técnico não cria uma nova atribuição;
-- Técnicos, Diretoria e Administrador podem atribuir ou reatribuir Chamados não `Encerrado` e não `Cancelado`;
+- Técnico, Diretoria e Administrador podem atribuir ou reatribuir Chamados não `Encerrado` e não `Cancelado`;
+- Diretoria e Administrador podem liberar qualquer atribuição; Técnico pode retirar somente a própria atribuição;
 - a ação `Assumir` é aplicável quando o Chamado não possui responsável;
-- um Técnico pode retirar sua própria atribuição;
 - retirar atribuição mantém o status atual, inclusive quando estiver `Em Atendimento`;
 - toda atribuição, reatribuição ou liberação deve gerar registro no histórico.
 

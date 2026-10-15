@@ -323,7 +323,7 @@ def test_criador_sistema_invalido_falha_fechado(valor):
         executar(cliente.obter_chamado("token", 101))
 
 
-def test_contratos_tecnicos_preservam_visao_atribuicao_e_idempotencia():
+def test_contratos_tecnicos_enviam_visao_e_pesquisa_por_numero():
     requisicoes = []
 
     def responder(requisicao: httpx.Request) -> httpx.Response:
@@ -337,7 +337,7 @@ def test_contratos_tecnicos_preservam_visao_atribuicao_e_idempotencia():
                             "id": 101,
                             "titulo": "Falha",
                             "descricao": "Descrição",
-                            "status": "Novo",
+                            "status": None,
                             "prioridade": "Alta",
                             "origem": "manual",
                             "criado_em": 1780000000000,
@@ -358,19 +358,27 @@ def test_contratos_tecnicos_preservam_visao_atribuicao_e_idempotencia():
         BASE_URL,
         transport=httpx.MockTransport(responder),
     )
-    fila = executar(cliente.listar_chamados_tecnico("token", "nao_atribuidos"))
+    fila = executar(cliente.listar_chamados_tecnico("token", "todos"))
+    busca = executar(
+        cliente.listar_chamados_tecnico("token", "atribuidos_a_outros", " 102 ")
+    )
     detalhe = executar(cliente.obter_chamado_tecnico("token", 101))
     assumido = executar(cliente.assumir_chamado_tecnico("token", 101))
 
     assert fila[0].tecnico is None
     assert fila[0].atribuido_em is None
+    assert fila[0].status is None
+    assert busca[0].id == 101
     assert detalhe.atribuido_em == 1780000001000
     assert assumido.atribuido_em == 1780000001000
-    assert str(requisicoes[0].url).endswith(
-        "/tecnico/chamados?visao=nao_atribuidos"
-    )
-    assert requisicoes[2].method == "POST"
-    assert json.loads(requisicoes[2].read()) == {}
+    assert requisicoes[0].url.path.endswith("/tecnico/chamados")
+    assert dict(requisicoes[0].url.params) == {"visao": "todos"}
+    assert dict(requisicoes[1].url.params) == {
+        "visao": "atribuidos_a_outros",
+        "numero": "102",
+    }
+    assert requisicoes[3].method == "POST"
+    assert json.loads(requisicoes[3].read()) == {}
 
 
 def test_conflito_tecnico_e_classificado_sem_expor_corpo():

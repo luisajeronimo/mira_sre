@@ -12,7 +12,7 @@
 
 ## 3. Reflex
 
-- [ ] 3.1 Adaptar proteção de rota, página, State e service existentes para os três perfis autorizados, fila global, pesquisa, filtros e responsável atual; validar estados de carregamento/erro e os testes Reflex relevantes.
+- [x] 3.1 Adaptar proteção de rota, página, State e service existentes para os três perfis autorizados, fila global, pesquisa, filtros e responsável atual; validar estados de carregamento/erro e os testes Reflex relevantes.
 - [ ] 3.2 Adaptar o detalhe existente para timeline cronológica, seleção de Técnico e ações de atribuição conforme perfil e estado; validar que `Encerrado` e `Cancelado` não oferecem ações e que nenhuma ação muda status.
 
 ## 4. Validação integrada

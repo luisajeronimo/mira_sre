@@ -79,8 +79,8 @@ class ClienteTecnicoFalso:
         self.visoes = []
         self.assuncoes = []
 
-    async def listar_chamados_tecnico(self, token, visao):
-        self.visoes.append((token, visao))
+    async def listar_chamados_tecnico(self, token, visao, numero=None):
+        self.visoes.append((token, visao, numero))
         return self.listas.get(visao, [])
 
     async def assumir_chamado_tecnico(self, token, chamado_id):
@@ -90,12 +90,12 @@ class ClienteTecnicoFalso:
         return self.resultado_assuncao
 
 
-def novo_estado_tecnico():
+def novo_estado_tecnico(role="tecnico"):
     estado = ChamadosTecnicoState(_reflex_internal_init=True)
     object.__setattr__(estado, "_auth_token", "token-de-teste")
     object.__setattr__(estado, "sessao_confirmada", True)
     object.__setattr__(estado, "usuario_id", 9)
-    object.__setattr__(estado, "role", "tecnico")
+    object.__setattr__(estado, "role", role)
     return estado
 
 
@@ -104,10 +104,22 @@ def liberar_validacao_de_sessao(monkeypatch):
         return None
 
     monkeypatch.setattr(ChamadosTecnicoState, "_validar_tecnico", validar)
+    monkeypatch.setattr(ChamadosTecnicoState, "_validar_acesso_fila", validar)
 
 
-@pytest.mark.parametrize("visao", ["nao_atribuidos", "atribuidos_a_mim"])
-def test_selecionar_visao_consulta_a_visao_escolhida(monkeypatch, visao):
+@pytest.mark.parametrize(
+    ("role", "visao"),
+    [
+        ("tecnico", "todos"),
+        ("tecnico", "nao_atribuidos"),
+        ("tecnico", "atribuidos_a_mim"),
+        ("tecnico", "atribuidos_a_outros"),
+        ("diretoria", "todos"),
+        ("diretoria", "atribuidos_a_outros"),
+        ("administrador", "nao_atribuidos"),
+    ],
+)
+def test_selecionar_visao_consulta_a_visao_escolhida(monkeypatch, role, visao):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso()
     monkeypatch.setattr(
@@ -115,13 +127,96 @@ def test_selecionar_visao_consulta_a_visao_escolhida(monkeypatch, visao):
         "criar_cliente_service_desk",
         lambda: cliente,
     )
-    estado = novo_estado_tecnico()
+    estado = novo_estado_tecnico(role)
 
     executar_evento(ChamadosTecnicoState.selecionar_visao, estado, visao)
 
     assert estado.visao == visao
-    assert cliente.visoes == [("token-de-teste", visao)]
+    assert cliente.visoes == [("token-de-teste", visao, None)]
     assert estado.carregando_fila is False
+
+
+@pytest.mark.parametrize("role", ["tecnico", "diretoria", "administrador"])
+def test_fila_global_revalida_e_autoriza_perfis_previstos(monkeypatch, role):
+    async def revalidar(_estado):
+        return None
+
+    monkeypatch.setattr(ChamadosTecnicoState, "_revalidar", revalidar)
+    estado = novo_estado_tecnico(role)
+
+    assert asyncio.run(estado._validar_acesso_fila()) is None
+
+
+def test_fila_global_redireciona_perfil_fora_do_escopo(monkeypatch):
+    async def revalidar(_estado):
+        return None
+
+    monkeypatch.setattr(ChamadosTecnicoState, "_revalidar", revalidar)
+    estado = novo_estado_tecnico("gerente")
+
+    assert asyncio.run(estado._validar_acesso_fila()) == "/gerente"
+
+
+def test_visoes_de_responsavel_respeitam_o_perfil():
+    tecnico = novo_estado_tecnico("tecnico")
+    diretoria = novo_estado_tecnico("diretoria")
+    administrador = novo_estado_tecnico("administrador")
+
+    assert tecnico.visoes() == [
+        "todos",
+        "nao_atribuidos",
+        "atribuidos_a_mim",
+        "atribuidos_a_outros",
+    ]
+    assert diretoria.visoes() == ["todos", "nao_atribuidos", "atribuidos_a_outros"]
+    assert administrador.visoes() == ["todos", "nao_atribuidos", "atribuidos_a_outros"]
+
+
+def test_perfil_nao_tecnico_nao_pode_escolher_atribuidos_a_mim(monkeypatch):
+    estado = novo_estado_tecnico("diretoria")
+
+    eventos = executar_evento(
+        ChamadosTecnicoState.selecionar_visao,
+        estado,
+        "atribuidos_a_mim",
+    )
+
+    assert eventos == []
+    assert estado.visao == "todos"
+    assert estado.mensagem_fila == "Visão inválida."
+
+
+def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(
+        chamados_module,
+        "criar_cliente_service_desk",
+        lambda: cliente,
+    )
+    estado = novo_estado_tecnico("diretoria")
+    estado.numero = " 102 "
+
+    executar_evento(ChamadosTecnicoState.pesquisar_numero, estado)
+
+    assert cliente.visoes == [("token-de-teste", "todos", "102")]
+
+
+def test_limpar_pesquisa_recarrega_fila_sem_numero(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(
+        chamados_module,
+        "criar_cliente_service_desk",
+        lambda: cliente,
+    )
+    estado = novo_estado_tecnico("administrador")
+    estado.numero = "102"
+
+    executar_evento(ChamadosTecnicoState.limpar_pesquisa, estado)
+
+    assert estado.numero == ""
+    assert cliente.visoes == [("token-de-teste", "todos", None)]
 
 
 def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():
@@ -131,6 +226,7 @@ def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():
         atribuido_em=1780000001000,
     )
     status_diferente = resumo_tecnico(status="Em Atendimento", atribuido_em=0)
+    status_nulo = resumo_tecnico(status=None)
 
     assert _tecnico_para_dict(legado_com_timestamp)["pode_assumir"] is True
     assert _detalhe_para_dict(
@@ -138,6 +234,8 @@ def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():
     )["pode_assumir"] is True
     assert _tecnico_para_dict(tecnico_atribuido)["pode_assumir"] is False
     assert _tecnico_para_dict(status_diferente)["pode_assumir"] is False
+    assert _tecnico_para_dict(status_nulo)["status"] == "Não informado"
+    assert _tecnico_para_dict(status_nulo)["pode_assumir"] is False
 
 
 def test_detalhe_mostra_nome_do_bot_somente_quando_persistido():
@@ -183,7 +281,7 @@ def test_assuncao_bem_sucedida_recarrega_fila_e_preserva_confirmacao(monkeypatch
     executar_evento(ChamadosTecnicoState.assumir, estado, 32)
 
     assert cliente.assuncoes == [("token-de-teste", 32)]
-    assert cliente.visoes == [("token-de-teste", "nao_atribuidos")]
+    assert cliente.visoes == [("token-de-teste", "todos", None)]
     assert estado.chamado["status"] == "Novo"
     assert estado.chamado["tecnico_nome"] == "Técnico 9"
     assert estado.chamado["atribuido_em_texto"] != "Não informado"
@@ -208,7 +306,7 @@ def test_conflito_informa_e_recarrega_sem_substituir_detalhe_local(monkeypatch):
     executar_evento(ChamadosTecnicoState.assumir, estado, 32)
 
     assert cliente.assuncoes == [("token-de-teste", 32)]
-    assert cliente.visoes == [("token-de-teste", "nao_atribuidos")]
+    assert cliente.visoes == [("token-de-teste", "todos", None)]
     assert estado.chamado == detalhe_anterior
     assert estado.mensagem_assuncao == "Este chamado foi assumido por outro Técnico."
     assert estado.assumindo_id is None
@@ -233,7 +331,7 @@ def test_excecao_inesperada_libera_loading_e_nao_expoe_detalhe(monkeypatch):
     assert estado.carregando_fila is False
     assert estado.mensagem_assuncao == MENSAGEM_INDISPONIVEL
     assert "sensível" not in estado.mensagem_assuncao
-    assert cliente.visoes == [("token-de-teste", "nao_atribuidos")]
+    assert cliente.visoes == [("token-de-teste", "todos", None)]
 
 
 def test_telas_tecnicas_nao_exibem_acoes_de_tratativa_ou_reatribuicao():

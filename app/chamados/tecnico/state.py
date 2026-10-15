@@ -27,7 +27,8 @@ from app.states.auth import (
 class ChamadosTecnicoState(AuthState):
     """Mantém a fila técnica e a assunção sem ampliar a tratativa."""
 
-    visao: str = "nao_atribuidos"
+    visao: str = "todos"
+    numero: str = ""
     chamados: list[TecnicoView] = []
     chamado: DetalheView = {}
     carregando_fila: bool = False
@@ -37,9 +38,17 @@ class ChamadosTecnicoState(AuthState):
     mensagem_detalhe_tecnico: str = ""
     mensagem_assuncao: str = ""
 
-    @staticmethod
-    def visoes() -> list[str]:
-        return ["nao_atribuidos", "atribuidos_a_mim"]
+    def visoes(self) -> list[str]:
+        if self.role == "tecnico":
+            return [
+                "todos",
+                "nao_atribuidos",
+                "atribuidos_a_mim",
+                "atribuidos_a_outros",
+            ]
+        if self.role in {"diretoria", "administrador"}:
+            return ["todos", "nao_atribuidos", "atribuidos_a_outros"]
+        return []
 
     def _limpar_mensagens_tecnico(self) -> None:
         self.mensagem_fila = ""
@@ -48,6 +57,14 @@ class ChamadosTecnicoState(AuthState):
 
     async def _validar_tecnico(self) -> str | None:
         return await self._revalidar("tecnico")
+
+    async def _validar_acesso_fila(self) -> str | None:
+        destino = await self._revalidar()
+        if destino is not None:
+            return destino
+        if self.role not in {"tecnico", "diretoria", "administrador"}:
+            return self.destino_por_perfil(self.role) or "/login"
+        return None
 
     def _registrar_erro_tecnico(self, erro: Exception, destino: str) -> str | None:
         if isinstance(erro, XanoNaoAutenticado):
@@ -84,6 +101,21 @@ class ChamadosTecnicoState(AuthState):
             yield evento
 
     @rx.event
+    def atualizar_numero(self, valor: str):
+        self.numero = valor
+
+    @rx.event
+    async def pesquisar_numero(self):
+        async for evento in self.carregar_fila():
+            yield evento
+
+    @rx.event
+    async def limpar_pesquisa(self):
+        self.numero = ""
+        async for evento in self.carregar_fila():
+            yield evento
+
+    @rx.event
     async def carregar_fila(self):
         if self.carregando_fila:
             return
@@ -91,16 +123,19 @@ class ChamadosTecnicoState(AuthState):
         self._limpar_mensagens_tecnico()
         yield
         try:
-            destino = await self._validar_tecnico()
+            destino = await self._validar_acesso_fila()
             if destino is not None:
                 yield rx.redirect(destino)
                 return
             if not self.sessao_confirmada:
                 return
+            if self.visao not in self.visoes():
+                self.visao = "todos"
             try:
                 resultado = await criar_cliente_service_desk().listar_chamados_tecnico(
                     self._auth_token,
                     self.visao,
+                    self.numero.strip() or None,
                 )
                 self.chamados = [_tecnico_para_dict(item) for item in resultado]
             except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
@@ -120,7 +155,7 @@ class ChamadosTecnicoState(AuthState):
         self.carregando_detalhe_tecnico = True
         self._limpar_mensagens_tecnico()
         yield
-        destino = await self._validar_tecnico()
+        destino = await self._validar_acesso_fila()
         if destino is not None:
             self.carregando_detalhe_tecnico = False
             yield rx.redirect(destino)

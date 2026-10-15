@@ -10,19 +10,64 @@ from app.states.auth import AuthState
 
 def _fila_tecnico() -> rx.Component:
     return rx.vstack(
-        cabecalho("Fila técnica", "Consulte chamados elegíveis para assumir."),
+        cabecalho("Fila técnica", "Consulte a fila global e a distribuição atual dos chamados."),
         rx.hstack(
+            rx.button(
+                "Todos",
+                variant=rx.cond(ChamadosTecnicoState.visao == "todos", "solid", "outline"),
+                on_click=ChamadosTecnicoState.selecionar_visao("todos"),
+                disabled=ChamadosTecnicoState.carregando_fila,
+            ),
             rx.button(
                 "Não atribuídos",
                 variant=rx.cond(ChamadosTecnicoState.visao == "nao_atribuidos", "solid", "outline"),
                 on_click=ChamadosTecnicoState.selecionar_visao("nao_atribuidos"),
+                disabled=ChamadosTecnicoState.carregando_fila,
+            ),
+            rx.cond(
+                AuthState.role == "tecnico",
+                rx.button(
+                    "Atribuídos a mim",
+                    variant=rx.cond(ChamadosTecnicoState.visao == "atribuidos_a_mim", "solid", "outline"),
+                    on_click=ChamadosTecnicoState.selecionar_visao("atribuidos_a_mim"),
+                    disabled=ChamadosTecnicoState.carregando_fila,
+                ),
+                rx.fragment(),
             ),
             rx.button(
-                "Atribuídos a mim",
-                variant=rx.cond(ChamadosTecnicoState.visao == "atribuidos_a_mim", "solid", "outline"),
-                on_click=ChamadosTecnicoState.selecionar_visao("atribuidos_a_mim"),
+                "Atribuídos a outros Técnicos",
+                variant=rx.cond(ChamadosTecnicoState.visao == "atribuidos_a_outros", "solid", "outline"),
+                on_click=ChamadosTecnicoState.selecionar_visao("atribuidos_a_outros"),
+                disabled=ChamadosTecnicoState.carregando_fila,
             ),
             spacing="3",
+            wrap="wrap",
+        ),
+        rx.hstack(
+            rx.input(
+                value=ChamadosTecnicoState.numero,
+                placeholder="Número do chamado",
+                on_change=ChamadosTecnicoState.atualizar_numero,
+                aria_label="Pesquisar chamado por número",
+                width="min(100%, 20rem)",
+            ),
+            rx.button(
+                "Pesquisar",
+                on_click=ChamadosTecnicoState.pesquisar_numero,
+                disabled=ChamadosTecnicoState.carregando_fila,
+            ),
+            rx.cond(
+                ChamadosTecnicoState.numero != "",
+                rx.button(
+                    "Limpar",
+                    variant="outline",
+                    on_click=ChamadosTecnicoState.limpar_pesquisa,
+                    disabled=ChamadosTecnicoState.carregando_fila,
+                ),
+                rx.fragment(),
+            ),
+            spacing="3",
+            width="100%",
         ),
         erro(ChamadosTecnicoState.mensagem_fila),
         erro(ChamadosTecnicoState.mensagem_assuncao),
@@ -31,7 +76,7 @@ def _fila_tecnico() -> rx.Component:
             rx.center(rx.spinner(size="3"), width="100%", padding="4rem"),
             rx.cond(
                 ChamadosTecnicoState.chamados.length() == 0,
-                rx.callout("Nenhum chamado elegível encontrado.", icon="info"),
+                rx.callout("Nenhum chamado encontrado.", icon="info"),
                 rx.vstack(
                     rx.foreach(
                         ChamadosTecnicoState.chamados,
@@ -54,7 +99,7 @@ def _fila_tecnico() -> rx.Component:
                                 rx.hstack(
                                     rx.link("Ver detalhe", href="/tecnico/chamados/" + item["id"].to_string()),
                                     rx.cond(
-                                        item["pode_assumir"],
+                                        (AuthState.role == "tecnico") & item["pode_assumir"],
                                         rx.button(
                                             rx.cond(ChamadosTecnicoState.assumindo_id == item["id"], "Assumindo...", "Assumir"),
                                             on_click=ChamadosTecnicoState.assumir(item["id"]),
@@ -107,7 +152,8 @@ def _detalhe_tecnico() -> rx.Component:
                     rx.text("Técnico: " + ChamadosTecnicoState.chamado["tecnico_nome"]),
                     rx.text("Atribuído em: " + ChamadosTecnicoState.chamado["atribuido_em_texto"]),
                     rx.cond(
-                        ChamadosTecnicoState.chamado["pode_assumir"],
+                        (AuthState.role == "tecnico")
+                        & ChamadosTecnicoState.chamado["pode_assumir"],
                         rx.button(
                             rx.cond(ChamadosTecnicoState.assumindo_id != None, "Assumindo...", "Assumir"),
                             on_click=ChamadosTecnicoState.assumir(ChamadosTecnicoState.chamado["id"]),
@@ -127,12 +173,17 @@ def _detalhe_tecnico() -> rx.Component:
     )
 
 
-def _protegida_tecnico(conteudo: rx.Component, evento) -> rx.Component:
+def _protegida_fila_global(conteudo: rx.Component, evento) -> rx.Component:
     return rx.cond(
         AuthState.carregando,
         estado_carregamento(),
         rx.cond(
-            AuthState.sessao_confirmada & (AuthState.role == "tecnico"),
+            AuthState.sessao_confirmada
+            & (
+                (AuthState.role == "tecnico")
+                | (AuthState.role == "diretoria")
+                | (AuthState.role == "administrador")
+            ),
             casca_conteudo(conteudo, "/tecnico"),
             estado_revalidacao(evento),
         ),
@@ -140,11 +191,11 @@ def _protegida_tecnico(conteudo: rx.Component, evento) -> rx.Component:
 
 
 def tecnico_chamados() -> rx.Component:
-    return _protegida_tecnico(_fila_tecnico(), ChamadosTecnicoState.carregar_fila)
+    return _protegida_fila_global(_fila_tecnico(), ChamadosTecnicoState.carregar_fila)
 
 
 def detalhe_chamado_tecnico() -> rx.Component:
-    return _protegida_tecnico(
+    return _protegida_fila_global(
         _detalhe_tecnico(),
         ChamadosTecnicoState.carregar_detalhe_tecnico,
     )

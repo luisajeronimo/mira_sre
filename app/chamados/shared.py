@@ -98,7 +98,7 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
         "id": chamado.id,
         "titulo": chamado.titulo,
         "descricao": chamado.descricao or "",
-        "status": chamado.status,
+        "status": chamado.status or "Não informado",
         "prioridade": chamado.prioridade,
         "origem": chamado.origem or "Não informado",
         "criado_em_texto": _timestamp_funcional_para_texto(chamado.criado_em),

@@ -73,7 +73,7 @@ class ComentarioPublico:
 class ChamadoResumo:
     id: int
     titulo: str
-    status: str
+    status: str | None
     prioridade: str
     origem: str | None
     criado_em: int
@@ -237,11 +237,19 @@ def _criador_sistema(valor: Any) -> str | None:
     return valor
 
 
-def _resumo(dados: dict[str, Any]) -> ChamadoResumo:
+def _resumo(
+    dados: dict[str, Any],
+    *,
+    permitir_status_nulo: bool = False,
+) -> ChamadoResumo:
     return ChamadoResumo(
         id=_inteiro(dados.get("id"), "id"),
         titulo=_texto(dados.get("titulo"), "titulo"),
-        status=_texto(dados.get("status"), "status"),
+        status=(
+            _texto_opcional(dados.get("status"), "status")
+            if permitir_status_nulo
+            else _texto(dados.get("status"), "status")
+        ),
         prioridade=_texto(dados.get("prioridade"), "prioridade"),
         origem=_origem(dados.get("origem")),
         criado_em=_inteiro(dados.get("criado_em"), "criado_em"),
@@ -528,13 +536,21 @@ class XanoServiceDeskCliente(XanoCliente):
         self,
         token: str,
         visao: str,
+        numero: str | None = None,
     ) -> list[ChamadoResumo]:
+        params: dict[str, str] = {"visao": visao}
+        if numero is not None and numero.strip():
+            params["numero"] = numero.strip()
         dados = await self._requisitar(
             "GET",
-            f"/tecnico/chamados?visao={visao}",
+            "/tecnico/chamados",
             token=token,
+            params=params,
         )
-        return [_resumo(item) for item in _colecao(dados)]
+        return [
+            _resumo(item, permitir_status_nulo=True)
+            for item in _colecao(dados)
+        ]
 
     async def obter_chamado_tecnico(
         self,

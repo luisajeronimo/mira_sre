@@ -11,6 +11,31 @@ from app.states.auth import AuthState
 def _fila_tecnico() -> rx.Component:
     return rx.vstack(
         cabecalho("Fila técnica", "Consulte a fila global e a distribuição atual dos chamados."),
+        rx.cond(
+            AuthState.role == "tecnico",
+            rx.hstack(
+                rx.button(
+                    "Todos",
+                    variant=rx.cond(
+                        ChamadosTecnicoState.escopo_rapido == "todos",
+                        "solid",
+                        "outline",
+                    ),
+                    on_click=ChamadosTecnicoState.selecionar_escopo_rapido("todos"),
+                    disabled=ChamadosTecnicoState.carregando_fila,
+                ),
+                rx.button(
+                    "Atribuídos a mim",
+                    variant=rx.cond(
+                        ChamadosTecnicoState.escopo_rapido == "atribuidos_a_mim",
+                        "solid",
+                        "outline",
+                    ),
+                    on_click=ChamadosTecnicoState.selecionar_escopo_rapido("atribuidos_a_mim"),
+                    disabled=ChamadosTecnicoState.carregando_fila,
+                ),
+            ),
+        ),
         rx.card(
             rx.vstack(
                 rx.text("Filtros", weight="bold"),

@@ -7,12 +7,12 @@
 
 ## 2. Xano: APIs e regras
 
-- [ ] 2.1 Corrigir listagem e detalhe para consulta global por Técnico, Diretoria e Administrador com o DTO canônico; aplicar os filtros explícitos da lista do Gerente (número, status, Totem e período), remover visões de atribuição e validar no Xano live lista, busca, detalhe e timeline legada.
+- [ ] 2.1 Corrigir listagem e detalhe para consulta global por Técnico, Diretoria e Administrador com o DTO canônico; aplicar os filtros explícitos da lista do Gerente (número, status, Totem e período), oferecer somente os escopos `Todos` e `Atribuídos a mim` para Técnico e validar no Xano live lista, busca, detalhe e timeline legada.
 - [x] 2.2 Evoluir o comando existente de assunção para assumir, atribuir, reatribuir e liberar, validando perfil, Técnico alvo e estados terminais; persistir responsável, timestamps e evento na mesma transação e validar idempotência, conflitos e status inalterado nos testes Xano.
 
 ## 3. Reflex
 
-- [ ] 3.1 Adaptar proteção de rota, página, State e service para os três perfis autorizados, uma tabela global no padrão do Gerente, filtros confirmados somente após sucesso, pesquisa no backend e responsável atual; separar 401, 403 e falhas funcionais sem falso erro de identidade.
+- [ ] 3.1 Adaptar proteção de rota, página, State e service para os três perfis autorizados, uma tabela global no padrão do Gerente, filtros confirmados somente após sucesso, pesquisa no backend, responsável atual e escopo rápido `Atribuídos a mim` exclusivo de Técnico; separar 401, 403 e falhas funcionais sem falso erro de identidade.
 - [ ] 3.2 Adaptar o detalhe ao DTO canônico e à timeline cronológica, selecionando Técnico e ações de atribuição conforme perfil e estado; validar contra payload real que não há `undefined`, que interações legadas continuam legíveis e que `Encerrado` e `Cancelado` não oferecem ações.
 
 ## 4. Validação integrada

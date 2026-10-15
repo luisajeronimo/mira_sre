@@ -431,7 +431,7 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
                         {
                             "id": 12,
                             "tipo": "atribuicao",
-                            "conteudo": None,
+                            "conteudo": "",
                             "visibilidade": "interna",
                             "criado_em": 1780000002000,
                             "autor": {"id": 12, "nome": "Técnico"},
@@ -453,6 +453,7 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
     )
     fila = executar(cliente.listar_chamados_tecnico("token"))
     busca = executar(cliente.listar_chamados_tecnico("token", numero=102, status="Novo", ativo_id=1, data_inicio=1780000000000, data_fim=1780100000000))
+    meus = executar(cliente.listar_chamados_tecnico("token", somente_atribuidos_a_mim=True))
     detalhe = executar(cliente.obter_chamado_tecnico("token", 101))
     assumido = executar(cliente.assumir_chamado_tecnico("token", 101))
 
@@ -466,13 +467,43 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
         "atribuicao",
     ]
     assert detalhe.timeline[0].criado_em < detalhe.timeline[1].criado_em
+    assert detalhe.timeline[1].conteudo is None
     assert detalhe.tecnicos[0].id == 12
     assert assumido.atribuido_em == 1780000001000
     assert requisicoes[0].url.path.endswith("/tecnico/chamados")
     assert dict(requisicoes[0].url.params) == {}
     assert dict(requisicoes[1].url.params) == {"numero": "102", "status": "Novo", "ativo_id": "1", "data_inicio": "1780000000000", "data_fim": "1780100000000"}
-    assert requisicoes[3].method == "POST"
-    assert json.loads(requisicoes[3].read()) == {"acao": "assumir"}
+    assert dict(requisicoes[2].url.params) == {"somente_atribuidos_a_mim": "true"}
+    assert requisicoes[4].method == "POST"
+    assert json.loads(requisicoes[4].read()) == {"acao": "assumir"}
+
+
+def test_timeline_rejeita_comentario_vazio_mas_aceita_evento_operacional_vazio():
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json=detalhe_tecnico_valido(
+                    timeline=[
+                        {
+                            "id": 36,
+                            "tipo": "comentario",
+                            "conteudo": "",
+                            "visibilidade": "publica",
+                            "criado_em": 1792105331969,
+                            "autor": {"id": 9, "nome": "Camila Santos"},
+                            "tecnico_anterior": None,
+                            "tecnico_novo": None,
+                        }
+                    ]
+                ),
+            )
+        ),
+    )
+
+    with pytest.raises(XanoContratoInvalido, match="timeline.conteudo"):
+        executar(cliente.obter_chamado_tecnico("token", 36))
 
 
 @pytest.mark.parametrize(

@@ -57,6 +57,7 @@ class ChamadosTecnicoState(AuthState):
     data_inicio_aplicada: int | None = None
     data_fim_aplicada: int | None = None
     filtros_aplicados: list[str] = []
+    escopo_rapido: str = "todos"
     ativos: list[str] = []
     total_chamados: int = 0
     chamados: list[TecnicoView] = []
@@ -236,6 +237,7 @@ class ChamadosTecnicoState(AuthState):
         async for evento in self._carregar_fila(
             filtros=filtros,
             confirmar_filtros=True,
+            escopo_rapido=self.escopo_rapido,
         ):
             yield evento
 
@@ -245,6 +247,18 @@ class ChamadosTecnicoState(AuthState):
         async for evento in self._carregar_fila(
             filtros=filtros,
             confirmar_filtros=True,
+            escopo_rapido=self.escopo_rapido,
+        ):
+            yield evento
+
+    @rx.event
+    async def selecionar_escopo_rapido(self, escopo: str):
+        if self.role != "tecnico" or escopo not in {"todos", "atribuidos_a_mim"}:
+            return
+        async for evento in self._carregar_fila(
+            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados),
+            confirmar_filtros=False,
+            escopo_rapido=escopo,
         ):
             yield evento
 
@@ -253,6 +267,7 @@ class ChamadosTecnicoState(AuthState):
         async for evento in self._carregar_fila(
             filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados),
             confirmar_filtros=False,
+            escopo_rapido=self.escopo_rapido,
         ):
             yield evento
 
@@ -261,6 +276,7 @@ class ChamadosTecnicoState(AuthState):
         *,
         filtros: tuple[int | None, str, int | None, int | None, int | None, list[str]],
         confirmar_filtros: bool,
+        escopo_rapido: str,
     ):
         if self.carregando_fila:
             return
@@ -280,7 +296,7 @@ class ChamadosTecnicoState(AuthState):
             try:
                 numero, status, ativo_id, inicio, fim, etiquetas = filtros
                 cliente = criar_cliente_service_desk()
-                resultado = await cliente.listar_chamados_tecnico(self._auth_token, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim)
+                resultado = await cliente.listar_chamados_tecnico(self._auth_token, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, somente_atribuidos_a_mim=(escopo_rapido == "atribuidos_a_mim"))
                 ativos_carregados: list[str] | None = None
                 if not self.ativos:
                     ativos = await cliente.listar_ativos_tecnico(self._auth_token)
@@ -289,6 +305,7 @@ class ChamadosTecnicoState(AuthState):
                 # dados auxiliares necessários à mesma tela também chegaram.
                 self.chamados = [_tecnico_para_dict(item) for item in resultado.items]
                 self.total_chamados = resultado.total
+                self.escopo_rapido = escopo_rapido
                 if ativos_carregados is not None:
                     self.ativos = ativos_carregados
                 if confirmar_filtros:

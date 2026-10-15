@@ -168,7 +168,7 @@ def test_aplicar_filtros_consulta_filtros_explicitos(monkeypatch, role):
 
     assert estado.numero_aplicado == 102
     assert estado.status_aplicado == "Novo"
-    assert cliente.consultas == [("token-de-teste", {"numero": 102, "status": "Novo", "ativo_id": None, "data_inicio": None, "data_fim": None})]
+    assert cliente.consultas == [("token-de-teste", {"numero": 102, "status": "Novo", "ativo_id": None, "data_inicio": None, "data_fim": None, "somente_atribuidos_a_mim": False})]
     assert estado.carregando_fila is False
 
 
@@ -206,7 +206,7 @@ def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
 
     executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
 
-    assert cliente.consultas == [("token-de-teste", {"numero": 102, "status": None, "ativo_id": None, "data_inicio": None, "data_fim": None})]
+    assert cliente.consultas == [("token-de-teste", {"numero": 102, "status": None, "ativo_id": None, "data_inicio": None, "data_fim": None, "somente_atribuidos_a_mim": False})]
 
 
 def test_limpar_filtros_recarrega_fila_sem_numero(monkeypatch):
@@ -223,7 +223,7 @@ def test_limpar_filtros_recarrega_fila_sem_numero(monkeypatch):
     executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
 
     assert estado.filtro_numero == ""
-    assert cliente.consultas == [("token-de-teste", {"numero": None, "status": None, "ativo_id": None, "data_inicio": None, "data_fim": None})]
+    assert cliente.consultas == [("token-de-teste", {"numero": None, "status": None, "ativo_id": None, "data_inicio": None, "data_fim": None, "somente_atribuidos_a_mim": False})]
 
 
 def test_falha_da_consulta_preserva_filtro_e_resultado_aplicados(monkeypatch):
@@ -342,6 +342,61 @@ def test_fila_global_reutiliza_tabela_e_filtros_sem_abas_de_visao():
     assert '"Não atribuídos"' not in fonte
 
 
+def test_tecnico_alterna_para_atribuidos_a_mim_e_combina_filtros(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.numero_aplicado = 38
+    estado.status_aplicado = "Novo"
+    estado.filtros_aplicados = ["Número: 38", "Status: Novo"]
+
+    executar_evento(
+        ChamadosTecnicoState.selecionar_escopo_rapido,
+        estado,
+        "atribuidos_a_mim",
+    )
+
+    assert estado.escopo_rapido == "atribuidos_a_mim"
+    assert cliente.consultas[-1][1] == {
+        "numero": 38,
+        "status": "Novo",
+        "ativo_id": None,
+        "data_inicio": None,
+        "data_fim": None,
+        "somente_atribuidos_a_mim": True,
+    }
+
+
+def test_limpar_filtros_preserva_escopo_atribuidos_a_mim(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.escopo_rapido = "atribuidos_a_mim"
+
+    executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
+
+    assert estado.escopo_rapido == "atribuidos_a_mim"
+    assert cliente.consultas[-1][1]["somente_atribuidos_a_mim"] is True
+
+
+@pytest.mark.parametrize("role", ["diretoria", "administrador"])
+def test_diretoria_e_admin_nao_alteram_para_escopo_pessoal(monkeypatch, role):
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico(role)
+
+    executar_evento(
+        ChamadosTecnicoState.selecionar_escopo_rapido,
+        estado,
+        "atribuidos_a_mim",
+    )
+
+    assert estado.escopo_rapido == "todos"
+    assert cliente.consultas == []
+
+
 def test_erro_da_fila_nao_renderiza_empty_state_simultaneamente():
     fonte = inspect.getsource(paginas_chamados._fila_tecnico)
 
@@ -349,6 +404,14 @@ def test_erro_da_fila_nao_renderiza_empty_state_simultaneamente():
     assert fonte.index('ChamadosTecnicoState.mensagem_fila != ""') < fonte.index(
         'ChamadosTecnicoState.chamados.length() == 0'
     )
+
+
+def test_visao_rapida_esta_fora_dos_filtros_e_so_aparece_para_tecnico():
+    fonte = inspect.getsource(paginas_chamados._fila_tecnico)
+
+    assert fonte.index('"Atribuídos a mim"') < fonte.index('rx.text("Filtros"')
+    assert 'AuthState.role == "tecnico"' in fonte
+    assert "Atribuídos a outros Técnicos" not in fonte
 
 
 def test_elegibilidade_visual_usa_status_e_tecnico_sem_condicionar_timestamp():

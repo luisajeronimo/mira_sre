@@ -3,15 +3,23 @@
 ## MODIFIED Requirements
 
 ### Requirement: Fila técnica oferece somente as visões aprovadas
-O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnico, Diretoria e Administrador, aplicando no Xano os mesmos filtros explícitos da listagem do Gerente: número, status, Totem e período de abertura. Sem filtros aplicados, `Todos` DEVE significar todos os chamados dentro do escopo global, sem restrição implícita por status, responsável, origem, solicitante, data ou Loja. O responsável atual é exibido como dado da tabela e gerido no detalhe; a fila NÃO DEVE (MUST NOT) oferecer visões, abas ou filtros de navegação por situação de atribuição. O Gerente NÃO DEVE acessar esta fila.
+O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnico, Diretoria e Administrador, aplicando no Xano os mesmos filtros explícitos da listagem do Gerente: número, status, Totem e período de abertura. Sem filtros aplicados, `Todos` DEVE significar todos os chamados dentro do escopo global, sem restrição implícita por status, responsável, origem, solicitante, data ou Loja. O Técnico também possui a visão rápida `Atribuídos a mim`, fora do painel de filtros operacionais, que aplica `tecnico_id == usuário autenticado` e se combina aos filtros explícitos. Diretoria e Administrador não recebem essa visão. O Gerente NÃO DEVE acessar esta fila.
 
 #### Scenario: Visão de chamados não atribuídos
-- **WHEN** um cliente informa o parâmetro legado de situação de atribuição
-- **THEN** o Xano responde HTTP 422 sem executar consulta implícita
+- **WHEN** um Técnico consulta a fila global
+- **THEN** a interface não apresenta uma visão rápida de chamados não atribuídos
 
 #### Scenario: Visão de chamados atribuídos a mim
-- **WHEN** um cliente informa o parâmetro legado de situação de atribuição
-- **THEN** a interface não apresenta essa visão e o Xano responde HTTP 422
+- **WHEN** um Técnico seleciona `Atribuídos a mim`
+- **THEN** o Xano retorna somente chamados cujo responsável atual é o próprio Técnico autenticado
+
+#### Scenario: Escopo rápido combina com filtros operacionais
+- **WHEN** um Técnico seleciona `Atribuídos a mim` e informa número, status, Totem ou período
+- **THEN** o Xano retorna a interseção entre o responsável atual e os filtros explícitos
+
+#### Scenario: Limpeza preserva escopo rápido
+- **WHEN** um Técnico limpa os filtros operacionais dentro de `Atribuídos a mim`
+- **THEN** a consulta remove número, status, Totem e período, mas mantém o escopo de responsável atual
 
 #### Scenario: Chamado atribuído a outro Técnico
 - **WHEN** um chamado possui responsável diferente do usuário autenticado
@@ -41,9 +49,9 @@ O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnic
 - **WHEN** um perfil autorizado pesquisa por número ou combina status, Totem e período de abertura
 - **THEN** o Xano retorna somente os chamados que correspondem à interseção dos filtros enviados
 
-#### Scenario: Responsável não cria visão de navegação
+#### Scenario: Responsável de outro Técnico não cria visão de navegação
 - **WHEN** um chamado possui ou não possui Técnico responsável
-- **THEN** ele permanece na única tabela global e a interface não apresenta `Atribuídos a outros Técnicos` ou outra visão de atribuição
+- **THEN** ele permanece na tabela global e a interface não apresenta `Atribuídos a outros Técnicos` ou `Não atribuídos` como visão de atribuição
 
 #### Scenario: Falha de consulta não confirma filtro no Reflex
 - **WHEN** uma pesquisa ou filtro solicitado falha antes de o Xano retornar a lista

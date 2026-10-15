@@ -7,12 +7,21 @@ function "service_desk/listar_chamados_tecnico" {
     text ativo_id? filters=trim
     timestamp data_inicio?
     timestamp data_fim?
+    bool somente_atribuidos_a_mim?
   }
 
   stack {
     function.run "autorizacao/exigir_perfil" {
       input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
     } as $usuario
+
+    precondition ($input.somente_atribuidos_a_mim != true || $usuario.role == "tecnico") {
+      error_type = "accessdenied"
+      error = "Acesso não autorizado."
+    }
+    var $tecnico_id_normalizado {
+      value = $input.somente_atribuidos_a_mim == true ? $usuario.id : null
+    }
 
     var $aplicar_numero { value = $input.numero != null && $input.numero != "" }
     var $numero_convertido { value = ($input.numero|to_int) }
@@ -80,7 +89,7 @@ function "service_desk/listar_chamados_tecnico" {
         solicitante_usuario_id: $db.solicitante.id, solicitante_nome: $db.solicitante.nome,
         tecnico_usuario_id: $db.tecnico.id, tecnico_nome: $db.tecnico.nome
       }
-      where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim)
+      where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
       sort = {chamados.id: "desc"}
       return = {type: "list"}
     } as $chamados

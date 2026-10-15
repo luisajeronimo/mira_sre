@@ -398,10 +398,19 @@ def _evento_timeline(dados: Any) -> EventoTimelineChamado:
         raise XanoContratoInvalido(
             "Campo inválido na resposta: timeline.tipo."
         )
+    conteudo = evento.get("conteudo")
+    # Eventos operacionais não carregam mensagem. O Xano os representa como
+    # texto vazio, enquanto comentários legados podem usar null.
+    conteudo_normalizado = (
+        None
+        if conteudo is None
+        or (conteudo == "" and tipo in {"atribuicao", "reatribuicao", "liberacao"})
+        else _texto(conteudo, "timeline.conteudo")
+    )
     return EventoTimelineChamado(
         id=_inteiro(evento.get("id"), "timeline.id"),
         tipo=tipo,
-        conteudo=_texto_opcional(evento.get("conteudo"), "timeline.conteudo"),
+        conteudo=conteudo_normalizado,
         visibilidade=_texto(evento.get("visibilidade"), "timeline.visibilidade"),
         criado_em=_inteiro(evento.get("criado_em"), "timeline.criado_em"),
         autor=_referencia_usuario(evento.get("autor"), "timeline.autor"),
@@ -662,6 +671,7 @@ class XanoServiceDeskCliente(XanoCliente):
         ativo_id: int | None = None,
         data_inicio: int | None = None,
         data_fim: int | None = None,
+        somente_atribuidos_a_mim: bool = False,
     ) -> ListaChamadosGerente:
         """Lista global com o mesmo envelope e filtros da lista do Gerente."""
 
@@ -675,6 +685,8 @@ class XanoServiceDeskCliente(XanoCliente):
         ):
             if valor is not None and valor != "":
                 params[campo] = valor
+        if somente_atribuidos_a_mim:
+            params["somente_atribuidos_a_mim"] = True
         dados = await self._requisitar(
             "GET",
             "/tecnico/chamados",

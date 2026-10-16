@@ -346,10 +346,7 @@ def _detalhe() -> rx.Component:
                         ),
                     ),
                 ),
-                rx.cond(
-                    (ChamadosGerenteState.chamado["status"] != "Encerrado")
-                    & (ChamadosGerenteState.chamado["status"] != "Cancelado"),
-                    rx.vstack(
+                rx.vstack(
                         rx.text_area(
                             value=ChamadosGerenteState.rascunho_comentario,
                             on_change=ChamadosGerenteState.alterar_rascunho_comentario,
@@ -376,7 +373,6 @@ def _detalhe() -> rx.Component:
                         ),
                         width="100%",
                         spacing="3",
-                    ),
                 ),
                 width="100%",
                 spacing="3",

@@ -20,6 +20,12 @@ CATEGORIAS_TRATATIVA = (
 CATEGORIAS_TRATATIVA_API = (
     ROOT / "xano/api/mira_service_desk/tecnico/categorias_GET.xs"
 ).read_text(encoding="utf-8")
+SAVE_TRATATIVA = (
+    ROOT / "xano/function/service_desk/validar_save_tratativa_chamado.xs"
+).read_text(encoding="utf-8")
+SAVE_TRATATIVA_API = (
+    ROOT / "xano/api/mira_service_desk/tecnico/chamados/chamados_id_tratativa_POST.xs"
+).read_text(encoding="utf-8")
 LISTAGEM = (ROOT / "xano/function/service_desk/listar_chamados_tecnico.xs").read_text(
     encoding="utf-8"
 )
@@ -84,3 +90,67 @@ def test_detalhe_preserva_categoria_persistida_sem_consultar_ativo():
     ).read_text(encoding="utf-8")
     assert 'where: $db.chamados.categorias_servico_id == $db.categoria.id' in DETALHE
     assert "categoria.ativo" not in DETALHE
+
+
+def test_save_da_tratativa_persiste_em_transacao_unica_e_retorna_detalhe_canonico():
+    assert 'query "tecnico/chamados/{chamados_id}/tratativa" verb=POST' in SAVE_TRATATIVA_API
+    assert 'auth = "usuarios"' in SAVE_TRATATIVA_API
+    assert 'function.run "service_desk/validar_save_tratativa_chamado"' in SAVE_TRATATIVA_API
+    for campo in (
+        "int? tecnico_id?",
+        "text status filters=trim",
+        "text prioridade filters=trim",
+        "int categorias_servico_id",
+        "timestamp ultima_atualizacao_em",
+        "text? comentario_status? filters=trim",
+        "text? visibilidade_comentario_status? filters=trim",
+    ):
+        assert campo in SAVE_TRATATIVA
+
+    assert 'function.run "autorizacao/exigir_perfil"' in SAVE_TRATATIVA
+    assert "tecnico: true, diretoria: true, administrador: true" in SAVE_TRATATIVA
+    assert "$input.ultima_atualizacao_em != $chamado.ultima_atualizacao_em" in SAVE_TRATATIVA
+    assert "HTTP/1.1 409 Conflict" in SAVE_TRATATIVA
+    assert '$input.status == "Aguardando Terceiro"' not in SAVE_TRATATIVA
+    inicio_transacao = SAVE_TRATATIVA.index("db.transaction {")
+    patch_chamado = SAVE_TRATATIVA.index("db.patch chamados")
+    confirmacao_persistida = SAVE_TRATATIVA.index("} as $chamado_persistido")
+    comentario_status = SAVE_TRATATIVA.index('tipo_evento: "comentario"')
+    evento_alteracao = SAVE_TRATATIVA.index('tipo_evento: "alteracao_chamado"')
+    detalhe_canonico = SAVE_TRATATIVA.index('function.run "service_desk/obter_chamado_tecnico"')
+
+    assert inicio_transacao < patch_chamado < confirmacao_persistida < comentario_status < evento_alteracao < detalhe_canonico
+    assert 'response = $detalhe' in SAVE_TRATATIVA
+    assert 'if ($houve_diferenca_funcional)' in SAVE_TRATATIVA
+    assert "precondition ($comentario_status_criado != null)" in SAVE_TRATATIVA
+    assert 'tecnico_id: $input.tecnico_id' in SAVE_TRATATIVA
+    assert 'atribuido_em: $atribuido_em_resultante' in SAVE_TRATATIVA
+    assert 'ultima_atualizacao_em: $instante' in SAVE_TRATATIVA
+    assert 'value = $responsavel_alterado || $status_alterado || $prioridade_alterada || $categoria_alterada' in SAVE_TRATATIVA
+    assert 'value = ($chamado_persistido.tecnico_id == null || $chamado_persistido.tecnico_id == 0) ? null : $chamado_persistido.tecnico_id' in SAVE_TRATATIVA
+    assert 'precondition ($chamado_persistido != null && $tecnico_persistido_id == $input.tecnico_id' in SAVE_TRATATIVA
+    assert 'test "libera responsável"' in SAVE_TRATATIVA
+
+
+def test_save_gera_um_evento_estruturado_completo_e_preserva_categoria_inativa_sem_troca():
+    assert SAVE_TRATATIVA.count('db.add interacoes_chamado') == 2
+    assert SAVE_TRATATIVA.count('data = {tipo_evento: "alteracao_chamado"') == 1
+    assert 'value = $alteracoes|set:"responsavel":' in SAVE_TRATATIVA
+    assert 'value = $alteracoes|set:"status":' in SAVE_TRATATIVA
+    assert 'value = $alteracoes|set:"prioridade":' in SAVE_TRATATIVA
+    assert 'value = $alteracoes|set:"categoria":' in SAVE_TRATATIVA
+    assert 'value = $alteracoes|set:"sla_horas_aplicado":' in SAVE_TRATATIVA
+    assert 'if ($categoria_alterada)' in SAVE_TRATATIVA
+    assert 'if ($categoria == null || $categoria.ativo == false)' in SAVE_TRATATIVA
+    assert 'test "preserva categoria inativa sem troca"' in SAVE_TRATATIVA
+    assert 'test "salva sem diferença"' in SAVE_TRATATIVA
+
+
+def test_save_valida_status_comentario_responsavel_e_categoria_sem_regra_manual():
+    assert 'error = "Mudança de Status exige comentário."' in SAVE_TRATATIVA
+    assert 'error = "Este Status exige comentário Público."' in SAVE_TRATATIVA
+    assert '$responsavel.role == "tecnico"' in SAVE_TRATATIVA
+    assert '$categoria.ativo == false' in SAVE_TRATATIVA
+    assert "permite_abertura_manual" not in SAVE_TRATATIVA
+    assert 'test "preserva categoria inativa sem troca"' in SAVE_TRATATIVA
+    assert 'test "rejeita categoria inativa na troca"' in SAVE_TRATATIVA

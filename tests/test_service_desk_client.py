@@ -506,6 +506,63 @@ def test_timeline_rejeita_comentario_vazio_mas_aceita_evento_operacional_vazio()
         executar(cliente.obter_chamado_tecnico("token", 36))
 
 
+def test_detalhe_tecnico_aceita_evento_estruturado_de_alteracao_sem_afetar_legado():
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json=detalhe_tecnico_valido(
+                    timeline=[
+                        {
+                            "id": 40,
+                            "tipo": "alteracao_chamado",
+                            "conteudo": None,
+                            "alteracoes": {
+                                "status": {
+                                    "anterior": "Novo",
+                                    "resultante": "Em Atendimento",
+                                },
+                                "prioridade": {
+                                    "anterior": "Média",
+                                    "resultante": "Alta",
+                                },
+                            },
+                            "visibilidade": "interna",
+                            "criado_em": 1792105331969,
+                            "autor": {"id": 9, "nome": "Camila Santos"},
+                            "tecnico_anterior": None,
+                            "tecnico_novo": None,
+                        },
+                        {
+                            "id": 39,
+                            "tipo": "liberacao",
+                            "conteudo": "",
+                            "visibilidade": "interna",
+                            "criado_em": 1792105331900,
+                            "autor": {"id": 9, "nome": "Camila Santos"},
+                            "tecnico_anterior": {"id": 9, "nome": "Camila Santos"},
+                            "tecnico_novo": None,
+                        },
+                    ]
+                ),
+            )
+        ),
+    )
+
+    detalhe = executar(cliente.obter_chamado_tecnico("token", 36))
+
+    evento, legado = detalhe.timeline
+    assert evento.tipo == "alteracao_chamado"
+    assert evento.conteudo is None
+    assert evento.alteracoes == {
+        "status": {"anterior": "Novo", "resultante": "Em Atendimento"},
+        "prioridade": {"anterior": "Média", "resultante": "Alta"},
+    }
+    assert legado.tipo == "liberacao"
+    assert legado.alteracoes is None
+
+
 @pytest.mark.parametrize(
     ("acao", "tecnico_id", "esperado"),
     [

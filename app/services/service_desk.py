@@ -20,7 +20,13 @@ ORIGENS_CHAMADO = frozenset({"manual", "automatico"})
 CRIADORES_SISTEMA_CHAMADO = frozenset({"bot_fiscalizacao"})
 PRIORIDADES_CHAMADO = ("Baixa", "Média", "Alta", "Urgente")
 TIPOS_EVENTO_TIMELINE = frozenset(
-    {"comentario", "atribuicao", "reatribuicao", "liberacao"}
+    {
+        "comentario",
+        "atribuicao",
+        "reatribuicao",
+        "liberacao",
+        "alteracao_chamado",
+    }
 )
 
 
@@ -134,6 +140,7 @@ class EventoTimelineChamado:
     autor: ReferenciaUsuario | None
     tecnico_anterior: ReferenciaUsuario | None
     tecnico_novo: ReferenciaUsuario | None
+    alteracoes: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -404,9 +411,23 @@ def _evento_timeline(dados: Any) -> EventoTimelineChamado:
     conteudo_normalizado = (
         None
         if conteudo is None
-        or (conteudo == "" and tipo in {"atribuicao", "reatribuicao", "liberacao"})
+        or (
+            conteudo == ""
+            and tipo
+            in {
+                "atribuicao",
+                "reatribuicao",
+                "liberacao",
+                "alteracao_chamado",
+            }
+        )
         else _texto(conteudo, "timeline.conteudo")
     )
+    alteracoes = evento.get("alteracoes")
+    if alteracoes is not None and not isinstance(alteracoes, dict):
+        raise XanoContratoInvalido(
+            "Campo inválido na resposta: timeline.alteracoes."
+        )
     return EventoTimelineChamado(
         id=_inteiro(evento.get("id"), "timeline.id"),
         tipo=tipo,
@@ -422,6 +443,7 @@ def _evento_timeline(dados: Any) -> EventoTimelineChamado:
             evento.get("tecnico_novo"),
             "timeline.tecnico_novo",
         ),
+        alteracoes=alteracoes,
     )
 
 

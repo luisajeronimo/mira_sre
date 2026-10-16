@@ -124,6 +124,7 @@ def evento_timeline_para_dict(evento: EventoTimelineChamado) -> dict[str, Any]:
         "atribuicao": "Atribuição",
         "reatribuicao": "Reatribuição",
         "liberacao": "Liberação",
+        "alteracao_chamado": "Alteração do chamado",
     }
     return {
         "id": evento.id,
@@ -146,6 +147,7 @@ def evento_timeline_para_dict(evento: EventoTimelineChamado) -> dict[str, Any]:
         "tecnico_novo_nome": (
             evento.tecnico_novo.nome if evento.tecnico_novo is not None else ""
         ),
+        "alteracoes": evento.alteracoes,
     }
 
 
@@ -224,6 +226,7 @@ class TimelineView(TypedDict):
     autor_nome: str
     tecnico_anterior_nome: str
     tecnico_novo_nome: str
+    alteracoes: dict[str, Any] | None
 
 
 class TecnicoOpcaoView(TypedDict):

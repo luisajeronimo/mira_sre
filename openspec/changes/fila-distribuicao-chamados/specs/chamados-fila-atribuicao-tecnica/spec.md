@@ -62,7 +62,7 @@ O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnic
 - **THEN** o Xano responde HTTP 403 sem expor chamados fora dos contratos próprios do Gerente
 
 ### Requirement: Técnico pode consultar detalhe global somente leitura
-O sistema DEVE (MUST) fornecer detalhe global de chamado para Técnico, Diretoria e Administrador em um DTO canônico, incluindo número, título, descrição, status, prioridade, origem, solicitante, Loja, Totem, categoria, SLA, responsável atual, `atribuido_em` e timeline. A leitura NÃO DEVE (MUST NOT) alterar o chamado. Estados terminais continuam consultáveis, mas impedem operações de atribuição incompatíveis.
+O sistema DEVE (MUST) fornecer detalhe global de chamado para Técnico, Diretoria e Administrador em um DTO canônico, incluindo número, título, descrição, status, prioridade, origem, solicitante, Loja, Totem, categoria, SLA, responsável atual, `atribuido_em` e timeline em ordem decrescente do instante efetivo, com `id` decrescente no empate. A leitura NÃO DEVE (MUST NOT) alterar o chamado. Estados terminais continuam consultáveis, mas impedem operações de atribuição incompatíveis.
 
 #### Scenario: Detalhe antes da assunção
 - **WHEN** um perfil autorizado consulta chamado ainda sem responsável
@@ -253,11 +253,11 @@ A autoria exposta no detalhe global DEVE (MUST) representar apenas o ator lógic
 ## ADDED Requirements
 
 ### Requirement: Timeline global combina comentários e eventos estruturados
-A timeline do chamado DEVE (MUST) apresentar comentários existentes e eventos de atribuição, reatribuição e liberação em uma única ordem cronológica. Eventos de responsável NÃO DEVEM (MUST NOT) ser armazenados somente como texto de comentário e DEVEM identificar tipo, chamado, autor, instante e Técnico anterior e novo quando aplicável.
+A timeline do chamado DEVE (MUST) apresentar comentários existentes e eventos de atribuição, reatribuição e liberação em uma única timeline cronológica, do mais recente para o mais antigo, pelo instante efetivo e por `id` decrescente no empate. Eventos de responsável NÃO DEVEM (MUST NOT) ser armazenados somente como texto de comentário e DEVEM identificar tipo, chamado, autor, instante e Técnico anterior e novo quando aplicável.
 
 #### Scenario: Comentários e mudanças de responsável intercalados
 - **WHEN** um chamado possui comentários e eventos de responsável com instantes distintos
-- **THEN** Técnico, Diretoria e Administrador veem todos na mesma timeline em ordem cronológica do evento
+- **THEN** Técnico, Diretoria e Administrador veem todos na mesma timeline do evento mais recente para o mais antigo
 
 #### Scenario: Atribuição, reatribuição e liberação na timeline
 - **WHEN** o Xano registra uma dessas operações

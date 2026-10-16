@@ -403,7 +403,7 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
                             "criado_em": 1780000000000,
                                 "ultima_atualizacao_em": 1780000000000,
                             "sla_horas_aplicado": 2,
-                            "atribuido_em": None,
+                            "atribuido_em": 0,
                             "ativo": {"id": 1, "nome_ativo": "Totem 01"},
                             "categoria": {"id": 2, "nome": "Falha de Rede"},
                             "solicitante": {"id": 8, "nome": "Gerente"},
@@ -419,16 +419,6 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
                     atribuido_em=1780000001000,
                     timeline=[
                         {
-                            "id": 11,
-                            "tipo": "comentario",
-                            "conteudo": "Comentário legado",
-                            "visibilidade": "publica",
-                            "criado_em": 1780000001000,
-                            "autor": {"id": 8, "nome": "Gerente"},
-                            "tecnico_anterior": None,
-                            "tecnico_novo": None,
-                        },
-                        {
                             "id": 12,
                             "tipo": "atribuicao",
                             "conteudo": "",
@@ -437,6 +427,16 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
                             "autor": {"id": 12, "nome": "Técnico"},
                             "tecnico_anterior": None,
                             "tecnico_novo": {"id": 12, "nome": "Técnico"},
+                        },
+                        {
+                            "id": 11,
+                            "tipo": "comentario",
+                            "conteudo": "Comentário legado",
+                            "visibilidade": "publica",
+                            "criado_em": 1780000001000,
+                            "autor": {"id": 8, "nome": "Gerente"},
+                            "tecnico_anterior": None,
+                            "tecnico_novo": None,
                         },
                     ],
                     tecnicos=[{"id": 12, "nome": "Técnico"}],
@@ -463,11 +463,11 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
     assert busca.items[0].id == 101
     assert detalhe.chamado.atribuido_em == 1780000001000
     assert [evento.tipo for evento in detalhe.timeline] == [
-        "comentario",
         "atribuicao",
+        "comentario",
     ]
-    assert detalhe.timeline[0].criado_em < detalhe.timeline[1].criado_em
-    assert detalhe.timeline[1].conteudo is None
+    assert detalhe.timeline[0].criado_em > detalhe.timeline[1].criado_em
+    assert detalhe.timeline[0].conteudo is None
     assert detalhe.tecnicos[0].id == 12
     assert assumido.atribuido_em == 1780000001000
     assert requisicoes[0].url.path.endswith("/tecnico/chamados")

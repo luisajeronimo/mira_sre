@@ -761,9 +761,13 @@ def test_liberacao_visivel_conforme_perfil_e_responsavel(
 def test_liberar_nao_envia_tecnico_id_nem_altera_status(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso(
-        resultado_assuncao=detalhe_tecnico(status="Em Atendimento", tecnico=None),
+        resultado_assuncao=detalhe_tecnico(
+            status="Em Atendimento", tecnico=None, atribuido_em=None
+        ),
         resultado_detalhe=DetalheChamadoTecnico(
-            chamado=detalhe_tecnico(status="Em Atendimento", tecnico=None),
+            chamado=detalhe_tecnico(
+                status="Em Atendimento", tecnico=None, atribuido_em=None
+            ),
             timeline=[],
             tecnicos=[ReferenciaUsuario(id=13, nome="Técnico A")],
         ),
@@ -783,6 +787,7 @@ def test_liberar_nao_envia_tecnico_id_nem_altera_status(monkeypatch):
     assert cliente.atribuicoes == [("token-de-teste", 32, "liberar", None)]
     assert estado.chamado["status"] == "Em Atendimento"
     assert estado.chamado["tecnico_nome"] == "Não atribuído"
+    assert estado.chamado["atribuido_em_texto"] == "Não informado"
 
 
 def test_operacao_de_atribuicao_e_bloqueada_visualmente_em_terminal(monkeypatch):

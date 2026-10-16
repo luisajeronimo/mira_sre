@@ -406,24 +406,60 @@ function "service_desk/assumir_chamado_tecnico" {
               }
             }
 
-            db.edit chamados {
-              field_name = "id"
-              field_value = $verificacao.id
-              data = {
-                tecnico_id: $responsavel_destino_id,
-                atribuido_em: ($tipo_evento == "liberacao") ? null : $instante,
-                ultima_atualizacao_em: $instante
+            // db.patch preserva os nulls explícitos; db.edit os ignorava neste
+            // contrato e mantinha o responsável anterior.
+            conditional {
+              if ($tipo_evento == "liberacao") {
+                db.patch chamados {
+                  field_name = "id"
+                  field_value = $verificacao.id
+                  data = {
+                    tecnico_id: null,
+                    atribuido_em: null,
+                    ultima_atualizacao_em: $instante
+                  }
+                  mock = {
+                    "libera própria": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
+                    "Diretoria libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
+                    "Administrador libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
+                  }
+                }
+
+                db.get chamados {
+                  field_name = "id"
+                  field_value = $verificacao.id
+                  mock = {
+                    "libera própria": {id: 101, tecnico_id: null, atribuido_em: null}
+                    "Diretoria libera": {id: 101, tecnico_id: null, atribuido_em: null}
+                    "Administrador libera": {id: 101, tecnico_id: null, atribuido_em: null}
+                  }
+                } as $chamado_liberado
+
+                // A validação ocorre antes do evento, para que uma escrita que
+                // não tenha removido o responsável provoque rollback completo.
+                precondition ($chamado_liberado != null && $chamado_liberado.tecnico_id == null && $chamado_liberado.atribuido_em == null) {
+                  error_type = "internal"
+                  error = "Não foi possível persistir a liberação do responsável."
+                }
               }
-              mock = {
-                "assume padrão": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                "assume ação vazia": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                "atribui em Resolvido": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                "reatribui": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                "libera própria": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
-                "Diretoria libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
-                "Administrador libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
+              else {
+                db.edit chamados {
+                  field_name = "id"
+                  field_value = $verificacao.id
+                  data = {
+                    tecnico_id: $responsavel_destino_id,
+                    atribuido_em: $instante,
+                    ultima_atualizacao_em: $instante
+                  }
+                  mock = {
+                    "assume padrão": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
+                    "assume ação vazia": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
+                    "atribui em Resolvido": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
+                    "reatribui": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
+                  }
+                }
               }
-            } as $chamado_atualizado
+            }
 
             db.add interacoes_chamado {
               data = {

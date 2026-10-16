@@ -168,8 +168,9 @@ function "service_desk/obter_chamado_tecnico" {
     }
 
     // A chave natural combina o instante efetivo e o id, garantindo o desempate.
+    // A timeline apresenta a interação mais recente primeiro.
     var $eventos_ordenados {
-      value = $eventos|sort:"ordenacao":"natural":true
+      value = ($eventos|sort:"ordenacao":"natural":true)|reverse
     }
 
     var $timeline {
@@ -233,14 +234,14 @@ function "service_desk/obter_chamado_tecnico" {
     expect.to_equal ($response.chamado.criador_sistema) { value = "bot_fiscalizacao" }
   }
 
-  test "retorna timeline cronológica com legado" {
+  test "retorna timeline cronológica decrescente com legado" {
     input = {usuarios_id: 12, chamados_id: 101}
     expect.to_equal ($response.timeline) {
       value = [
-        {id: 11, tipo: "comentario", conteudo: "Comentário legado", visibilidade: "publica", criado_em: 1780000001000, autor: {id: 8, nome: "Gerente"}, tecnico_anterior: null, tecnico_novo: null},
-        {id: 13, tipo: "atribuicao", conteudo: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}},
+        {id: 12, tipo: "comentario", conteudo: "Comentário recente", visibilidade: "interna", criado_em: 1780000004000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
         {id: 14, tipo: "reatribuicao", conteudo: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 4, nome: "Diretoria"}, tecnico_anterior: {id: 12, nome: "Técnico"}, tecnico_novo: {id: 10, nome: "Outro Técnico"}},
-        {id: 12, tipo: "comentario", conteudo: "Comentário recente", visibilidade: "interna", criado_em: 1780000004000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null}
+        {id: 13, tipo: "atribuicao", conteudo: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}},
+        {id: 11, tipo: "comentario", conteudo: "Comentário legado", visibilidade: "publica", criado_em: 1780000001000, autor: {id: 8, nome: "Gerente"}, tecnico_anterior: null, tecnico_novo: null}
       ]
     }
   }

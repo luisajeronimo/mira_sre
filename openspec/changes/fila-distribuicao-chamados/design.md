@@ -38,7 +38,7 @@ Restrições relevantes: o Xano permanece autoridade de perfil, persistência e 
 ### Evoluir `interacoes_chamado` como timeline única
 
 - Acrescentar campos opcionais para tipo (`comentario`, `atribuicao`, `reatribuicao`, `liberacao`) e Técnico anterior/novo. Reutilizar `chamados_id`, `usuarios_id` como autor e timestamps existentes. Eventos novos recebem `criado_em` do Xano e visibilidade interna; campos de Técnico anterior/novo referenciam usuários, mas só são preenchidos com perfis Técnico.
-- Comentários legados sem tipo continuam sendo comentários. Não fazer backfill. Para ordenar interação legada sem `criado_em`, usar seu `created_at` já persistido; para entradas novas, usar `criado_em`. Ordenar ascendentemente pelo instante efetivo e, em empate, pelo id da interação.
+- Comentários legados sem tipo continuam sendo comentários. Não fazer backfill. Para ordenar interação legada sem `criado_em`, usar seu `created_at` já persistido; para entradas novas, usar `criado_em`. Ordenar a coleção combinada descendentemente pelo instante efetivo e, em empate, pelo id da interação, para apresentar o evento mais recente primeiro.
 - Incluir comentários públicos e internos visíveis aos perfis da fila e eventos internos na resposta do detalhe, em uma única lista. Não usar o CRUD genérico de interações nem fazer request Reflex separado para gravar histórico. A jornada do Gerente continua usando seus contratos atuais de comentários públicos.
 
 ### Reutilizar a tela e o State Reflex

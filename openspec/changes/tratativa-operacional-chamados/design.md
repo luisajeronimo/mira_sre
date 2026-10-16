@@ -67,7 +67,20 @@ Quando há troca válida, o SLA aplicado é copiado da Categoria resultante na m
 
 O State mantém valores confirmados, incluindo `ultima_atualizacao_em`, e rascunho separados. `Descartar mudanças` copia o confirmado para o rascunho. Só a resposta canônica de sucesso substitui ambos. Em erro, a UI mantém o detalhe confirmado, deixa explícito que o Save falhou e não exibe rascunho como confirmado. Se o Xano rejeitar timestamp desatualizado, a UI informa atualização concorrente e recarrega o detalhe; não há lock, fila, retry automático, versionamento complexo ou garantia forte de concorrência.
 
-Se Status não mudou, o formulário independente de comentário permanece separado. Se mudou no rascunho, o State exige comentário associado para habilitar Salvar ou mostra validação clara; Resolvido, Aguardando Solicitante e Cancelado fixam Público, e os demais destinos permitem Público ou Interno. O Xano continua a validação definitiva.
+O comentário é sempre parte da mesma área de dados do detalhe e a tela oferece
+somente `Salvar` e `Descartar mudanças`. O State decide a operação: sem
+diferença funcional e com texto válido, `Salvar` usa a operação de comentário;
+com diferença funcional, usa o Save transacional e inclui o texto opcional.
+Se Status mudou no rascunho, o State exige comentário associado para habilitar
+Salvar ou mostra validação clara; Resolvido, Aguardando Solicitante e Cancelado
+fixam Público, e os demais destinos permitem Público ou Interno. O Xano
+continua a validação definitiva.
+
+O detalhe técnico reúne dados e tratativa em um único card responsivo: Status,
+Prioridade, Responsável e Categoria são os próprios controles do grid de três
+colunas, sem repetir seus valores em outra seção. Os demais dados são leitura;
+Descrição ocupa a largura completa após o grid e antecede comentário,
+visibilidade e ações.
 
 O cliente HTTP reutiliza a autenticação de sessão já usada pela fila. O mapeamento preserva 401 como sessão inválida, 403 como permissão negada, 404 como inexistência, 422 como erro funcional e 5xx/conexão como indisponibilidade. A validação de contrato do service não é substituída por valores vazios de conveniência.
 

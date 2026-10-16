@@ -23,7 +23,7 @@
 - [x] 4.1 Adaptar service e DTOs Python ao catálogo, Save e detalhe pós-commit, preservando o cliente autenticado da fila e a diferenciação 401, 403, 404, 422 e 5xx; verificar UNIT e CONTRACT sem usar valores vazios para mascarar incompatibilidade.
 - [x] 4.2 Implementar no State e detalhe Reflex valores persistidos e pendentes para os quatro campos, dropdown `Responsável`, `Descartar mudanças`, `Salvar` e comentário de Status obrigatório; verificar UNIT e REFLEX que dropdown não persiste antes do Save, Status pendente exige comentário com Público fixo nos destinos definidos e erro não confirma rascunho.
 - [x] 4.3 Substituir e remover da jornada técnica os controles imediatos de Assumir, Atribuir, Reatribuir e Liberar, preservando fila, Todos, Atribuídos a mim, filtros e pesquisa; verificar REFLEX com Técnico, Diretoria e Administrador e Responsável alterado somente pelo Save pendente.
-- [x] 4.4 Implementar comentário operacional sempre visível e independente, opção Público/Interno, comentário opcional no Save funcional e apresentação detalhada da timeline; agrupar comentário e `alteracao_chamado` da mesma transação por referência explícita, preservando eventos legados e ordem decrescente; verificar UNIT, CONTRACT e REFLEX.
+- [x] 4.4 Implementar comentário operacional sempre visível, com `Salvar` como única ação para comentário independente ou Save funcional, opção Público/Interno e apresentação detalhada da timeline; agrupar comentário e `alteracao_chamado` da mesma transação por referência explícita, preservando eventos legados e ordem decrescente; verificar UNIT, CONTRACT e REFLEX.
 
 ## 5. Integração autenticada e persistência real
 

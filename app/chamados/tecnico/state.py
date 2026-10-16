@@ -78,14 +78,11 @@ class ChamadosTecnicoState(AuthState):
     carregando_fila: bool = False
     carregando_detalhe_tecnico: bool = False
     salvando_tratativa: bool = False
-    enviando_comentario: bool = False
     detalhe_tecnico_carregado: bool = False
     mensagem_fila: str = ""
     mensagem_detalhe_tecnico: str = ""
     mensagem_tratativa: str = ""
     mensagem_sucesso_tratativa: str = ""
-    mensagem_comentario: str = ""
-    mensagem_sucesso_comentario: str = ""
 
     @staticmethod
     def status_filtros() -> list[str]:
@@ -127,8 +124,16 @@ class ChamadosTecnicoState(AuthState):
         )
 
     @rx.var
+    def ha_rascunho_pendente(self) -> bool:
+        return self.ha_mudanca_funcional_pendente or bool(
+            self.comentario_status_pendente.strip()
+        )
+
+    @rx.var
     def pode_salvar_tratativa(self) -> bool:
-        if self.edicao_funcional_bloqueada or not self.ha_mudanca_funcional_pendente:
+        if not self.ha_mudanca_funcional_pendente:
+            return bool(self.comentario_status_pendente.strip())
+        if self.edicao_funcional_bloqueada:
             return False
         if not self.status_pendente_alterado:
             return True
@@ -153,8 +158,6 @@ class ChamadosTecnicoState(AuthState):
         self.mensagem_detalhe_tecnico = ""
         self.mensagem_tratativa = ""
         self.mensagem_sucesso_tratativa = ""
-        self.mensagem_comentario = ""
-        self.mensagem_sucesso_comentario = ""
 
     def _valor_responsavel_confirmado(self) -> str:
         return str(self.responsavel_confirmado_id or 0)
@@ -568,13 +571,14 @@ class ChamadosTecnicoState(AuthState):
             return
         self.mensagem_tratativa = ""
         self.mensagem_sucesso_tratativa = ""
-        if self.edicao_funcional_bloqueada:
+        comentario = self.comentario_status_pendente.strip()
+        if not self.ha_mudanca_funcional_pendente and not comentario:
+            self.mensagem_tratativa = "Nenhuma alteração ou comentário pendente para salvar."
+            return
+        if self.ha_mudanca_funcional_pendente and self.edicao_funcional_bloqueada:
             self.mensagem_tratativa = "Chamado terminal não permite edição funcional."
             return
-        if not self.ha_mudanca_funcional_pendente:
-            self.mensagem_tratativa = "Nenhuma alteração pendente para salvar."
-            return
-        if self.status_pendente_alterado and not self.comentario_status_pendente.strip():
+        if self.status_pendente_alterado and not comentario:
             self.mensagem_tratativa = "Mudança de Status exige comentário."
             return
         if (
@@ -584,17 +588,7 @@ class ChamadosTecnicoState(AuthState):
             self.mensagem_tratativa = "Este Status exige comentário Público."
             return
         chamado_id = self.chamado.get("id")
-        tecnico_id = self._id_pendente(
-            self.responsavel_pendente_id,
-            permitir_nao_atribuido=True,
-        )
-        categoria_id = self._id_pendente(self.categoria_pendente_id)
-        if (
-            not isinstance(chamado_id, int)
-            or chamado_id <= 0
-            or categoria_id is None
-            or self.ultima_atualizacao_confirmada is None
-        ):
+        if not isinstance(chamado_id, int) or chamado_id <= 0:
             self.mensagem_tratativa = "Detalhe do chamado incompatível. Recarregue a página."
             return
         self.salvando_tratativa = True
@@ -607,6 +601,27 @@ class ChamadosTecnicoState(AuthState):
             if not self.sessao_confirmada:
                 return
             cliente = criar_cliente_service_desk()
+            if not self.ha_mudanca_funcional_pendente:
+                resultado = await cliente.criar_comentario_operacional(
+                    self._auth_token,
+                    chamado_id,
+                    conteudo=comentario,
+                    visibilidade=self.visibilidade_comentario_status_pendente,
+                )
+                self._atualizar_detalhe(resultado)
+                self.mensagem_sucesso_tratativa = "Comentário adicionado."
+                return
+
+            tecnico_id = self._id_pendente(
+                self.responsavel_pendente_id,
+                permitir_nao_atribuido=True,
+            )
+            categoria_id = self._id_pendente(self.categoria_pendente_id)
+            if categoria_id is None or self.ultima_atualizacao_confirmada is None:
+                self.mensagem_tratativa = (
+                    "Detalhe do chamado incompatível. Recarregue a página."
+                )
+                return
             try:
                 resultado = await cliente.salvar_tratativa_chamado(
                     self._auth_token,
@@ -617,14 +632,10 @@ class ChamadosTecnicoState(AuthState):
                     categorias_servico_id=categoria_id,
                     ultima_atualizacao_em=self.ultima_atualizacao_confirmada,
                     comentario_status=(
-                        self.comentario_status_pendente
-                        if self.comentario_status_pendente.strip()
-                        else None
+                        comentario if comentario else None
                     ),
                     visibilidade_comentario_status=(
-                        self.visibilidade_comentario_status_pendente
-                        if self.comentario_status_pendente.strip()
-                        else None
+                        self.visibilidade_comentario_status_pendente if comentario else None
                     ),
                 )
             except XanoConflito:
@@ -654,41 +665,3 @@ class ChamadosTecnicoState(AuthState):
                 return
         finally:
             self.salvando_tratativa = False
-
-    @rx.event
-    async def adicionar_comentario_operacional(self):
-        if self.enviando_comentario:
-            return
-        self.mensagem_comentario = ""
-        self.mensagem_sucesso_comentario = ""
-        conteudo = self.comentario_status_pendente.strip()
-        if not conteudo:
-            self.mensagem_comentario = "Informe um comentário antes de adicionar."
-            return
-        chamado_id = self.chamado.get("id")
-        if not isinstance(chamado_id, int) or chamado_id <= 0:
-            self.mensagem_comentario = "Detalhe do chamado incompatível. Recarregue a página."
-            return
-        self.enviando_comentario = True
-        yield
-        try:
-            destino = await self._validar_acesso_fila()
-            if destino is not None:
-                yield rx.redirect(destino)
-                return
-            if not self.sessao_confirmada:
-                return
-            resultado = await criar_cliente_service_desk().criar_comentario_operacional(
-                self._auth_token,
-                chamado_id,
-                conteudo=conteudo,
-                visibilidade=self.visibilidade_comentario_status_pendente,
-            )
-            self._atualizar_detalhe(resultado)
-            self.mensagem_sucesso_comentario = "Comentário adicionado."
-        except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
-            destino = self._registrar_erro_tecnico(erro, "mensagem_comentario")
-            if destino is not None:
-                yield rx.redirect(destino)
-        finally:
-            self.enviando_comentario = False

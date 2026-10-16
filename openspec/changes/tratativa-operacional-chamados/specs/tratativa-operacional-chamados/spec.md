@@ -13,6 +13,13 @@ O sistema DEVE (MUST) apresentar a Técnico, Diretoria e Administrador, em chama
 - **WHEN** um perfil operacional abre chamado não terminal
 - **THEN** `Responsável` oferece exatamente `Não atribuído` e usuários com perfil Técnico, sem persistir a seleção ao trocar o dropdown
 
+#### Scenario: Detalhe reúne dados e edição sem duplicação
+- **WHEN** um perfil operacional abre o detalhe técnico
+- **THEN** Status, Prioridade, Responsável e Categoria são os únicos controles
+  desses dados, dentro do mesmo grid responsivo de três colunas que os demais
+  dados de leitura; Descrição ocupa largura completa após o grid, antes do
+  comentário e das ações
+
 #### Scenario: Descarte restaura o estado persistido
 - **WHEN** o usuário altera um ou mais dos quatro campos e seleciona `Descartar mudanças`
 - **THEN** a interface restaura os valores retornados no último detalhe persistido sem enviar mutação funcional
@@ -91,8 +98,13 @@ O Save DEVE (MUST) aceitar alterações simultâneas dos quatro campos quando o 
 - **WHEN** qualquer perfil tenta salvar campos funcionais de chamado Encerrado ou Cancelado
 - **THEN** o Xano rejeita a operação sem reabrir nem modificar o chamado
 
-### Requirement: Comentário operacional é independente do Save
-O sistema DEVE (MUST) oferecer `Adicionar comentário` independente do Save, com texto não vazio e visibilidade Público ou Interno. Técnico, Diretoria e Administrador DEVEM (MUST) poder adicionar ambas as visibilidades inclusive em chamados terminais; o comentário DEVE (MUST) atualizar `ultima_atualizacao_em` sem modificar campo funcional.
+### Requirement: Comentário operacional usa o único Salvar
+O sistema DEVE (MUST) oferecer somente `Salvar` e `Descartar mudanças` na área
+operacional. Com texto não vazio e sem diferença funcional, `Salvar` DEVE
+(MUST) usar a operação de comentário, com visibilidade Público ou Interno, sem
+modificar campo funcional. Técnico, Diretoria e Administrador DEVEM (MUST)
+poder comentar inclusive em chamados terminais; o comentário DEVE (MUST)
+atualizar `ultima_atualizacao_em` sem modificar campo funcional.
 
 #### Scenario: Comentário em chamado terminal
 - **WHEN** um perfil operacional envia comentário Público ou Interno não vazio para chamado Encerrado ou Cancelado
@@ -104,7 +116,11 @@ O sistema DEVE (MUST) oferecer `Adicionar comentário` independente do Save, com
 
 #### Scenario: Comentário sempre disponível em terminal
 - **WHEN** o chamado está Encerrado ou Cancelado
-- **THEN** a interface mantém o campo de comentário e sua visibilidade disponíveis, apesar de bloquear os quatro campos funcionais
+- **THEN** a interface mantém o campo de comentário, sua visibilidade e `Salvar` disponíveis, apesar de bloquear os quatro campos funcionais
+
+#### Scenario: Salvar escolhe comentário sem diferença funcional
+- **WHEN** não há diferença funcional e existe comentário válido
+- **THEN** `Salvar` cria somente o comentário, sem criar `alteracao_chamado` nem enviar o texto uma segunda vez
 
 ### Requirement: Alteração efetiva produz um único evento estruturado
 Cada Save com uma ou mais diferenças funcionais efetivas DEVE (MUST) criar exatamente um evento automático `alteracao_chamado`. O evento DEVE (MUST) identificar autor, chamado, instante e as diferenças anterior/resultante de Responsável, Status, Prioridade, Categoria e SLA que existirem; ele NÃO DEVE (MUST NOT) ser tratado como comentário humano.

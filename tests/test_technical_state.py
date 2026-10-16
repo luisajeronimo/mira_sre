@@ -744,6 +744,58 @@ def test_save_nao_status_envia_comentario_opcional_uma_unica_vez(monkeypatch):
     assert cliente.comentarios == []
 
 
+def test_salvar_sem_mudanca_funcional_publica_somente_comentario(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    comentario = EventoTimelineChamado(
+        id=90,
+        tipo="comentario",
+        conteudo="Comentário sem alteração funcional.",
+        visibilidade="publica",
+        criado_em=1780000004000,
+        autor=ReferenciaUsuario(id=9, nome="Técnico 9"),
+        tecnico_anterior=None,
+        tecnico_novo=None,
+    )
+    cliente = ClienteTecnicoFalso(
+        resultado_comentario=DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(ultima_atualizacao_em=1780000004000),
+            timeline=[comentario],
+            tecnicos=[],
+        )
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(chamado=detalhe_tecnico(), timeline=[], tecnicos=[])
+    )
+    ChamadosTecnicoState.alterar_comentario_status_pendente.fn(
+        estado, "Comentário sem alteração funcional."
+    )
+
+    executar_evento(ChamadosTecnicoState.salvar_tratativa, estado)
+
+    assert cliente.saves == []
+    assert cliente.comentarios == [
+        (
+            "token-de-teste",
+            32,
+            {"conteudo": "Comentário sem alteração funcional.", "visibilidade": "publica"},
+        )
+    ]
+    assert estado.timeline[0]["tipo"] == "comentario"
+    assert estado.mensagem_sucesso_tratativa == "Comentário adicionado."
+
+
+def test_salvar_fica_indisponivel_sem_alteracao_ou_comentario():
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(chamado=detalhe_tecnico(), timeline=[], tecnicos=[])
+    )
+
+    assert estado.ha_rascunho_pendente is False
+    assert estado.pode_salvar_tratativa is False
+
+
 def test_timeline_agrupa_por_id_estruturado_e_lista_todos_os_diffs():
     comentario = EventoTimelineChamado(
         id=70,
@@ -840,7 +892,7 @@ def test_terminal_bloqueia_edicao_e_save_sem_chamar_service(monkeypatch):
     assert estado.edicao_funcional_bloqueada is True
     assert estado.prioridade_pendente == "Alta"
     assert cliente.saves == []
-    assert "terminal" in estado.mensagem_tratativa.casefold()
+    assert "nenhuma alteração" in estado.mensagem_tratativa.casefold()
 
 
 def test_conflito_recarrega_detalhe_canonico_e_descarta_rascunho(monkeypatch):
@@ -894,7 +946,7 @@ def test_pagina_do_detalhe_so_renderiza_campos_apos_carga_confirmada():
     assert "ChamadosTecnicoState.chamado[\"solicitante_nome\"]" in fonte
 
 
-def test_detalhe_tecnico_remove_controles_imediatos_e_mantem_tratativa_e_timeline():
+def test_detalhe_tecnico_usa_um_unico_grid_sem_acao_separada_de_comentario():
     fonte = "\n".join(
         (
             inspect.getsource(paginas_chamados._fila_tecnico),
@@ -904,19 +956,26 @@ def test_detalhe_tecnico_remove_controles_imediatos_e_mantem_tratativa_e_timelin
 
     for acao in ("assumir", "atribuir técnico", "reatribuir técnico", "liberar responsável"):
         assert acao not in fonte
+    assert '"adicionar comentário"' not in fonte
+    assert 'rx.text("tratativa"' not in fonte
+    assert 'columns=rx.breakpoints(initial="1", sm="2", lg="3")' in fonte
     for controle in (
         'rx.text("responsável"',
         'rx.text("status"',
         'rx.text("prioridade"',
         'rx.text("categoria"',
+    ):
+        assert controle in fonte
+        assert fonte.count(controle) == 1
+    for controle in (
         'rx.text("comentário"',
-        '"adicionar comentário"',
+        'rx.text("descrição"',
         '"linha do tempo"',
     ):
         assert controle in fonte
 
 
-def test_comentario_independente_atualiza_detalhe_canonico_inclusive_terminal(monkeypatch):
+def test_terminal_comenta_pelo_unico_salvar_e_atualiza_detalhe_canonico(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     comentario = EventoTimelineChamado(
         id=88,
@@ -951,7 +1010,7 @@ def test_comentario_independente_atualiza_detalhe_canonico_inclusive_terminal(mo
         estado, "interna"
     )
 
-    executar_evento(ChamadosTecnicoState.adicionar_comentario_operacional, estado)
+    executar_evento(ChamadosTecnicoState.salvar_tratativa, estado)
 
     assert cliente.comentarios == [
         (
@@ -963,4 +1022,4 @@ def test_comentario_independente_atualiza_detalhe_canonico_inclusive_terminal(mo
     assert estado.comentario_status_pendente == ""
     assert estado.ultima_atualizacao_confirmada == 1780000003000
     assert estado.timeline[0]["conteudo"] == "Atualização em chamado encerrado."
-    assert estado.mensagem_sucesso_comentario == "Comentário adicionado."
+    assert estado.mensagem_sucesso_tratativa == "Comentário adicionado."

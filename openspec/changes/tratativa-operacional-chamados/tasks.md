@@ -14,7 +14,7 @@
 
 ## 3. Comentários e autorização
 
-- [ ] 3.1 Implementar comentário operacional independente Público/Interno para Técnico, Diretoria e Administrador, inclusive em terminal, com atualização de `ultima_atualizacao_em`; verificar UNIT, XANO e PERSISTENCE.
+- [x] 3.1 Implementar comentário operacional independente Público/Interno para Técnico, Diretoria e Administrador, inclusive em terminal, com atualização de `ultima_atualizacao_em`; verificar UNIT, XANO e PERSISTENCE.
 - [ ] 3.2 Ajustar o comentário Público do Gerente para terminal dentro da Loja e jornada já autorizadas, sem conceder comentário Interno, fila global ou edição funcional; verificar CONTRACT, XANO e REST_AUTH para escopo próprio e negado.
 - [ ] 3.3 Aplicar no Xano a matriz de autorização da tratativa para Técnico, Diretoria e Administrador e manter CRUD genérico negado; verificar XANO e REST_AUTH com 401, 403 e cada perfil.
 

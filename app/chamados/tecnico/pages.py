@@ -198,10 +198,19 @@ def _detalhe_tecnico() -> rx.Component:
         erro(ChamadosTecnicoState.mensagem_detalhe_tecnico),
         erro(ChamadosTecnicoState.mensagem_assuncao),
         erro(ChamadosTecnicoState.mensagem_responsavel),
+        erro(ChamadosTecnicoState.mensagem_tratativa),
         rx.cond(
             ChamadosTecnicoState.mensagem_sucesso_responsavel != "",
             rx.callout(
                 ChamadosTecnicoState.mensagem_sucesso_responsavel,
+                icon="check",
+                color_scheme="green",
+            ),
+        ),
+        rx.cond(
+            ChamadosTecnicoState.mensagem_sucesso_tratativa != "",
+            rx.callout(
+                ChamadosTecnicoState.mensagem_sucesso_tratativa,
                 icon="check",
                 color_scheme="green",
             ),
@@ -238,6 +247,169 @@ def _detalhe_tecnico() -> rx.Component:
                         "Última atualização: "
                         + ChamadosTecnicoState.chamado["ultima_atualizacao_em_texto"],
                         color="gray",
+                    ),
+                    rx.cond(
+                        (AuthState.role == "tecnico")
+                        | (AuthState.role == "diretoria")
+                        | (AuthState.role == "administrador"),
+                        rx.card(
+                            rx.vstack(
+                                rx.text("Tratativa", weight="bold"),
+                                rx.cond(
+                                    ChamadosTecnicoState.edicao_funcional_bloqueada,
+                                    rx.callout(
+                                        "Chamado terminal: campos funcionais bloqueados.",
+                                        icon="lock",
+                                        color_scheme="gray",
+                                    ),
+                                    rx.fragment(),
+                                ),
+                                rx.text("Responsável", size="2"),
+                                rx.select.root(
+                                    rx.select.trigger(width="100%"),
+                                    rx.select.content(
+                                        rx.select.item("Não atribuído", value="0"),
+                                        rx.foreach(
+                                            ChamadosTecnicoState.tecnicos,
+                                            lambda tecnico: rx.select.item(
+                                                tecnico["nome"],
+                                                value=tecnico["id"].to_string(),
+                                            ),
+                                        ),
+                                    ),
+                                    value=ChamadosTecnicoState.responsavel_pendente_id,
+                                    on_change=ChamadosTecnicoState.alterar_responsavel_pendente,
+                                    disabled=(
+                                        ChamadosTecnicoState.edicao_funcional_bloqueada
+                                        | ChamadosTecnicoState.salvando_tratativa
+                                    ),
+                                    width="100%",
+                                ),
+                                rx.text("Status", size="2"),
+                                rx.select(
+                                    ChamadosTecnicoState.status_filtros(),
+                                    value=ChamadosTecnicoState.status_pendente,
+                                    on_change=ChamadosTecnicoState.alterar_status_pendente,
+                                    disabled=(
+                                        ChamadosTecnicoState.edicao_funcional_bloqueada
+                                        | ChamadosTecnicoState.salvando_tratativa
+                                    ),
+                                    width="100%",
+                                ),
+                                rx.text("Prioridade", size="2"),
+                                rx.select(
+                                    ChamadosTecnicoState.prioridades_tratativa(),
+                                    value=ChamadosTecnicoState.prioridade_pendente,
+                                    on_change=ChamadosTecnicoState.alterar_prioridade_pendente,
+                                    disabled=(
+                                        ChamadosTecnicoState.edicao_funcional_bloqueada
+                                        | ChamadosTecnicoState.salvando_tratativa
+                                    ),
+                                    width="100%",
+                                ),
+                                rx.text("Categoria", size="2"),
+                                rx.cond(
+                                    ChamadosTecnicoState.categoria_confirmada_inativa,
+                                    rx.text(
+                                        "Categoria atual inativa: "
+                                        + ChamadosTecnicoState.chamado["categoria_nome"],
+                                        size="2",
+                                        color="gray",
+                                    ),
+                                    rx.fragment(),
+                                ),
+                                rx.select.root(
+                                    rx.select.trigger(width="100%"),
+                                    rx.select.content(
+                                        rx.cond(
+                                            ChamadosTecnicoState.categoria_confirmada_inativa,
+                                            rx.select.item(
+                                                ChamadosTecnicoState.chamado["categoria_nome"],
+                                                value=ChamadosTecnicoState.categoria_pendente_id,
+                                                disabled=True,
+                                            ),
+                                            rx.fragment(),
+                                        ),
+                                        rx.foreach(
+                                            ChamadosTecnicoState.categorias_tratativa,
+                                            lambda categoria: rx.select.item(
+                                                categoria["nome"],
+                                                value=categoria["id"].to_string(),
+                                            ),
+                                        ),
+                                    ),
+                                    value=ChamadosTecnicoState.categoria_pendente_id,
+                                    on_change=ChamadosTecnicoState.alterar_categoria_pendente,
+                                    disabled=(
+                                        ChamadosTecnicoState.edicao_funcional_bloqueada
+                                        | ChamadosTecnicoState.salvando_tratativa
+                                    ),
+                                    width="100%",
+                                ),
+                                rx.cond(
+                                    ChamadosTecnicoState.status_pendente_alterado,
+                                    rx.vstack(
+                                        rx.text(
+                                            "Comentário da mudança de Status",
+                                            size="2",
+                                        ),
+                                        rx.text_area(
+                                            value=ChamadosTecnicoState.comentario_status_pendente,
+                                            on_change=ChamadosTecnicoState.alterar_comentario_status_pendente,
+                                            placeholder="Descreva a mudança de Status",
+                                            disabled=ChamadosTecnicoState.salvando_tratativa,
+                                            width="100%",
+                                        ),
+                                        rx.cond(
+                                            ChamadosTecnicoState.status_pendente_exige_comentario_publico,
+                                            rx.badge("Público", color_scheme="blue"),
+                                            rx.select.root(
+                                                rx.select.trigger(width="100%"),
+                                                rx.select.content(
+                                                    rx.select.item("Público", value="publica"),
+                                                    rx.select.item("Interno", value="interna"),
+                                                ),
+                                                value=ChamadosTecnicoState.visibilidade_comentario_status_pendente,
+                                                on_change=ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente,
+                                                disabled=ChamadosTecnicoState.salvando_tratativa,
+                                                width="100%",
+                                            ),
+                                        ),
+                                        align="start",
+                                        width="100%",
+                                    ),
+                                    rx.fragment(),
+                                ),
+                                rx.hstack(
+                                    rx.button(
+                                        "Descartar mudanças",
+                                        variant="outline",
+                                        on_click=ChamadosTecnicoState.descartar_mudancas_tratativa,
+                                        disabled=(
+                                            ChamadosTecnicoState.edicao_funcional_bloqueada
+                                            | (ChamadosTecnicoState.ha_mudanca_funcional_pendente == False)
+                                            | ChamadosTecnicoState.salvando_tratativa
+                                        ),
+                                    ),
+                                    rx.button(
+                                        rx.cond(
+                                            ChamadosTecnicoState.salvando_tratativa,
+                                            "Salvando...",
+                                            "Salvar",
+                                        ),
+                                        on_click=ChamadosTecnicoState.salvar_tratativa,
+                                        disabled=(ChamadosTecnicoState.pode_salvar_tratativa == False)
+                                        | ChamadosTecnicoState.salvando_tratativa,
+                                    ),
+                                    spacing="3",
+                                ),
+                                align="start",
+                                spacing="2",
+                                width="100%",
+                            ),
+                            width="100%",
+                        ),
+                        rx.fragment(),
                     ),
                     rx.cond(
                         (AuthState.role == "tecnico")

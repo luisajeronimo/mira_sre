@@ -64,9 +64,22 @@ class ChamadosTecnicoState(AuthState):
     chamado: DetalheView = {}
     timeline: list[TimelineView] = []
     tecnicos: list[TecnicoOpcaoView] = []
+    categorias_tratativa: list[TecnicoOpcaoView] = []
     tecnico_alvo_id: str = ""
+    responsavel_confirmado_id: int | None = None
+    status_confirmado: str = ""
+    prioridade_confirmada: str = ""
+    categoria_confirmada_id: int | None = None
+    ultima_atualizacao_confirmada: int | None = None
+    responsavel_pendente_id: str = "0"
+    status_pendente: str = ""
+    prioridade_pendente: str = ""
+    categoria_pendente_id: str = ""
+    comentario_status_pendente: str = ""
+    visibilidade_comentario_status_pendente: str = "publica"
     carregando_fila: bool = False
     carregando_detalhe_tecnico: bool = False
+    salvando_tratativa: bool = False
     detalhe_tecnico_carregado: bool = False
     assumindo_id: int | None = None
     alterando_responsavel_id: int | None = None
@@ -75,10 +88,69 @@ class ChamadosTecnicoState(AuthState):
     mensagem_assuncao: str = ""
     mensagem_responsavel: str = ""
     mensagem_sucesso_responsavel: str = ""
+    mensagem_tratativa: str = ""
+    mensagem_sucesso_tratativa: str = ""
 
     @staticmethod
     def status_filtros() -> list[str]:
         return ["Novo", "Em Atendimento", "Aguardando Solicitante", "Aguardando Mudança", "Resolvido", "Solução Rejeitada", "Encerrado", "Cancelado"]
+
+    @staticmethod
+    def prioridades_tratativa() -> list[str]:
+        return ["Baixa", "Média", "Alta", "Urgente"]
+
+    @staticmethod
+    def _status_exige_comentario_publico(status: str) -> bool:
+        return status in {
+            "Resolvido",
+            "Aguardando Solicitante",
+            "Cancelado",
+        }
+
+    @rx.var
+    def edicao_funcional_bloqueada(self) -> bool:
+        return self.status_confirmado in {"Encerrado", "Cancelado"}
+
+    @rx.var
+    def status_pendente_alterado(self) -> bool:
+        return self.status_pendente != self.status_confirmado
+
+    @rx.var
+    def status_pendente_exige_comentario_publico(self) -> bool:
+        return self._status_exige_comentario_publico(self.status_pendente)
+
+    @rx.var
+    def ha_mudanca_funcional_pendente(self) -> bool:
+        return (
+            self.responsavel_pendente_id
+            != self._valor_responsavel_confirmado()
+            or self.status_pendente != self.status_confirmado
+            or self.prioridade_pendente != self.prioridade_confirmada
+            or self.categoria_pendente_id
+            != self._valor_categoria_confirmada()
+        )
+
+    @rx.var
+    def pode_salvar_tratativa(self) -> bool:
+        if self.edicao_funcional_bloqueada or not self.ha_mudanca_funcional_pendente:
+            return False
+        if not self.status_pendente_alterado:
+            return True
+        if not self.comentario_status_pendente.strip():
+            return False
+        if self.status_pendente_exige_comentario_publico:
+            return self.visibilidade_comentario_status_pendente == "publica"
+        return self.visibilidade_comentario_status_pendente in {"publica", "interna"}
+
+    @rx.var
+    def categoria_confirmada_inativa(self) -> bool:
+        return (
+            self.categoria_confirmada_id is not None
+            and all(
+                categoria["id"] != self.categoria_confirmada_id
+                for categoria in self.categorias_tratativa
+            )
+        )
 
     def _limpar_mensagens_tecnico(self) -> None:
         self.mensagem_fila = ""
@@ -86,6 +158,32 @@ class ChamadosTecnicoState(AuthState):
         self.mensagem_assuncao = ""
         self.mensagem_responsavel = ""
         self.mensagem_sucesso_responsavel = ""
+        self.mensagem_tratativa = ""
+        self.mensagem_sucesso_tratativa = ""
+
+    def _valor_responsavel_confirmado(self) -> str:
+        return str(self.responsavel_confirmado_id or 0)
+
+    def _valor_categoria_confirmada(self) -> str:
+        return str(self.categoria_confirmada_id or "")
+
+    def _copiar_confirmado_para_pendente(self) -> None:
+        self.responsavel_pendente_id = self._valor_responsavel_confirmado()
+        self.status_pendente = self.status_confirmado
+        self.prioridade_pendente = self.prioridade_confirmada
+        self.categoria_pendente_id = self._valor_categoria_confirmada()
+        self.comentario_status_pendente = ""
+        self.visibilidade_comentario_status_pendente = "publica"
+
+    @staticmethod
+    def _id_pendente(valor: str, *, permitir_nao_atribuido: bool = False) -> int | None:
+        if permitir_nao_atribuido and valor == "0":
+            return None
+        try:
+            resultado = int(valor)
+        except (TypeError, ValueError):
+            return None
+        return resultado if resultado > 0 else None
 
     def _atualizar_chamado(self, chamado: ChamadoDetalhe) -> None:
         self.chamado = _detalhe_para_dict(chamado)
@@ -102,7 +200,11 @@ class ChamadosTecnicoState(AuthState):
             )
         )
 
-    def _atualizar_detalhe(self, detalhe: DetalheChamadoTecnico) -> None:
+    def _atualizar_detalhe(
+        self,
+        detalhe: DetalheChamadoTecnico,
+        categorias: list[TecnicoOpcaoView] | None = None,
+    ) -> None:
         self._atualizar_chamado(detalhe.chamado)
         self.timeline = [
             evento_timeline_para_dict(evento) for evento in detalhe.timeline
@@ -111,6 +213,20 @@ class ChamadosTecnicoState(AuthState):
             {"id": tecnico.id, "nome": tecnico.nome}
             for tecnico in detalhe.tecnicos
         ]
+        if categorias is not None:
+            self.categorias_tratativa = categorias
+        self.responsavel_confirmado_id = (
+            detalhe.chamado.tecnico.id
+            if detalhe.chamado.tecnico is not None
+            else None
+        )
+        self.status_confirmado = detalhe.chamado.status or ""
+        self.prioridade_confirmada = detalhe.chamado.prioridade
+        self.categoria_confirmada_id = detalhe.chamado.categoria.id
+        self.ultima_atualizacao_confirmada = (
+            detalhe.chamado.ultima_atualizacao_em
+        )
+        self._copiar_confirmado_para_pendente()
         self.tecnico_alvo_id = ""
         self.detalhe_tecnico_carregado = True
 
@@ -193,6 +309,59 @@ class ChamadosTecnicoState(AuthState):
     def alterar_filtro_data_inicio(self, valor: str) -> None: self.filtro_data_inicio = valor
     @rx.event
     def alterar_filtro_data_fim(self, valor: str) -> None: self.filtro_data_fim = valor
+
+    @rx.event
+    def alterar_responsavel_pendente(self, valor: str) -> None:
+        if self.edicao_funcional_bloqueada:
+            return
+        tecnico_id = self._id_pendente(valor, permitir_nao_atribuido=True)
+        if valor == "0" or tecnico_id in {item["id"] for item in self.tecnicos}:
+            self.responsavel_pendente_id = valor
+
+    @rx.event
+    def alterar_status_pendente(self, valor: str) -> None:
+        if self.edicao_funcional_bloqueada or valor not in self.status_filtros():
+            return
+        self.status_pendente = valor
+        if self._status_exige_comentario_publico(valor):
+            self.visibilidade_comentario_status_pendente = "publica"
+
+    @rx.event
+    def alterar_prioridade_pendente(self, valor: str) -> None:
+        if (
+            not self.edicao_funcional_bloqueada
+            and valor in self.prioridades_tratativa()
+        ):
+            self.prioridade_pendente = valor
+
+    @rx.event
+    def alterar_categoria_pendente(self, valor: str) -> None:
+        if self.edicao_funcional_bloqueada:
+            return
+        categoria_id = self._id_pendente(valor)
+        categorias_ativas = {item["id"] for item in self.categorias_tratativa}
+        if categoria_id in categorias_ativas or categoria_id == self.categoria_confirmada_id:
+            self.categoria_pendente_id = valor
+
+    @rx.event
+    def alterar_comentario_status_pendente(self, valor: str) -> None:
+        if not self.edicao_funcional_bloqueada:
+            self.comentario_status_pendente = valor
+
+    @rx.event
+    def alterar_visibilidade_comentario_status_pendente(self, valor: str) -> None:
+        if self.edicao_funcional_bloqueada:
+            return
+        if self.status_pendente_exige_comentario_publico:
+            self.visibilidade_comentario_status_pendente = "publica"
+        elif valor in {"publica", "interna"}:
+            self.visibilidade_comentario_status_pendente = valor
+
+    @rx.event
+    def descartar_mudancas_tratativa(self) -> None:
+        self._copiar_confirmado_para_pendente()
+        self.mensagem_tratativa = ""
+        self.mensagem_sucesso_tratativa = ""
 
     @staticmethod
     def _id_da_opcao(valor: str) -> int | None:
@@ -343,6 +512,13 @@ class ChamadosTecnicoState(AuthState):
         self.chamado = {}
         self.timeline = []
         self.tecnicos = []
+        self.categorias_tratativa = []
+        self.responsavel_confirmado_id = None
+        self.status_confirmado = ""
+        self.prioridade_confirmada = ""
+        self.categoria_confirmada_id = None
+        self.ultima_atualizacao_confirmada = None
+        self._copiar_confirmado_para_pendente()
         self.tecnico_alvo_id = ""
         self._limpar_mensagens_tecnico()
         yield
@@ -363,11 +539,21 @@ class ChamadosTecnicoState(AuthState):
             self.carregando_detalhe_tecnico = False
             return
         try:
-            resultado = await criar_cliente_service_desk().obter_chamado_tecnico(
+            cliente = criar_cliente_service_desk()
+            resultado = await cliente.obter_chamado_tecnico(
                 self._auth_token,
                 chamado_id,
             )
-            self._atualizar_detalhe(resultado)
+            categorias = await cliente.listar_categorias_tratativa(
+                self._auth_token
+            )
+            self._atualizar_detalhe(
+                resultado,
+                categorias=[
+                    {"id": categoria.id, "nome": categoria.nome}
+                    for categoria in categorias
+                ],
+            )
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             destino = self._registrar_erro_tecnico(erro, "mensagem_detalhe_tecnico")
             if destino is not None:
@@ -375,6 +561,99 @@ class ChamadosTecnicoState(AuthState):
                 yield rx.redirect(destino)
                 return
         self.carregando_detalhe_tecnico = False
+
+    @rx.event
+    async def salvar_tratativa(self):
+        if self.salvando_tratativa:
+            return
+        self.mensagem_tratativa = ""
+        self.mensagem_sucesso_tratativa = ""
+        if self.edicao_funcional_bloqueada:
+            self.mensagem_tratativa = "Chamado terminal não permite edição funcional."
+            return
+        if not self.ha_mudanca_funcional_pendente:
+            self.mensagem_tratativa = "Nenhuma alteração pendente para salvar."
+            return
+        if self.status_pendente_alterado and not self.comentario_status_pendente.strip():
+            self.mensagem_tratativa = "Mudança de Status exige comentário."
+            return
+        if (
+            self.status_pendente_exige_comentario_publico
+            and self.visibilidade_comentario_status_pendente != "publica"
+        ):
+            self.mensagem_tratativa = "Este Status exige comentário Público."
+            return
+        chamado_id = self.chamado.get("id")
+        tecnico_id = self._id_pendente(
+            self.responsavel_pendente_id,
+            permitir_nao_atribuido=True,
+        )
+        categoria_id = self._id_pendente(self.categoria_pendente_id)
+        if (
+            not isinstance(chamado_id, int)
+            or chamado_id <= 0
+            or categoria_id is None
+            or self.ultima_atualizacao_confirmada is None
+        ):
+            self.mensagem_tratativa = "Detalhe do chamado incompatível. Recarregue a página."
+            return
+        self.salvando_tratativa = True
+        yield
+        try:
+            destino = await self._validar_acesso_fila()
+            if destino is not None:
+                yield rx.redirect(destino)
+                return
+            if not self.sessao_confirmada:
+                return
+            cliente = criar_cliente_service_desk()
+            try:
+                resultado = await cliente.salvar_tratativa_chamado(
+                    self._auth_token,
+                    chamado_id,
+                    tecnico_id=tecnico_id,
+                    status=self.status_pendente,
+                    prioridade=self.prioridade_pendente,
+                    categorias_servico_id=categoria_id,
+                    ultima_atualizacao_em=self.ultima_atualizacao_confirmada,
+                    comentario_status=(
+                        self.comentario_status_pendente
+                        if self.status_pendente_alterado
+                        else None
+                    ),
+                    visibilidade_comentario_status=(
+                        self.visibilidade_comentario_status_pendente
+                        if self.status_pendente_alterado
+                        else None
+                    ),
+                )
+            except XanoConflito:
+                self.mensagem_tratativa = (
+                    "O chamado foi atualizado por outra operação. O detalhe foi recarregado."
+                )
+                try:
+                    atual = await cliente.obter_chamado_tecnico(
+                        self._auth_token,
+                        chamado_id,
+                    )
+                    self._atualizar_detalhe(atual)
+                except Exception as erro:  # noqa: BLE001 - erro sanitizado existente
+                    destino = self._registrar_erro_tecnico(
+                        erro,
+                        "mensagem_tratativa",
+                    )
+                    if destino is not None:
+                        yield rx.redirect(destino)
+                return
+            self._atualizar_detalhe(resultado)
+            self.mensagem_sucesso_tratativa = "Alterações salvas."
+        except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            destino = self._registrar_erro_tecnico(erro, "mensagem_tratativa")
+            if destino is not None:
+                yield rx.redirect(destino)
+                return
+        finally:
+            self.salvando_tratativa = False
 
     @rx.event
     def selecionar_tecnico_alvo(self, tecnico_id: str) -> None:

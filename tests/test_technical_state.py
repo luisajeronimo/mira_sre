@@ -17,7 +17,13 @@ from app.services.service_desk import (
     ReferenciaLoja,
     ReferenciaUsuario,
 )
-from app.services.xano import XanoConflito, XanoContratoInvalido, XanoIndisponivel, XanoNaoAutorizado
+from app.services.xano import (
+    XanoConflito,
+    XanoContratoInvalido,
+    XanoEntradaInvalida,
+    XanoIndisponivel,
+    XanoNaoAutorizado,
+)
 from app.states.auth import MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
 from app.chamados.shared import _detalhe_para_dict, _tecnico_para_dict
 from app.chamados.tecnico import ChamadosTecnicoState
@@ -52,6 +58,9 @@ def resumo_tecnico(*, status="Novo", tecnico=None, atribuido_em=0):
 def detalhe_tecnico(
     *,
     status="Novo",
+    prioridade="Alta",
+    categoria=None,
+    ultima_atualizacao_em=1780000000000,
     tecnico=None,
     atribuido_em=1780000001000,
     criador_sistema=None,
@@ -62,13 +71,13 @@ def detalhe_tecnico(
         titulo="TESTE E2E - Falha operacional",
         descricao="Descrição de teste",
         status=status,
-        prioridade="Alta",
+        prioridade=prioridade,
         origem="manual",
         criado_em=1780000000000,
-        ultima_atualizacao_em=1780000000000,
+        ultima_atualizacao_em=ultima_atualizacao_em,
         sla_horas_aplicado=2,
         ativo=ReferenciaAtivo(id=1, nome_ativo="Totem de teste"),
-        categoria=ReferenciaCategoria(id=2, nome="Falha de Rede"),
+        categoria=categoria or ReferenciaCategoria(id=2, nome="Falha de Rede"),
         solicitante=ReferenciaUsuario(id=8, nome="Gerente"),
         tecnico=tecnico,
         atribuido_em=atribuido_em,
@@ -86,6 +95,10 @@ class ClienteTecnicoFalso:
         resultado_detalhe=None,
         erro_detalhe=None,
         erro_ativos=None,
+        categorias=None,
+        erro_categorias=None,
+        resultado_save=None,
+        erro_save=None,
         listas=None,
     ):
         self.resultado_assuncao = resultado_assuncao or detalhe_tecnico(
@@ -95,11 +108,18 @@ class ClienteTecnicoFalso:
         self.resultado_detalhe = resultado_detalhe
         self.erro_detalhe = erro_detalhe
         self.erro_ativos = erro_ativos
+        self.categorias = categorias or [
+            type("Categoria", (), {"id": 2, "nome": "Falha de Rede"})()
+        ]
+        self.erro_categorias = erro_categorias
+        self.resultado_save = resultado_save
+        self.erro_save = erro_save
         self.listas = listas or {}
         self.consultas = []
         self.assuncoes = []
         self.detalhes = []
         self.atribuicoes = []
+        self.saves = []
 
     async def listar_chamados_tecnico(self, token, **filtros):
         self.consultas.append((token, filtros))
@@ -112,6 +132,21 @@ class ClienteTecnicoFalso:
         if self.erro_ativos is not None:
             raise self.erro_ativos
         return []
+
+    async def listar_categorias_tratativa(self, token):
+        if self.erro_categorias is not None:
+            raise self.erro_categorias
+        return self.categorias
+
+    async def salvar_tratativa_chamado(self, token, chamado_id, **payload):
+        self.saves.append((token, chamado_id, payload))
+        if self.erro_save is not None:
+            raise self.erro_save
+        return self.resultado_save or DetalheChamadoTecnico(
+            chamado=self.resultado_assuncao,
+            timeline=[],
+            tecnicos=[ReferenciaUsuario(id=9, nome="Técnico 9")],
+        )
 
     async def alterar_responsavel_tecnico(
         self, token, chamado_id, acao, tecnico_id=None
@@ -608,6 +643,206 @@ def test_detalhe_confirmado_expoe_campos_do_contrato_e_evitar_renderizacao_vazia
     assert estado.chamado["loja_nome"] == "Loja Centro"
     assert estado.chamado["categoria_nome"] == "Falha de Rede"
     assert estado.chamado["solicitante_nome"] == "Gerente"
+
+
+def test_carregar_detalhe_copia_estado_confirmado_para_pendente_e_catalogo(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(
+        resultado_detalhe=DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(
+                tecnico=ReferenciaUsuario(id=9, nome="Técnico 9"),
+                categoria=ReferenciaCategoria(id=9, nome="Categoria inativa"),
+            ),
+            timeline=[],
+            tecnicos=[ReferenciaUsuario(id=9, nome="Técnico 9")],
+        ),
+        categorias=[type("Categoria", (), {"id": 2, "nome": "Falha de Rede"})()],
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    object.__setattr__(estado, "chamado_id", "32")
+
+    executar_evento(ChamadosTecnicoState.carregar_detalhe_tecnico, estado)
+
+    assert estado.responsavel_confirmado_id == 9
+    assert estado.responsavel_pendente_id == "9"
+    assert estado.status_confirmado == estado.status_pendente == "Novo"
+    assert estado.prioridade_confirmada == estado.prioridade_pendente == "Alta"
+    assert estado.categoria_confirmada_id == 9
+    assert estado.categoria_pendente_id == "9"
+    assert estado.categorias_tratativa == [{"id": 2, "nome": "Falha de Rede"}]
+
+
+def test_edicao_pendente_nao_persiste_e_descartar_restaura_confirmado():
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(tecnico=ReferenciaUsuario(id=9, nome="Técnico 9")),
+            timeline=[],
+            tecnicos=[ReferenciaUsuario(id=9, nome="Técnico 9"), ReferenciaUsuario(id=10, nome="Técnico 10")],
+        ),
+        categorias=[{"id": 2, "nome": "Falha de Rede"}],
+    )
+
+    ChamadosTecnicoState.alterar_responsavel_pendente.fn(estado, "10")
+    ChamadosTecnicoState.alterar_prioridade_pendente.fn(estado, "Urgente")
+    ChamadosTecnicoState.alterar_status_pendente.fn(estado, "Em Atendimento")
+
+    assert estado.responsavel_confirmado_id == 9
+    assert estado.responsavel_pendente_id == "10"
+    assert estado.prioridade_confirmada == "Alta"
+    assert estado.prioridade_pendente == "Urgente"
+    assert estado.ha_mudanca_funcional_pendente is True
+
+    ChamadosTecnicoState.descartar_mudancas_tratativa.fn(estado)
+
+    assert estado.responsavel_pendente_id == "9"
+    assert estado.status_pendente == "Novo"
+    assert estado.prioridade_pendente == "Alta"
+    assert estado.comentario_status_pendente == ""
+    assert estado.ha_mudanca_funcional_pendente is False
+
+
+def test_save_tratativa_usa_pendente_e_substitui_estado_por_detalhe_canonico(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    retorno = DetalheChamadoTecnico(
+        chamado=detalhe_tecnico(
+            status="Em Atendimento",
+            prioridade="Urgente",
+            tecnico=ReferenciaUsuario(id=10, nome="Técnico 10"),
+            atribuido_em=1780000002000,
+            ultima_atualizacao_em=1780000002000,
+        ),
+        timeline=[],
+        tecnicos=[ReferenciaUsuario(id=9, nome="Técnico 9"), ReferenciaUsuario(id=10, nome="Técnico 10")],
+    )
+    cliente = ClienteTecnicoFalso(resultado_save=retorno)
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(
+            chamado=detalhe_tecnico(tecnico=ReferenciaUsuario(id=9, nome="Técnico 9")),
+            timeline=[],
+            tecnicos=retorno.tecnicos,
+        ),
+        categorias=[{"id": 2, "nome": "Falha de Rede"}],
+    )
+    ChamadosTecnicoState.alterar_responsavel_pendente.fn(estado, "10")
+    ChamadosTecnicoState.alterar_prioridade_pendente.fn(estado, "Urgente")
+    ChamadosTecnicoState.alterar_status_pendente.fn(estado, "Em Atendimento")
+    ChamadosTecnicoState.alterar_comentario_status_pendente.fn(estado, "Início")
+    ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente.fn(estado, "interna")
+
+    executar_evento(ChamadosTecnicoState.salvar_tratativa, estado)
+
+    assert cliente.saves == [
+        (
+            "token-de-teste",
+            32,
+            {
+                "tecnico_id": 10,
+                "status": "Em Atendimento",
+                "prioridade": "Urgente",
+                "categorias_servico_id": 2,
+                "ultima_atualizacao_em": 1780000000000,
+                "comentario_status": "Início",
+                "visibilidade_comentario_status": "interna",
+            },
+        )
+    ]
+    assert estado.status_confirmado == estado.status_pendente == "Em Atendimento"
+    assert estado.prioridade_confirmada == estado.prioridade_pendente == "Urgente"
+    assert estado.responsavel_confirmado_id == 10
+    assert estado.responsavel_pendente_id == "10"
+    assert estado.ultima_atualizacao_confirmada == 1780000002000
+    assert estado.comentario_status_pendente == ""
+    assert estado.mensagem_sucesso_tratativa == "Alterações salvas."
+
+
+@pytest.mark.parametrize(
+    "status",
+    ["Resolvido", "Aguardando Solicitante", "Cancelado"],
+)
+def test_status_publico_obrigatorio_no_rascunho(status):
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(DetalheChamadoTecnico(chamado=detalhe_tecnico(), timeline=[], tecnicos=[]))
+
+    ChamadosTecnicoState.alterar_status_pendente.fn(estado, status)
+    ChamadosTecnicoState.alterar_comentario_status_pendente.fn(estado, "Justificativa")
+    ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente.fn(estado, "interna")
+
+    assert estado.status_pendente_exige_comentario_publico is True
+    assert estado.visibilidade_comentario_status_pendente == "publica"
+    assert estado.pode_salvar_tratativa is True
+
+
+@pytest.mark.parametrize("visibilidade", ["publica", "interna"])
+def test_status_nao_restrito_aceita_visibilidades_no_rascunho(visibilidade):
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(DetalheChamadoTecnico(chamado=detalhe_tecnico(), timeline=[], tecnicos=[]))
+
+    ChamadosTecnicoState.alterar_status_pendente.fn(estado, "Encerrado")
+    ChamadosTecnicoState.alterar_comentario_status_pendente.fn(estado, "Justificativa")
+    ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente.fn(estado, visibilidade)
+
+    assert estado.status_pendente_exige_comentario_publico is False
+    assert estado.pode_salvar_tratativa is True
+
+
+def test_terminal_bloqueia_edicao_e_save_sem_chamar_service(monkeypatch):
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(DetalheChamadoTecnico(chamado=detalhe_tecnico(status="Encerrado"), timeline=[], tecnicos=[]))
+
+    ChamadosTecnicoState.alterar_prioridade_pendente.fn(estado, "Urgente")
+    executar_evento(ChamadosTecnicoState.salvar_tratativa, estado)
+
+    assert estado.edicao_funcional_bloqueada is True
+    assert estado.prioridade_pendente == "Alta"
+    assert cliente.saves == []
+    assert "terminal" in estado.mensagem_tratativa.casefold()
+
+
+def test_conflito_recarrega_detalhe_canonico_e_descarta_rascunho(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    atual = DetalheChamadoTecnico(
+        chamado=detalhe_tecnico(prioridade="Baixa", ultima_atualizacao_em=1780000003000),
+        timeline=[],
+        tecnicos=[],
+    )
+    cliente = ClienteTecnicoFalso(
+        erro_save=XanoConflito("conflito"),
+        resultado_detalhe=atual,
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(DetalheChamadoTecnico(chamado=detalhe_tecnico(), timeline=[], tecnicos=[]))
+    ChamadosTecnicoState.alterar_prioridade_pendente.fn(estado, "Urgente")
+
+    executar_evento(ChamadosTecnicoState.salvar_tratativa, estado)
+
+    assert cliente.saves
+    assert cliente.detalhes == [("token-de-teste", 32)]
+    assert estado.prioridade_confirmada == estado.prioridade_pendente == "Baixa"
+    assert estado.ultima_atualizacao_confirmada == 1780000003000
+    assert "recarregado" in estado.mensagem_tratativa
+
+
+def test_erro_de_validacao_nao_confirma_rascunho(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(erro_save=XanoEntradaInvalida("inválido"))
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(DetalheChamadoTecnico(chamado=detalhe_tecnico(), timeline=[], tecnicos=[]))
+    ChamadosTecnicoState.alterar_prioridade_pendente.fn(estado, "Urgente")
+
+    executar_evento(ChamadosTecnicoState.salvar_tratativa, estado)
+
+    assert estado.prioridade_confirmada == "Alta"
+    assert estado.prioridade_pendente == "Urgente"
+    assert estado.mensagem_sucesso_tratativa == ""
+    assert estado.mensagem_tratativa == "Os dados informados são inválidos."
 
 
 def test_pagina_do_detalhe_so_renderiza_campos_apos_carga_confirmada():

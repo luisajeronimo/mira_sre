@@ -13,6 +13,7 @@ table categorias_servico {
     decimal sla_horas?
     text desc? filters=trim
     bool permite_abertura_manual?=false
+    bool ativo?=true
   }
 
   index = [
@@ -31,6 +32,7 @@ table categorias_servico {
       sla_horas                : 1
       desc                     : "Criada automaticamente quando o ativo fica mais de 15 minutos sem telemetria"
       permite_abertura_manual  : false
+      ativo                    : true
     }
     {
       id                       : 2
@@ -40,6 +42,7 @@ table categorias_servico {
       sla_horas                : 2
       desc                     : "Totem sem conectividade ou com problema de comunicação"
       permite_abertura_manual  : true
+      ativo                    : true
     }
     {
       id                       : 3
@@ -49,6 +52,7 @@ table categorias_servico {
       sla_horas                : 4
       desc                     : "Tela quebrada, apagada ou sem funcionamento"
       permite_abertura_manual  : true
+      ativo                    : true
     }
     {
       id                       : 4
@@ -58,6 +62,7 @@ table categorias_servico {
       sla_horas                : 4
       desc                     : "Leitor, impressora, pinpad ou outro periférico com falha"
       permite_abertura_manual  : true
+      ativo                    : true
     }
     {
       id                       : 5
@@ -67,6 +72,7 @@ table categorias_servico {
       sla_horas                : 2
       desc                     : "Totem desligado ou sem alimentação elétrica"
       permite_abertura_manual  : true
+      ativo                    : true
     }
     {
       id                       : 6
@@ -76,6 +82,7 @@ table categorias_servico {
       sla_horas                : 4
       desc                     : "Cabo desconectado ou conexão física comprometida"
       permite_abertura_manual  : true
+      ativo                    : true
     }
     {
       id                       : 7
@@ -85,6 +92,7 @@ table categorias_servico {
       sla_horas                : 8
       desc                     : "Estrutura, gabinete ou equipamento fisicamente danificado"
       permite_abertura_manual  : true
+      ativo                    : true
     }
     {
       id                       : 8
@@ -94,6 +102,7 @@ table categorias_servico {
       sla_horas                : 2
       desc                     : "Temperatura anormal identificada pela telemetria"
       permite_abertura_manual  : false
+      ativo                    : true
     }
     {
       id                       : 9
@@ -103,6 +112,7 @@ table categorias_servico {
       sla_horas                : 4
       desc                     : "Uso de CPU acima do comportamento esperado"
       permite_abertura_manual  : false
+      ativo                    : true
     }
     {
       id                       : 10
@@ -112,6 +122,7 @@ table categorias_servico {
       sla_horas                : 4
       desc                     : "Consumo elevado de memória"
       permite_abertura_manual  : false
+      ativo                    : true
     }
     {
       id                       : 11
@@ -121,6 +132,7 @@ table categorias_servico {
       sla_horas                : 24
       desc                     : "Manutenção preventiva ou intervenção sem falha ativa"
       permite_abertura_manual  : true
+      ativo                    : true
     }
     {
       id                       : 12
@@ -130,6 +142,7 @@ table categorias_servico {
       sla_horas                : 24
       desc                     : "Demanda da loja que não caracteriza incidente técnico"
       permite_abertura_manual  : true
+      ativo                    : true
     }
   ]
 }

@@ -14,6 +14,12 @@ ASSUMIR = (ROOT / "xano/function/service_desk/assumir_chamado_tecnico.xs").read_
 DETALHE = (ROOT / "xano/function/service_desk/obter_chamado_tecnico.xs").read_text(
     encoding="utf-8"
 )
+CATEGORIAS_TRATATIVA = (
+    ROOT / "xano/function/service_desk/listar_categorias_tratativa.xs"
+).read_text(encoding="utf-8")
+CATEGORIAS_TRATATIVA_API = (
+    ROOT / "xano/api/mira_service_desk/tecnico/categorias_GET.xs"
+).read_text(encoding="utf-8")
 LISTAGEM = (ROOT / "xano/function/service_desk/listar_chamados_tecnico.xs").read_text(
     encoding="utf-8"
 )
@@ -53,3 +59,28 @@ def test_timeline_combina_interacoes_e_ordena_instante_e_id_descendentes():
 
 def test_listagem_normaliza_timestamp_de_atribuicao_nulo_do_xano():
     assert "atribuido_em: ($$.atribuido_em != null && $$.atribuido_em != 0) ? $$.atribuido_em : null" in LISTAGEM
+
+
+def test_catalogo_de_tratativa_lista_somente_categoria_ativa_sem_regra_manual():
+    schema = (ROOT / "xano/table/categorias_servico.xs").read_text(encoding="utf-8")
+
+    assert "bool ativo?=true" in schema
+    assert (
+        "where = $db.categorias_servico.ativo == true || "
+        "$db.categorias_servico.ativo == null"
+    ) in CATEGORIAS_TRATATIVA
+    assert 'ativo: null' in CATEGORIAS_TRATATIVA
+    assert "permite_abertura_manual ==" not in CATEGORIAS_TRATATIVA
+    assert "function.run \"autorizacao/exigir_perfil\"" in CATEGORIAS_TRATATIVA
+    assert "tecnico: true, diretoria: true, administrador: true" in CATEGORIAS_TRATATIVA
+    assert 'query "tecnico/categorias" verb=GET' in CATEGORIAS_TRATATIVA_API
+    assert 'auth = "usuarios"' in CATEGORIAS_TRATATIVA_API
+    assert 'function.run "service_desk/listar_categorias_tratativa"' in CATEGORIAS_TRATATIVA_API
+
+
+def test_detalhe_preserva_categoria_persistida_sem_consultar_ativo():
+    assert 'categoria: {id: $input.registro.categoria_id, nome: $input.registro.categoria_nome}' in (
+        ROOT / "xano/function/service_desk/construir_dto_chamado_tecnico.xs"
+    ).read_text(encoding="utf-8")
+    assert 'where: $db.chamados.categorias_servico_id == $db.categoria.id' in DETALHE
+    assert "categoria.ativo" not in DETALHE

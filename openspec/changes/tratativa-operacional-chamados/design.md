@@ -51,7 +51,7 @@ Comentários normais usam operação própria e somente atualizam `ultima_atuali
 
 ### Categoria, catálogo e SLA
 
-O catálogo próprio da edição retorna somente Categorias ativas e válidas para nova seleção. O detalhe retém a Categoria persistida mesmo se inativa. O Save somente exige Categoria ativa quando `categoria_id` é diferente do persistido; a regra de abertura manual não se aplica à tratativa.
+`categorias_servico` recebe `ativo` booleano com padrão `true`, preservando as categorias existentes como ativas na introdução do campo. O catálogo próprio da edição retorna somente Categorias ativas e válidas para nova seleção. O detalhe retém a Categoria persistida mesmo se inativa. O Save somente exige Categoria ativa quando `categoria_id` é diferente do persistido; `ativo` é independente de `permite_abertura_manual`, cuja regra não se aplica à tratativa.
 
 Quando há troca válida, o SLA aplicado é copiado da Categoria resultante na mesma transação. O cálculo posterior continua usando a data de criação e as regras vigentes de pausa e retomada; não há reinício do relógio. Alterar o SLA de uma Categoria sem trocar a Categoria do chamado não reescreve chamados já existentes.
 

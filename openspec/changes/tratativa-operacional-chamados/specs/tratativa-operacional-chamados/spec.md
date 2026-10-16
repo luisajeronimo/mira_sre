@@ -114,7 +114,7 @@ Cada Save com uma ou mais diferenças funcionais efetivas DEVE (MUST) criar exat
 - **THEN** ele cria zero eventos `alteracao_chamado`
 
 ### Requirement: Categoria inativa persistida permanece válida até ser trocada
-O sistema DEVE (MUST) exibir Categoria persistida inativa e permitir Save de outros campos sem exigi-la como nova escolha. O catálogo de edição NÃO DEVE (MUST NOT) oferecer Categoria inativa; a validação de Categoria ativa DEVE (MUST) ocorrer somente se seu valor for efetivamente alterado.
+O sistema DEVE (MUST) registrar em cada Categoria o campo booleano `ativo`, com padrão `true` para registros existentes e novos. O sistema DEVE (MUST) exibir Categoria persistida inativa e permitir Save de outros campos sem exigi-la como nova escolha. O catálogo de edição NÃO DEVE (MUST NOT) oferecer Categoria com `ativo = false`; a validação de Categoria ativa DEVE (MUST) ocorrer somente se seu valor for efetivamente alterado e NÃO DEVE (MUST NOT) usar `permite_abertura_manual`.
 
 #### Scenario: Outra alteração preserva Categoria inativa
 - **WHEN** o chamado possui Categoria inativa e o usuário altera somente Prioridade
@@ -123,6 +123,10 @@ O sistema DEVE (MUST) exibir Categoria persistida inativa e permitir Save de out
 #### Scenario: Troca de Categoria inativa
 - **WHEN** o usuário tenta substituir a Categoria atual por Categoria inativa ou inválida no cadastro vigente
 - **THEN** o Xano rejeita toda a transação sem alterar o chamado
+
+#### Scenario: Categoria ativa sem abertura manual
+- **WHEN** Categoria possui `ativo = true` e `permite_abertura_manual = false`
+- **THEN** ela permanece disponível como nova escolha na tratativa operacional
 
 ### Requirement: Troca de Categoria atualiza SLA aplicado sem reiniciar sua referência
 Quando o Save altera efetivamente a Categoria, o Xano DEVE (MUST) gravar em `sla_horas_aplicado` o SLA da Categoria resultante. A referência temporal do SLA DEVE (MUST) permanecer a criação original do chamado e preservar as regras existentes de consumo e interrupção.

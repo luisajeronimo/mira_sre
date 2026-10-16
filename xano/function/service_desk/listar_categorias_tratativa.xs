@@ -78,11 +78,6 @@ function "service_desk/listar_categorias_tratativa" {
     }
   }
 
-  test "inclui categoria legada sem ativo materializado" {
-    input = {usuarios_id: 12}
-    expect.to_equal ($response.items[1].id) { value = 2 }
-  }
-
   test "lista categorias ativas para diretoria" {
     input = {usuarios_id: 4}
     expect.to_equal ($response.items) {

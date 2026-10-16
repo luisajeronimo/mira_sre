@@ -20,7 +20,7 @@
 
 ## 4. Reflex: edição pendente e comentário
 
-- [ ] 4.1 Adaptar service e DTOs Python ao catálogo, Save e detalhe pós-commit, preservando o cliente autenticado da fila e a diferenciação 401, 403, 404, 422 e 5xx; verificar UNIT e CONTRACT sem usar valores vazios para mascarar incompatibilidade.
+- [x] 4.1 Adaptar service e DTOs Python ao catálogo, Save e detalhe pós-commit, preservando o cliente autenticado da fila e a diferenciação 401, 403, 404, 422 e 5xx; verificar UNIT e CONTRACT sem usar valores vazios para mascarar incompatibilidade.
 - [ ] 4.2 Implementar no State e detalhe Reflex valores persistidos e pendentes para os quatro campos, dropdown `Responsável`, `Descartar mudanças`, `Salvar` e comentário de Status obrigatório; verificar UNIT e REFLEX que dropdown não persiste antes do Save, Status pendente exige comentário com Público fixo nos destinos definidos e erro não confirma rascunho.
 - [ ] 4.3 Substituir os controles imediatos de responsável pela edição pendente sem modificar a fila, Todos, Atribuídos a mim, filtros ou pesquisa; verificar REFLEX com Técnico, Diretoria e Administrador, ausência dos controles separados e inexistência de caminho funcional alternativo ao Save.
 - [ ] 4.4 Implementar comentário independente, validação visual de texto/visibilidade e apresentação discriminada de comentário, eventos legados e `alteracao_chamado` na timeline decrescente; verificar UNIT, CONTRACT e REFLEX.

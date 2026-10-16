@@ -563,6 +563,202 @@ def test_detalhe_tecnico_aceita_evento_estruturado_de_alteracao_sem_afetar_legad
     assert legado.alteracoes is None
 
 
+def test_catalogo_tratativa_usa_somente_rota_tecnica_e_nao_depende_de_abertura_manual():
+    requisicoes = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        requisicoes.append(requisicao)
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": 8,
+                        "nome": "Alta Temperatura",
+                        "tipo_itil": "Incidente",
+                        "descricao": "Telemetria",
+                        "sla_horas": 2,
+                    }
+                ]
+            },
+        )
+
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(responder),
+    )
+
+    categorias = executar(cliente.listar_categorias_tratativa("token"))
+
+    assert [(categoria.id, categoria.nome, categoria.sla_horas) for categoria in categorias] == [
+        (8, "Alta Temperatura", 2.0)
+    ]
+    assert str(requisicoes[0].url) == f"{BASE_URL}/tecnico/categorias"
+    assert requisicoes[0].headers["Authorization"] == "Bearer token"
+
+
+def test_save_tratativa_serializa_liberacao_e_retorna_detalhe_pos_commit_canonico():
+    requisicoes = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        requisicoes.append(requisicao)
+        return httpx.Response(
+            200,
+            json=detalhe_tecnico_valido(
+                status="Em Atendimento",
+                prioridade="Alta",
+                sla_horas_aplicado=4,
+                atribuido_em=None,
+                tecnico=None,
+                categoria={"id": 9, "nome": "Categoria legada inativa"},
+                ultima_atualizacao_em=1780000002000,
+                timeline=[
+                    {
+                        "id": 41,
+                        "tipo": "alteracao_chamado",
+                        "conteudo": None,
+                        "alteracoes": {
+                            "responsavel": {"anterior": 12, "resultante": None},
+                            "categoria": {"anterior": 2, "resultante": 9},
+                            "sla_horas_aplicado": {"anterior": 2, "resultante": 4},
+                        },
+                        "visibilidade": "interna",
+                        "criado_em": 1780000002000,
+                        "autor": {"id": 12, "nome": "Técnico"},
+                        "tecnico_anterior": {"id": 12, "nome": "Técnico"},
+                        "tecnico_novo": None,
+                    }
+                ],
+                tecnicos=[{"id": 12, "nome": "Técnico"}],
+            ),
+        )
+
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(responder),
+    )
+
+    detalhe = executar(
+        cliente.salvar_tratativa_chamado(
+            "token",
+            101,
+            tecnico_id=None,
+            status="Em Atendimento",
+            prioridade="Alta",
+            categorias_servico_id=9,
+            ultima_atualizacao_em=1780000000000,
+            comentario_status="Início registrado",
+            visibilidade_comentario_status="interna",
+        )
+    )
+
+    assert str(requisicoes[0].url) == f"{BASE_URL}/tecnico/chamados/101/tratativa"
+    assert json.loads(requisicoes[0].read()) == {
+        "tecnico_id": None,
+        "status": "Em Atendimento",
+        "prioridade": "Alta",
+        "categorias_servico_id": 9,
+        "ultima_atualizacao_em": 1780000000000,
+        "comentario_status": "Início registrado",
+        "visibilidade_comentario_status": "interna",
+    }
+    assert detalhe.chamado.categoria.nome == "Categoria legada inativa"
+    assert detalhe.chamado.tecnico is None
+    assert detalhe.chamado.atribuido_em is None
+    assert detalhe.chamado.ultima_atualizacao_em == 1780000002000
+    assert detalhe.timeline[0].tipo == "alteracao_chamado"
+    assert detalhe.timeline[0].alteracoes["sla_horas_aplicado"] == {
+        "anterior": 2,
+        "resultante": 4,
+    }
+
+
+def test_comentario_operacional_e_independente_do_save_e_retorna_detalhe_canonico():
+    requisicoes = []
+
+    def responder(requisicao: httpx.Request) -> httpx.Response:
+        requisicoes.append(requisicao)
+        return httpx.Response(
+            200,
+            json=detalhe_tecnico_valido(
+                ultima_atualizacao_em=1780000003000,
+                timeline=[
+                    {
+                        "id": 42,
+                        "tipo": "comentario",
+                        "conteudo": "Comentário independente",
+                        "alteracoes": None,
+                        "visibilidade": "publica",
+                        "criado_em": 1780000003000,
+                        "autor": {"id": 12, "nome": "Técnico"},
+                        "tecnico_anterior": None,
+                        "tecnico_novo": None,
+                    }
+                ],
+            ),
+        )
+
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(responder),
+    )
+
+    detalhe = executar(
+        cliente.criar_comentario_operacional(
+            "token",
+            101,
+            conteudo="Comentário independente",
+            visibilidade="publica",
+        )
+    )
+
+    assert str(requisicoes[0].url) == f"{BASE_URL}/tecnico/chamados/101/comentarios"
+    assert json.loads(requisicoes[0].read()) == {
+        "conteudo": "Comentário independente",
+        "visibilidade": "publica",
+    }
+    assert detalhe.chamado.status == "Novo"
+    assert detalhe.chamado.ultima_atualizacao_em == 1780000003000
+    assert detalhe.timeline[0].tipo == "comentario"
+    assert detalhe.timeline[0].alteracoes is None
+
+
+@pytest.mark.parametrize(
+    ("status", "erro"),
+    [
+        (400, XanoEntradaInvalida),
+        (401, XanoNaoAutenticado),
+        (403, XanoNaoAutorizado),
+        (404, XanoNaoEncontrado),
+        (409, XanoConflito),
+        (422, XanoEntradaInvalida),
+        (500, XanoIndisponivel),
+    ],
+)
+def test_save_tratativa_classifica_erros_do_contrato(status, erro):
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(status, json={"segredo": "não expor"})
+        ),
+    )
+
+    with pytest.raises(erro) as capturado:
+        executar(
+            cliente.salvar_tratativa_chamado(
+                "token",
+                101,
+                tecnico_id=None,
+                status="Novo",
+                prioridade="Alta",
+                categorias_servico_id=2,
+                ultima_atualizacao_em=1780000000000,
+            )
+        )
+
+    assert "não expor" not in str(capturado.value)
+
+
 @pytest.mark.parametrize(
     ("acao", "tecnico_id", "esperado"),
     [

@@ -496,7 +496,7 @@ def _comentario_publico(dados: Any) -> ComentarioPublico:
 
 
 class XanoServiceDeskCliente(XanoCliente):
-    """Adaptador dos cinco contratos funcionais do Gerente."""
+    """Adaptador tipado dos contratos funcionais do Service Desk."""
 
     def __init__(
         self,
@@ -575,6 +575,32 @@ class XanoServiceDeskCliente(XanoCliente):
         dados = await self._requisitar(
             "GET",
             "/gerente/categorias",
+            token=token,
+        )
+        return [
+            CategoriaServiceDesk(
+                id=_inteiro(item.get("id"), "id"),
+                nome=_texto(item.get("nome"), "nome"),
+                tipo_itil=_texto(item.get("tipo_itil"), "tipo_itil"),
+                descricao=_texto(item.get("descricao"), "descricao"),
+                sla_horas=_numero(item.get("sla_horas"), "sla_horas"),
+            )
+            for item in _colecao(dados)
+        ]
+
+    async def listar_categorias_tratativa(
+        self,
+        token: str,
+    ) -> list[CategoriaServiceDesk]:
+        """Lista somente categorias ativas disponíveis para nova seleção.
+
+        A Categoria persistida no chamado é lida do detalhe canônico e pode
+        ser inativa. Este catálogo não decide regras de abertura manual.
+        """
+
+        dados = await self._requisitar(
+            "GET",
+            "/tecnico/categorias",
             token=token,
         )
         return [
@@ -727,6 +753,67 @@ class XanoServiceDeskCliente(XanoCliente):
             "GET",
             f"/tecnico/chamados/{chamado_id}",
             token=token,
+        )
+        return _detalhe_tecnico(dados)
+
+    async def salvar_tratativa_chamado(
+        self,
+        token: str,
+        chamado_id: int,
+        *,
+        tecnico_id: int | None,
+        status: str,
+        prioridade: str,
+        categorias_servico_id: int,
+        ultima_atualizacao_em: int,
+        comentario_status: str | None = None,
+        visibilidade_comentario_status: str | None = None,
+    ) -> DetalheChamadoTecnico:
+        """Envia o rascunho completo ao único Save transacional do Xano.
+
+        O cliente mantém ``tecnico_id: null`` explícito para representar a
+        liberação. Validações de status, perfil, Categoria, comentário e
+        versão pertencem exclusivamente ao contrato Xano.
+        """
+
+        payload: dict[str, Any] = {
+            "tecnico_id": tecnico_id,
+            "status": status,
+            "prioridade": prioridade,
+            "categorias_servico_id": categorias_servico_id,
+            "ultima_atualizacao_em": ultima_atualizacao_em,
+        }
+        if comentario_status is not None:
+            payload["comentario_status"] = comentario_status
+        if visibilidade_comentario_status is not None:
+            payload["visibilidade_comentario_status"] = (
+                visibilidade_comentario_status
+            )
+        dados = await self._requisitar(
+            "POST",
+            f"/tecnico/chamados/{chamado_id}/tratativa",
+            token=token,
+            json=payload,
+            erro_400_como_entrada=True,
+        )
+        return _detalhe_tecnico(dados)
+
+    async def criar_comentario_operacional(
+        self,
+        token: str,
+        chamado_id: int,
+        *,
+        conteudo: str,
+        visibilidade: str,
+    ) -> DetalheChamadoTecnico:
+        """Cria comentário independente e devolve o detalhe pós-operação."""
+
+        dados = await self._requisitar(
+            "POST",
+            f"/tecnico/chamados/{chamado_id}/comentarios",
+            token=token,
+            json={"conteudo": conteudo, "visibilidade": visibilidade},
+            erro_400_como_entrada=True,
         )
         return _detalhe_tecnico(dados)
 

@@ -118,7 +118,12 @@ def comentario_publico_para_dict(comentario: ComentarioPublico) -> dict[str, Any
     }
 
 
-def evento_timeline_para_dict(evento: EventoTimelineChamado) -> dict[str, Any]:
+def evento_timeline_para_dict(
+    evento: EventoTimelineChamado,
+    *,
+    tecnicos: dict[int, str] | None = None,
+    categorias: dict[int, str] | None = None,
+) -> dict[str, Any]:
     titulos = {
         "comentario": "Comentário",
         "atribuicao": "Atribuição",
@@ -126,6 +131,36 @@ def evento_timeline_para_dict(evento: EventoTimelineChamado) -> dict[str, Any]:
         "liberacao": "Liberação",
         "alteracao_chamado": "Alteração do chamado",
     }
+    alteracoes = evento.alteracoes or {}
+    rotulos = {
+        "responsavel": "Responsável",
+        "status": "Status",
+        "prioridade": "Prioridade",
+        "categoria": "Categoria",
+        "sla_horas_aplicado": "SLA aplicado",
+    }
+
+    def valor(campo: str, dado: Any) -> str:
+        if campo == "responsavel":
+            if dado is None:
+                return "Não atribuído"
+            return (tecnicos or {}).get(dado, f"Técnico #{dado}")
+        if campo == "categoria":
+            return (categorias or {}).get(dado, f"Categoria #{dado}")
+        if campo == "sla_horas_aplicado":
+            return _numero_para_texto(dado if isinstance(dado, (int, float)) else None)
+        return str(dado) if dado is not None else "Não informado"
+
+    detalhes = [
+        {
+            "campo": rotulos[campo],
+            "anterior": valor(campo, par.get("anterior")),
+            "resultante": valor(campo, par.get("resultante")),
+        }
+        for campo in rotulos
+        if isinstance(alteracoes.get(campo), dict)
+        for par in [alteracoes[campo]]
+    ]
     return {
         "id": evento.id,
         "tipo": evento.tipo,
@@ -148,6 +183,14 @@ def evento_timeline_para_dict(evento: EventoTimelineChamado) -> dict[str, Any]:
             evento.tecnico_novo.nome if evento.tecnico_novo is not None else ""
         ),
         "alteracoes": evento.alteracoes,
+        "alteracoes_detalhadas": detalhes,
+        "comentario_interacao_id": (
+            alteracoes.get("comentario_interacao_id")
+            if isinstance(alteracoes.get("comentario_interacao_id"), int)
+            else None
+        ),
+        "comentario_conteudo": "",
+        "comentario_visibilidade_texto": "",
     }
 
 
@@ -227,6 +270,10 @@ class TimelineView(TypedDict):
     tecnico_anterior_nome: str
     tecnico_novo_nome: str
     alteracoes: dict[str, Any] | None
+    alteracoes_detalhadas: list[dict[str, str]]
+    comentario_interacao_id: int | None
+    comentario_conteudo: str
+    comentario_visibilidade_texto: str
 
 
 class TecnicoOpcaoView(TypedDict):

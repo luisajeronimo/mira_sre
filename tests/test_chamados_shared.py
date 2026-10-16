@@ -24,3 +24,10 @@ def test_evento_estruturado_e_projetado_para_timeline():
 
     assert resultado["titulo"] == "Alteração do chamado"
     assert resultado["alteracoes"] == evento.alteracoes
+    assert resultado["alteracoes_detalhadas"] == [
+        {
+            "campo": "Responsável",
+            "anterior": "Técnico #Camila Santos",
+            "resultante": "Técnico #Beatriz Souza",
+        }
+    ]

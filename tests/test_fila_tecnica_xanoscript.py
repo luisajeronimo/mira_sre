@@ -150,6 +150,7 @@ def test_save_gera_um_evento_estruturado_completo_e_preserva_categoria_inativa_s
     assert 'value = $alteracoes|set:"prioridade":' in SAVE_TRATATIVA
     assert 'value = $alteracoes|set:"categoria":' in SAVE_TRATATIVA
     assert 'value = $alteracoes|set:"sla_horas_aplicado":' in SAVE_TRATATIVA
+    assert 'value = $alteracoes|set:"comentario_interacao_id":$comentario_criado.id' in SAVE_TRATATIVA
     assert 'if ($categoria_alterada)' in SAVE_TRATATIVA
     assert 'if ($categoria == null || $categoria.ativo == false)' in SAVE_TRATATIVA
     assert 'test "preserva categoria inativa sem troca"' in SAVE_TRATATIVA
@@ -169,6 +170,7 @@ def test_save_valida_status_comentario_responsavel_e_categoria_sem_regra_manual(
     assert "permite_abertura_manual" not in SAVE_TRATATIVA
     assert 'test "preserva categoria inativa sem troca"' in SAVE_TRATATIVA
     assert 'test "rejeita categoria inativa na troca"' in SAVE_TRATATIVA
+    assert 'if ($input.comentario_status != null && $input.comentario_status != "") {' in SAVE_TRATATIVA
 
 
 def test_save_cobre_rollback_conflito_status_invalido_e_status_terminais_no_xano():

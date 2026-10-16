@@ -136,7 +136,7 @@ function "service_desk/validar_save_tratativa_chamado" {
               error = "Mudança de Status exige comentário."
             }
           }
-          elseif ($status_alterado && $input.visibilidade_comentario_status != "publica" && $input.visibilidade_comentario_status != "interna") {
+          elseif ($input.comentario_status != null && $input.comentario_status != "" && $input.visibilidade_comentario_status != "publica" && $input.visibilidade_comentario_status != "interna") {
             util.set_header {
               value = "HTTP/1.1 422 Unprocessable Entity"
               duplicates = "replace"
@@ -159,6 +159,7 @@ function "service_desk/validar_save_tratativa_chamado" {
         }
 
         var $responsavel { value = null }
+        var $comentario_criado { value = null }
         conditional {
           if ($input.tecnico_id != null && $responsavel_alterado) {
             db.get usuarios {
@@ -311,7 +312,7 @@ function "service_desk/validar_save_tratativa_chamado" {
             }
 
             conditional {
-              if ($status_alterado) {
+              if ($input.comentario_status != null && $input.comentario_status != "") {
                 db.add interacoes_chamado {
                   data = {tipo_evento: "comentario", mensagem: $input.comentario_status, criado_em: $instante, visibilidade: $input.visibilidade_comentario_status, chamados_id: $chamado.id, usuarios_id: $usuario.id}
                   mock = {
@@ -324,6 +325,17 @@ function "service_desk/validar_save_tratativa_chamado" {
                 precondition ($comentario_status_criado != null) {
                   error_type = "standard"
                   error = "Não foi possível registrar o comentário da mudança de Status."
+                }
+                var.update $comentario_criado {
+                  value = $comentario_status_criado
+                }
+              }
+            }
+
+            conditional {
+              if ($comentario_criado != null) {
+                var.update $alteracoes {
+                  value = $alteracoes|set:"comentario_interacao_id":$comentario_criado.id
                 }
               }
             }

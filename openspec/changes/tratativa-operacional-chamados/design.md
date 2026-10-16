@@ -49,6 +49,14 @@ Os botões imediatos antigos deixam de ser oferecidos pela UI de tratativa. Cont
 
 Comentários normais usam operação própria e somente atualizam `ultima_atualizacao_em`; não enviam os quatro campos. A projeção de timeline aceita tipos legados (`atribuicao`, `reatribuicao`, `liberacao` e comentários) e o novo tipo, ordenando a coleção final por instante efetivo descrescente e `id` decrescente no empate.
 
+O campo de comentário da tratativa permanece sempre visível. Quando houver
+diferença funcional, texto opcional acompanha o mesmo Save; a mudança de
+Status continua exigindo texto. O Save persiste no máximo um comentário humano
+e o evento `alteracao_chamado` guarda `comentario_interacao_id` dentro de seus
+dados estruturados quando aquele comentário pertence à mesma transação. O
+Reflex usa somente essa referência explícita para agrupá-los em um único card;
+eventos históricos sem a referência continuam individuais.
+
 ### Categoria, catálogo e SLA
 
 `categorias_servico` recebe `ativo` booleano com padrão `true`, preservando as categorias existentes como ativas na introdução do campo. O catálogo próprio da edição retorna somente Categorias ativas e válidas para nova seleção. O detalhe retém a Categoria persistida mesmo se inativa. O Save somente exige Categoria ativa quando `categoria_id` é diferente do persistido; `ativo` é independente de `permite_abertura_manual`, cuja regra não se aplica à tratativa.

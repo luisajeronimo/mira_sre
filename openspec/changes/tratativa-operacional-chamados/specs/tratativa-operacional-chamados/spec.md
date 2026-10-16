@@ -71,10 +71,14 @@ O Save DEVE (MUST) aceitar somente `Novo`, `Em Atendimento`, `Aguardando Solicit
 - **THEN** o Xano rejeita a transação sem alterar o chamado ou criar interação
 
 #### Scenario: Formulário de comentário acompanha Status pendente
-- **WHEN** o Status do rascunho permanece igual ao persistido
-- **THEN** o formulário independente `Adicionar comentário` permanece separado do Save
+- **WHEN** o detalhe da tratativa é carregado
+- **THEN** o campo de comentário e a escolha Público/Interno permanecem visíveis, inclusive sem mudança de Status
 - **WHEN** o Status do rascunho muda
 - **THEN** Salvar permanece indisponível ou apresenta validação clara até haver comentário humano válido; Resolvido, Aguardando Solicitante e Cancelado fixam a visibilidade em Público, e os demais destinos permitem Público ou Interno
+
+#### Scenario: Comentário opcional acompanha Save funcional
+- **WHEN** o usuário informa comentário não vazio e salva uma ou mais diferenças funcionais sem mudar Status
+- **THEN** o Xano cria exatamente um comentário humano na mesma transação e o evento da alteração referencia essa interação
 
 ### Requirement: Save pode encerrar ou cancelar após aplicar todas as mudanças válidas
 O Save DEVE (MUST) aceitar alterações simultâneas dos quatro campos quando o estado resultante for Encerrado ou Cancelado. O bloqueio de edição funcional DEVE (MUST) passar a valer somente depois do commit dessa transação.
@@ -98,6 +102,10 @@ O sistema DEVE (MUST) oferecer `Adicionar comentário` independente do Save, com
 - **WHEN** o texto está ausente, vazio ou contém apenas espaços
 - **THEN** o Xano rejeita a operação sem criar interação nem alterar `ultima_atualizacao_em`
 
+#### Scenario: Comentário sempre disponível em terminal
+- **WHEN** o chamado está Encerrado ou Cancelado
+- **THEN** a interface mantém o campo de comentário e sua visibilidade disponíveis, apesar de bloquear os quatro campos funcionais
+
 ### Requirement: Alteração efetiva produz um único evento estruturado
 Cada Save com uma ou mais diferenças funcionais efetivas DEVE (MUST) criar exatamente um evento automático `alteracao_chamado`. O evento DEVE (MUST) identificar autor, chamado, instante e as diferenças anterior/resultante de Responsável, Status, Prioridade, Categoria e SLA que existirem; ele NÃO DEVE (MUST NOT) ser tratado como comentário humano.
 
@@ -112,6 +120,10 @@ Cada Save com uma ou mais diferenças funcionais efetivas DEVE (MUST) criar exat
 #### Scenario: Save sem diferença
 - **WHEN** o Save não possui diferença funcional
 - **THEN** ele cria zero eventos `alteracao_chamado`
+
+#### Scenario: Comentário e alteração são agrupados visualmente
+- **WHEN** o Save cria comentário humano e `alteracao_chamado` na mesma transação
+- **THEN** o evento registra a referência estável da interação de comentário e o Reflex apresenta ambos em um único card, sem inferência por proximidade temporal
 
 ### Requirement: Categoria inativa persistida permanece válida até ser trocada
 O sistema DEVE (MUST) registrar em cada Categoria o campo booleano `ativo`, com padrão `true` para registros existentes e novos. O sistema DEVE (MUST) exibir Categoria persistida inativa e permitir Save de outros campos sem exigi-la como nova escolha. O catálogo de edição NÃO DEVE (MUST NOT) oferecer Categoria com `ativo = false`; a validação de Categoria ativa DEVE (MUST) ocorrer somente se seu valor for efetivamente alterado e NÃO DEVE (MUST NOT) usar `permite_abertura_manual`.
@@ -141,3 +153,7 @@ A timeline DEVE (MUST) reunir comentários, `atribuicao`, `reatribuicao`, `liber
 #### Scenario: Coexistência de interações
 - **WHEN** o chamado contém comentário legado, evento histórico de atribuição e novo `alteracao_chamado`
 - **THEN** a timeline exibe os três no mesmo fluxo do mais recente para o mais antigo
+
+#### Scenario: Alteração estruturada é detalhada
+- **WHEN** a timeline recebe `alteracao_chamado` com diferenças de Responsável, Status, Prioridade ou Categoria
+- **THEN** o card apresenta somente os campos presentes, com seus valores anterior e resultante, sem tratar metadados de correlação como diferença visível

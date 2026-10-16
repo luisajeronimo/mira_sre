@@ -12,7 +12,6 @@ from app.chamados.shared import (
     TecnicoView,
     TimelineView,
     _detalhe_para_dict,
-    _status_permite_atribuicao,
     _tecnico_para_dict,
     evento_timeline_para_dict,
 )
@@ -39,7 +38,7 @@ from app.states.auth import (
 
 
 class ChamadosTecnicoState(AuthState):
-    """Mantém a fila global e as operações de responsável do chamado."""
+    """Mantém a fila global e a tratativa técnica do chamado."""
 
     filtro_numero: str = ""
     filtro_status: str = ""
@@ -65,7 +64,6 @@ class ChamadosTecnicoState(AuthState):
     timeline: list[TimelineView] = []
     tecnicos: list[TecnicoOpcaoView] = []
     categorias_tratativa: list[TecnicoOpcaoView] = []
-    tecnico_alvo_id: str = ""
     responsavel_confirmado_id: int | None = None
     status_confirmado: str = ""
     prioridade_confirmada: str = ""
@@ -80,16 +78,14 @@ class ChamadosTecnicoState(AuthState):
     carregando_fila: bool = False
     carregando_detalhe_tecnico: bool = False
     salvando_tratativa: bool = False
+    enviando_comentario: bool = False
     detalhe_tecnico_carregado: bool = False
-    assumindo_id: int | None = None
-    alterando_responsavel_id: int | None = None
     mensagem_fila: str = ""
     mensagem_detalhe_tecnico: str = ""
-    mensagem_assuncao: str = ""
-    mensagem_responsavel: str = ""
-    mensagem_sucesso_responsavel: str = ""
     mensagem_tratativa: str = ""
     mensagem_sucesso_tratativa: str = ""
+    mensagem_comentario: str = ""
+    mensagem_sucesso_comentario: str = ""
 
     @staticmethod
     def status_filtros() -> list[str]:
@@ -155,11 +151,10 @@ class ChamadosTecnicoState(AuthState):
     def _limpar_mensagens_tecnico(self) -> None:
         self.mensagem_fila = ""
         self.mensagem_detalhe_tecnico = ""
-        self.mensagem_assuncao = ""
-        self.mensagem_responsavel = ""
-        self.mensagem_sucesso_responsavel = ""
         self.mensagem_tratativa = ""
         self.mensagem_sucesso_tratativa = ""
+        self.mensagem_comentario = ""
+        self.mensagem_sucesso_comentario = ""
 
     def _valor_responsavel_confirmado(self) -> str:
         return str(self.responsavel_confirmado_id or 0)
@@ -187,18 +182,6 @@ class ChamadosTecnicoState(AuthState):
 
     def _atualizar_chamado(self, chamado: ChamadoDetalhe) -> None:
         self.chamado = _detalhe_para_dict(chamado)
-        responsavel = chamado.tecnico
-        self.chamado["pode_liberar"] = (
-            _status_permite_atribuicao(chamado.status)
-            and responsavel is not None
-            and (
-                self.role in {"diretoria", "administrador"}
-                or (
-                    self.role == "tecnico"
-                    and responsavel.id == self.usuario_id
-                )
-            )
-        )
 
     def _atualizar_detalhe(
         self,
@@ -206,15 +189,43 @@ class ChamadosTecnicoState(AuthState):
         categorias: list[TecnicoOpcaoView] | None = None,
     ) -> None:
         self._atualizar_chamado(detalhe.chamado)
-        self.timeline = [
-            evento_timeline_para_dict(evento) for evento in detalhe.timeline
-        ]
         self.tecnicos = [
             {"id": tecnico.id, "nome": tecnico.nome}
             for tecnico in detalhe.tecnicos
         ]
         if categorias is not None:
             self.categorias_tratativa = categorias
+        nomes_tecnicos = {item["id"]: item["nome"] for item in self.tecnicos}
+        nomes_categorias = {
+            item["id"]: item["nome"] for item in self.categorias_tratativa
+        }
+        nomes_categorias[detalhe.chamado.categoria.id] = detalhe.chamado.categoria.nome
+        eventos = [
+            evento_timeline_para_dict(
+                evento,
+                tecnicos=nomes_tecnicos,
+                categorias=nomes_categorias,
+            )
+            for evento in detalhe.timeline
+        ]
+        comentarios = {item["id"]: item for item in eventos if item["tipo"] == "comentario"}
+        comentarios_agrupados = {
+            item["comentario_interacao_id"]
+            for item in eventos
+            if item["tipo"] == "alteracao_chamado"
+            and item["comentario_interacao_id"] in comentarios
+        }
+        for item in eventos:
+            comentario_id = item["comentario_interacao_id"]
+            if item["tipo"] == "alteracao_chamado" and comentario_id in comentarios:
+                comentario = comentarios[comentario_id]
+                item["comentario_conteudo"] = comentario["conteudo"]
+                item["comentario_visibilidade_texto"] = comentario["visibilidade_texto"]
+        self.timeline = [
+            item
+            for item in eventos
+            if not (item["tipo"] == "comentario" and item["id"] in comentarios_agrupados)
+        ]
         self.responsavel_confirmado_id = (
             detalhe.chamado.tecnico.id
             if detalhe.chamado.tecnico is not None
@@ -227,11 +238,7 @@ class ChamadosTecnicoState(AuthState):
             detalhe.chamado.ultima_atualizacao_em
         )
         self._copiar_confirmado_para_pendente()
-        self.tecnico_alvo_id = ""
         self.detalhe_tecnico_carregado = True
-
-    async def _validar_tecnico(self) -> str | None:
-        return await self._revalidar("tecnico")
 
     async def _validar_acesso_fila(self) -> str | None:
         if (
@@ -269,7 +276,7 @@ class ChamadosTecnicoState(AuthState):
         return None
 
     def _registrar_erro_tecnico(self, erro: Exception, destino: str) -> str | None:
-        """Mantém o tratamento específico de detalhe e ações de responsável."""
+        """Mantém o tratamento específico de detalhe e tratativa."""
         if isinstance(erro, XanoNaoAutenticado):
             self._limpar_sessao(MENSAGEM_EXPIRADA)
             return "/login"
@@ -345,13 +352,10 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.event
     def alterar_comentario_status_pendente(self, valor: str) -> None:
-        if not self.edicao_funcional_bloqueada:
-            self.comentario_status_pendente = valor
+        self.comentario_status_pendente = valor
 
     @rx.event
     def alterar_visibilidade_comentario_status_pendente(self, valor: str) -> None:
-        if self.edicao_funcional_bloqueada:
-            return
         if self.status_pendente_exige_comentario_publico:
             self.visibilidade_comentario_status_pendente = "publica"
         elif valor in {"publica", "interna"}:
@@ -451,9 +455,6 @@ class ChamadosTecnicoState(AuthState):
             return
         self.carregando_fila = True
         self.mensagem_fila = ""
-        self.mensagem_assuncao = ""
-        self.mensagem_responsavel = ""
-        self.mensagem_sucesso_responsavel = ""
         yield
         try:
             destino = await self._validar_acesso_fila()
@@ -519,7 +520,6 @@ class ChamadosTecnicoState(AuthState):
         self.categoria_confirmada_id = None
         self.ultima_atualizacao_confirmada = None
         self._copiar_confirmado_para_pendente()
-        self.tecnico_alvo_id = ""
         self._limpar_mensagens_tecnico()
         yield
         destino = await self._validar_acesso_fila()
@@ -618,12 +618,12 @@ class ChamadosTecnicoState(AuthState):
                     ultima_atualizacao_em=self.ultima_atualizacao_confirmada,
                     comentario_status=(
                         self.comentario_status_pendente
-                        if self.status_pendente_alterado
+                        if self.comentario_status_pendente.strip()
                         else None
                     ),
                     visibilidade_comentario_status=(
                         self.visibilidade_comentario_status_pendente
-                        if self.status_pendente_alterado
+                        if self.comentario_status_pendente.strip()
                         else None
                     ),
                 )
@@ -656,162 +656,39 @@ class ChamadosTecnicoState(AuthState):
             self.salvando_tratativa = False
 
     @rx.event
-    def selecionar_tecnico_alvo(self, tecnico_id: str) -> None:
-        self.tecnico_alvo_id = tecnico_id
-
-    async def _executar_acao_responsavel(self, acao: str, chamado_id: int):
-        if acao not in {"assumir", "atribuir", "liberar"}:
-            self.mensagem_responsavel = "Ação de responsável inválida."
+    async def adicionar_comentario_operacional(self):
+        if self.enviando_comentario:
             return
-        if acao == "assumir":
-            if self.assumindo_id is not None or self.alterando_responsavel_id is not None:
-                return
-            self.assumindo_id = chamado_id
-            campo_erro = "mensagem_assuncao"
-        else:
-            if self.alterando_responsavel_id is not None or self.assumindo_id is not None:
-                return
-            self.alterando_responsavel_id = chamado_id
-            campo_erro = "mensagem_responsavel"
-
-        self.mensagem_assuncao = ""
-        self.mensagem_responsavel = ""
-        self.mensagem_sucesso_responsavel = ""
+        self.mensagem_comentario = ""
+        self.mensagem_sucesso_comentario = ""
+        conteudo = self.comentario_status_pendente.strip()
+        if not conteudo:
+            self.mensagem_comentario = "Informe um comentário antes de adicionar."
+            return
+        chamado_id = self.chamado.get("id")
+        if not isinstance(chamado_id, int) or chamado_id <= 0:
+            self.mensagem_comentario = "Detalhe do chamado incompatível. Recarregue a página."
+            return
+        self.enviando_comentario = True
+        yield
         try:
-            yield
-            destino = (
-                await self._validar_tecnico()
-                if acao == "assumir"
-                else await self._validar_acesso_fila()
-            )
+            destino = await self._validar_acesso_fila()
             if destino is not None:
                 yield rx.redirect(destino)
                 return
             if not self.sessao_confirmada:
                 return
-
-            roles_autorizados = {"tecnico", "diretoria", "administrador"}
-            detalhe_atual = self.chamado.get("id") == chamado_id
-            pode_atribuir = detalhe_atual and self.chamado.get("pode_atribuir", False)
-            pode_liberar = detalhe_atual and self.chamado.get("pode_liberar", False)
-            if acao == "assumir":
-                resumo = next(
-                    (item for item in self.chamados if item.get("id") == chamado_id),
-                    None,
-                )
-                pode_assumir = (
-                    detalhe_atual and self.chamado.get("pode_assumir", False)
-                ) if detalhe_atual else (
-                    resumo is not None and resumo.get("pode_assumir", False)
-                )
-                if self.role != "tecnico" or not pode_assumir:
-                    self.mensagem_assuncao = "Este chamado não está disponível para assumir."
-                    return
-            elif self.role not in roles_autorizados:
-                setattr(self, campo_erro, MENSAGEM_NAO_AUTORIZADO)
-                return
-            elif not pode_atribuir:
-                self.mensagem_responsavel = "Este chamado não permite alterar a atribuição."
-                return
-
-            tecnico_id = None
-            if acao == "atribuir":
-                try:
-                    tecnico_id = int(self.tecnico_alvo_id)
-                except (TypeError, ValueError):
-                    tecnico_id = None
-                if tecnico_id is None or tecnico_id not in {
-                    tecnico["id"] for tecnico in self.tecnicos
-                }:
-                    self.mensagem_responsavel = "Selecione um Técnico válido."
-                    return
-            elif acao == "liberar":
-                if not pode_liberar:
-                    self.mensagem_responsavel = "A liberação não está disponível para este chamado."
-                    return
-
-            cliente = criar_cliente_service_desk()
-            resultado = await cliente.alterar_responsavel_tecnico(
+            resultado = await criar_cliente_service_desk().criar_comentario_operacional(
                 self._auth_token,
                 chamado_id,
-                acao,
-                tecnico_id,
+                conteudo=conteudo,
+                visibilidade=self.visibilidade_comentario_status_pendente,
             )
-            self._atualizar_chamado(resultado)
-            self.mensagem_sucesso_responsavel = {
-                "assumir": "Chamado assumido.",
-                "atribuir": "Responsável atualizado.",
-                "liberar": "Atribuição liberada.",
-            }[acao]
-            try:
-                detalhe = await cliente.obter_chamado_tecnico(
-                    self._auth_token,
-                    chamado_id,
-                )
-                self._atualizar_detalhe(detalhe)
-            except Exception as erro:  # noqa: BLE001 - falha na atualização do detalhe
-                destino = self._registrar_erro_tecnico(erro, campo_erro)
-                if destino is not None:
-                    yield rx.redirect(destino)
-                    return
-                self.mensagem_sucesso_responsavel = (
-                    "Alteração salva, mas não foi possível atualizar o histórico. "
-                    "Recarregue o detalhe."
-                )
-
-            mensagem_assuncao = self.mensagem_assuncao
-            mensagem_responsavel = self.mensagem_responsavel
-            mensagem_sucesso = self.mensagem_sucesso_responsavel
-            async for evento in self.carregar_fila():
-                yield evento
-            self.mensagem_assuncao = mensagem_assuncao
-            self.mensagem_responsavel = mensagem_responsavel
-            self.mensagem_sucesso_responsavel = mensagem_sucesso
-            yield
+            self._atualizar_detalhe(resultado)
+            self.mensagem_sucesso_comentario = "Comentário adicionado."
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
-            destino = self._registrar_erro_tecnico(erro, campo_erro)
+            destino = self._registrar_erro_tecnico(erro, "mensagem_comentario")
             if destino is not None:
                 yield rx.redirect(destino)
-                return
-            if acao == "assumir":
-                mensagem_assuncao = self.mensagem_assuncao
-                async for evento in self.carregar_fila():
-                    yield evento
-                self.mensagem_assuncao = mensagem_assuncao
-                yield
         finally:
-            if acao == "assumir":
-                self.assumindo_id = None
-            else:
-                self.alterando_responsavel_id = None
-
-    @rx.event
-    async def assumir(self, chamado_id: int):
-        async for evento in self._executar_acao_responsavel("assumir", chamado_id):
-            yield evento
-
-    @rx.event
-    async def atribuir_responsavel(self):
-        try:
-            chamado_id = int(self.chamado["id"])
-        except (KeyError, TypeError, ValueError):
-            self.mensagem_responsavel = "Chamado não encontrado."
-            return
-        async for evento in self._executar_acao_responsavel(
-            "atribuir",
-            chamado_id,
-        ):
-            yield evento
-
-    @rx.event
-    async def liberar_responsavel(self):
-        try:
-            chamado_id = int(self.chamado["id"])
-        except (KeyError, TypeError, ValueError):
-            self.mensagem_responsavel = "Chamado não encontrado."
-            return
-        async for evento in self._executar_acao_responsavel(
-            "liberar",
-            chamado_id,
-        ):
-            yield evento
+            self.enviando_comentario = False

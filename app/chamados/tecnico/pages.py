@@ -104,15 +104,6 @@ def _fila_tecnico() -> rx.Component:
             width="100%",
         ),
         erro(ChamadosTecnicoState.mensagem_fila),
-        erro(ChamadosTecnicoState.mensagem_assuncao),
-        rx.cond(
-            ChamadosTecnicoState.mensagem_sucesso_responsavel != "",
-            rx.callout(
-                ChamadosTecnicoState.mensagem_sucesso_responsavel,
-                icon="check",
-                color_scheme="green",
-            ),
-        ),
         rx.cond(
             ChamadosTecnicoState.carregando_fila,
             rx.center(rx.spinner(size="3"), width="100%", padding="4rem"),
@@ -160,19 +151,6 @@ def _fila_tecnico() -> rx.Component:
                                                 "Ver detalhe",
                                                 href="/tecnico/chamados/" + item["id"].to_string(),
                                             ),
-                                            rx.cond(
-                                                (AuthState.role == "tecnico") & item["pode_assumir"],
-                                                rx.button(
-                                                    rx.cond(
-                                                        ChamadosTecnicoState.assumindo_id == item["id"],
-                                                        "Assumindo...",
-                                                        "Assumir",
-                                                    ),
-                                                    on_click=ChamadosTecnicoState.assumir(item["id"]),
-                                                    disabled=ChamadosTecnicoState.assumindo_id != None,
-                                                ),
-                                                rx.fragment(),
-                                            ),
                                             spacing="3",
                                         )
                                     ),
@@ -196,21 +174,20 @@ def _detalhe_tecnico() -> rx.Component:
     return rx.vstack(
         cabecalho("Detalhe técnico", "Consulta global, responsável e histórico do chamado."),
         erro(ChamadosTecnicoState.mensagem_detalhe_tecnico),
-        erro(ChamadosTecnicoState.mensagem_assuncao),
-        erro(ChamadosTecnicoState.mensagem_responsavel),
         erro(ChamadosTecnicoState.mensagem_tratativa),
+        erro(ChamadosTecnicoState.mensagem_comentario),
         rx.cond(
-            ChamadosTecnicoState.mensagem_sucesso_responsavel != "",
+            ChamadosTecnicoState.mensagem_sucesso_tratativa != "",
             rx.callout(
-                ChamadosTecnicoState.mensagem_sucesso_responsavel,
+                ChamadosTecnicoState.mensagem_sucesso_tratativa,
                 icon="check",
                 color_scheme="green",
             ),
         ),
         rx.cond(
-            ChamadosTecnicoState.mensagem_sucesso_tratativa != "",
+            ChamadosTecnicoState.mensagem_sucesso_comentario != "",
             rx.callout(
-                ChamadosTecnicoState.mensagem_sucesso_tratativa,
+                ChamadosTecnicoState.mensagem_sucesso_comentario,
                 icon="check",
                 color_scheme="green",
             ),
@@ -264,102 +241,62 @@ def _detalhe_tecnico() -> rx.Component:
                                     ),
                                     rx.fragment(),
                                 ),
-                                rx.text("Responsável", size="2"),
-                                rx.select.root(
-                                    rx.select.trigger(width="100%"),
-                                    rx.select.content(
-                                        rx.select.item("Não atribuído", value="0"),
-                                        rx.foreach(
-                                            ChamadosTecnicoState.tecnicos,
-                                            lambda tecnico: rx.select.item(
-                                                tecnico["nome"],
-                                                value=tecnico["id"].to_string(),
-                                            ),
-                                        ),
-                                    ),
-                                    value=ChamadosTecnicoState.responsavel_pendente_id,
-                                    on_change=ChamadosTecnicoState.alterar_responsavel_pendente,
-                                    disabled=(
-                                        ChamadosTecnicoState.edicao_funcional_bloqueada
-                                        | ChamadosTecnicoState.salvando_tratativa
-                                    ),
-                                    width="100%",
-                                ),
-                                rx.text("Status", size="2"),
-                                rx.select(
-                                    ChamadosTecnicoState.status_filtros(),
-                                    value=ChamadosTecnicoState.status_pendente,
-                                    on_change=ChamadosTecnicoState.alterar_status_pendente,
-                                    disabled=(
-                                        ChamadosTecnicoState.edicao_funcional_bloqueada
-                                        | ChamadosTecnicoState.salvando_tratativa
-                                    ),
-                                    width="100%",
-                                ),
-                                rx.text("Prioridade", size="2"),
-                                rx.select(
-                                    ChamadosTecnicoState.prioridades_tratativa(),
-                                    value=ChamadosTecnicoState.prioridade_pendente,
-                                    on_change=ChamadosTecnicoState.alterar_prioridade_pendente,
-                                    disabled=(
-                                        ChamadosTecnicoState.edicao_funcional_bloqueada
-                                        | ChamadosTecnicoState.salvando_tratativa
-                                    ),
-                                    width="100%",
-                                ),
-                                rx.text("Categoria", size="2"),
-                                rx.cond(
-                                    ChamadosTecnicoState.categoria_confirmada_inativa,
-                                    rx.text(
-                                        "Categoria atual inativa: "
-                                        + ChamadosTecnicoState.chamado["categoria_nome"],
-                                        size="2",
-                                        color="gray",
-                                    ),
-                                    rx.fragment(),
-                                ),
-                                rx.select.root(
-                                    rx.select.trigger(width="100%"),
-                                    rx.select.content(
-                                        rx.cond(
-                                            ChamadosTecnicoState.categoria_confirmada_inativa,
-                                            rx.select.item(
-                                                ChamadosTecnicoState.chamado["categoria_nome"],
-                                                value=ChamadosTecnicoState.categoria_pendente_id,
-                                                disabled=True,
-                                            ),
-                                            rx.fragment(),
-                                        ),
-                                        rx.foreach(
-                                            ChamadosTecnicoState.categorias_tratativa,
-                                            lambda categoria: rx.select.item(
-                                                categoria["nome"],
-                                                value=categoria["id"].to_string(),
-                                            ),
-                                        ),
-                                    ),
-                                    value=ChamadosTecnicoState.categoria_pendente_id,
-                                    on_change=ChamadosTecnicoState.alterar_categoria_pendente,
-                                    disabled=(
-                                        ChamadosTecnicoState.edicao_funcional_bloqueada
-                                        | ChamadosTecnicoState.salvando_tratativa
-                                    ),
-                                    width="100%",
-                                ),
-                                rx.cond(
-                                    ChamadosTecnicoState.status_pendente_alterado,
+                                rx.grid(
                                     rx.vstack(
-                                        rx.text(
-                                            "Comentário da mudança de Status",
-                                            size="2",
+                                        rx.text("Responsável", size="2"),
+                                        rx.select.root(
+                                            rx.select.trigger(width="100%"),
+                                            rx.select.content(
+                                                rx.select.item("Não atribuído", value="0"),
+                                                rx.foreach(ChamadosTecnicoState.tecnicos, lambda tecnico: rx.select.item(tecnico["nome"], value=tecnico["id"].to_string())),
+                                            ),
+                                            value=ChamadosTecnicoState.responsavel_pendente_id,
+                                            on_change=ChamadosTecnicoState.alterar_responsavel_pendente,
+                                            disabled=ChamadosTecnicoState.edicao_funcional_bloqueada | ChamadosTecnicoState.salvando_tratativa,
+                                            width="100%",
                                         ),
+                                        align="start", width="100%",
+                                    ),
+                                    rx.vstack(
+                                        rx.text("Status", size="2"),
+                                        rx.select(ChamadosTecnicoState.status_filtros(), value=ChamadosTecnicoState.status_pendente, on_change=ChamadosTecnicoState.alterar_status_pendente, disabled=ChamadosTecnicoState.edicao_funcional_bloqueada | ChamadosTecnicoState.salvando_tratativa, width="100%"),
+                                        align="start", width="100%",
+                                    ),
+                                    rx.vstack(
+                                        rx.text("Prioridade", size="2"),
+                                        rx.select(ChamadosTecnicoState.prioridades_tratativa(), value=ChamadosTecnicoState.prioridade_pendente, on_change=ChamadosTecnicoState.alterar_prioridade_pendente, disabled=ChamadosTecnicoState.edicao_funcional_bloqueada | ChamadosTecnicoState.salvando_tratativa, width="100%"),
+                                        align="start", width="100%",
+                                    ),
+                                    rx.vstack(
+                                        rx.text("Categoria", size="2"),
+                                        rx.cond(ChamadosTecnicoState.categoria_confirmada_inativa, rx.text("Categoria atual inativa: " + ChamadosTecnicoState.chamado["categoria_nome"], size="2", color="gray"), rx.fragment()),
+                                        rx.select.root(
+                                            rx.select.trigger(width="100%"),
+                                            rx.select.content(
+                                                rx.cond(ChamadosTecnicoState.categoria_confirmada_inativa, rx.select.item(ChamadosTecnicoState.chamado["categoria_nome"], value=ChamadosTecnicoState.categoria_pendente_id, disabled=True), rx.fragment()),
+                                                rx.foreach(ChamadosTecnicoState.categorias_tratativa, lambda categoria: rx.select.item(categoria["nome"], value=categoria["id"].to_string())),
+                                            ),
+                                            value=ChamadosTecnicoState.categoria_pendente_id,
+                                            on_change=ChamadosTecnicoState.alterar_categoria_pendente,
+                                            disabled=ChamadosTecnicoState.edicao_funcional_bloqueada | ChamadosTecnicoState.salvando_tratativa,
+                                            width="100%",
+                                        ),
+                                        align="start", width="100%",
+                                    ),
+                                    columns=rx.breakpoints(initial="1", sm="2"),
+                                    spacing="4",
+                                    width="100%",
+                                ),
+                                rx.vstack(
+                                        rx.text("Comentário", size="2"),
                                         rx.text_area(
                                             value=ChamadosTecnicoState.comentario_status_pendente,
                                             on_change=ChamadosTecnicoState.alterar_comentario_status_pendente,
-                                            placeholder="Descreva a mudança de Status",
-                                            disabled=ChamadosTecnicoState.salvando_tratativa,
+                                            placeholder="Registre uma atualização para o chamado",
+                                            disabled=ChamadosTecnicoState.salvando_tratativa | ChamadosTecnicoState.enviando_comentario,
                                             width="100%",
                                         ),
+                                        rx.text("Visibilidade", size="2"),
                                         rx.cond(
                                             ChamadosTecnicoState.status_pendente_exige_comentario_publico,
                                             rx.badge("Público", color_scheme="blue"),
@@ -371,14 +308,18 @@ def _detalhe_tecnico() -> rx.Component:
                                                 ),
                                                 value=ChamadosTecnicoState.visibilidade_comentario_status_pendente,
                                                 on_change=ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente,
-                                                disabled=ChamadosTecnicoState.salvando_tratativa,
+                                                disabled=ChamadosTecnicoState.salvando_tratativa | ChamadosTecnicoState.enviando_comentario,
                                                 width="100%",
                                             ),
                                         ),
+                                        rx.button(
+                                            rx.cond(ChamadosTecnicoState.enviando_comentario, "Adicionando...", "Adicionar comentário"),
+                                            on_click=ChamadosTecnicoState.adicionar_comentario_operacional,
+                                            disabled=(ChamadosTecnicoState.comentario_status_pendente == "") | ChamadosTecnicoState.enviando_comentario | ChamadosTecnicoState.salvando_tratativa,
+                                            variant="outline",
+                                        ),
                                         align="start",
                                         width="100%",
-                                    ),
-                                    rx.fragment(),
                                 ),
                                 rx.hstack(
                                     rx.button(
@@ -408,80 +349,6 @@ def _detalhe_tecnico() -> rx.Component:
                                 width="100%",
                             ),
                             width="100%",
-                        ),
-                        rx.fragment(),
-                    ),
-                    rx.cond(
-                        (AuthState.role == "tecnico")
-                        & ChamadosTecnicoState.chamado["pode_assumir"],
-                        rx.button(
-                            rx.cond(ChamadosTecnicoState.assumindo_id != None, "Assumindo...", "Assumir"),
-                            on_click=ChamadosTecnicoState.assumir(ChamadosTecnicoState.chamado["id"]),
-                            disabled=ChamadosTecnicoState.assumindo_id != None,
-                        ),
-                        rx.fragment(),
-                    ),
-                    rx.cond(
-                        (
-                            (AuthState.role == "tecnico")
-                            | (AuthState.role == "diretoria")
-                            | (AuthState.role == "administrador")
-                        )
-                        & ChamadosTecnicoState.chamado["pode_atribuir"],
-                        rx.vstack(
-                            rx.text("Atribuir ou reatribuir responsável", weight="bold"),
-                            rx.select.root(
-                                rx.select.trigger(
-                                    placeholder="Selecione um Técnico",
-                                    width="100%",
-                                ),
-                                rx.select.content(
-                                    rx.foreach(
-                                        ChamadosTecnicoState.tecnicos,
-                                        lambda tecnico: rx.select.item(
-                                            tecnico["nome"],
-                                            value=tecnico["id"].to_string(),
-                                        ),
-                                    ),
-                                ),
-                                value=ChamadosTecnicoState.tecnico_alvo_id,
-                                on_change=ChamadosTecnicoState.selecionar_tecnico_alvo,
-                                width="100%",
-                            ),
-                            rx.button(
-                                rx.cond(
-                                    ChamadosTecnicoState.chamado["tecnico_nome"] == "Não atribuído",
-                                    "Atribuir Técnico",
-                                    "Reatribuir Técnico",
-                                ),
-                                on_click=ChamadosTecnicoState.atribuir_responsavel,
-                                disabled=(
-                                    (ChamadosTecnicoState.tecnico_alvo_id == "")
-                                    | (ChamadosTecnicoState.alterando_responsavel_id != None)
-                                    | (ChamadosTecnicoState.assumindo_id != None)
-                                ),
-                            ),
-                            align="start",
-                            spacing="2",
-                            width="100%",
-                        ),
-                        rx.fragment(),
-                    ),
-                    rx.cond(
-                        ChamadosTecnicoState.chamado["pode_liberar"],
-                        rx.button(
-                            rx.cond(
-                                ChamadosTecnicoState.alterando_responsavel_id
-                                == ChamadosTecnicoState.chamado["id"],
-                                "Liberando...",
-                                "Liberar responsável",
-                            ),
-                            on_click=ChamadosTecnicoState.liberar_responsavel,
-                            disabled=(
-                                (ChamadosTecnicoState.alterando_responsavel_id != None)
-                                | (ChamadosTecnicoState.assumindo_id != None)
-                            ),
-                            variant="outline",
                         ),
                         rx.fragment(),
                     ),
@@ -522,6 +389,41 @@ def _detalhe_tecnico() -> rx.Component:
                                     rx.cond(
                                         item["conteudo"] != "",
                                         rx.text(item["conteudo"], white_space="pre-wrap"),
+                                        rx.fragment(),
+                                    ),
+                                    rx.cond(
+                                        item["comentario_conteudo"] != "",
+                                        rx.vstack(
+                                            rx.hstack(
+                                                rx.text("Comentário", weight="medium"),
+                                                rx.badge(item["comentario_visibilidade_texto"]),
+                                                spacing="2",
+                                            ),
+                                            rx.text(item["comentario_conteudo"], white_space="pre-wrap"),
+                                            align="start",
+                                            spacing="1",
+                                            width="100%",
+                                        ),
+                                        rx.fragment(),
+                                    ),
+                                    rx.cond(
+                                        item["alteracoes_detalhadas"].length() > 0,
+                                        rx.vstack(
+                                            rx.text("Alterações realizadas", weight="medium"),
+                                            rx.foreach(
+                                                item["alteracoes_detalhadas"],
+                                                lambda alteracao: rx.vstack(
+                                                    rx.text(alteracao["campo"], weight="medium", size="2"),
+                                                    rx.text(alteracao["anterior"] + " → " + alteracao["resultante"], size="2"),
+                                                    align="start",
+                                                    spacing="0",
+                                                    width="100%",
+                                                ),
+                                            ),
+                                            align="start",
+                                            spacing="2",
+                                            width="100%",
+                                        ),
                                         rx.fragment(),
                                     ),
                                     rx.cond(

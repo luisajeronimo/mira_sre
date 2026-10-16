@@ -11,8 +11,13 @@ table interacoes_chamado {
     text mensagem? filters=trim
     timestamp? criado_em?
     enum? tipo_evento? {
-      values = ["comentario", "atribuicao", "reatribuicao", "liberacao"]
+      values = ["comentario", "atribuicao", "reatribuicao", "liberacao", "alteracao_chamado"]
     }
+    // Auditoria estruturada e aditiva do Save operacional. Para
+    // `alteracao_chamado`, contém somente pares anterior/resultante dos
+    // campos efetivamente modificados. Interações históricas permanecem
+    // com este campo nulo, sem backfill.
+    json? alteracoes?
     enum? visibilidade? {
       values = ["publica", "interna"]
     }

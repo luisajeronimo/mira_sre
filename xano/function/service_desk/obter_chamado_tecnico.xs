@@ -142,10 +142,11 @@ function "service_desk/obter_chamado_tecnico" {
         "retorna detalhe automático": []
         "retorna timeline cronológica com legado": ```
           [
-            {id: 11, mensagem: "Comentário legado", criado_em: null, created_at: 1780000001000, tipo_evento: null, visibilidade: "publica", chamados_id: 101, usuarios_id: 8, autor_id: 8, autor_nome: "Gerente", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null},
-            {id: 12, mensagem: "Comentário recente", criado_em: 1780000004000, created_at: 1780000004001, tipo_evento: "comentario", visibilidade: "interna", chamados_id: 101, usuarios_id: 12, autor_id: 12, autor_nome: "Técnico", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null},
-            {id: 13, mensagem: null, criado_em: 1780000002000, created_at: 1780000002001, tipo_evento: "atribuicao", visibilidade: "interna", chamados_id: 101, usuarios_id: 12, autor_id: 12, autor_nome: "Técnico", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: 12, tecnico_novo_nome: "Técnico"},
-            {id: 14, mensagem: null, criado_em: 1780000002000, created_at: 1780000002002, tipo_evento: "reatribuicao", visibilidade: "interna", chamados_id: 101, usuarios_id: 4, autor_id: 4, autor_nome: "Diretoria", tecnico_anterior_id: 12, tecnico_anterior_nome: "Técnico", tecnico_novo_id: 10, tecnico_novo_nome: "Outro Técnico"}
+            {id: 11, mensagem: "Comentário legado", criado_em: null, created_at: 1780000001000, tipo_evento: null, alteracoes: null, visibilidade: "publica", chamados_id: 101, usuarios_id: 8, autor_id: 8, autor_nome: "Gerente", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null},
+            {id: 12, mensagem: "Comentário recente", criado_em: 1780000004000, created_at: 1780000004001, tipo_evento: "comentario", alteracoes: null, visibilidade: "interna", chamados_id: 101, usuarios_id: 12, autor_id: 12, autor_nome: "Técnico", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null},
+            {id: 13, mensagem: null, criado_em: 1780000002000, created_at: 1780000002001, tipo_evento: "atribuicao", alteracoes: null, visibilidade: "interna", chamados_id: 101, usuarios_id: 12, autor_id: 12, autor_nome: "Técnico", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: 12, tecnico_novo_nome: "Técnico"},
+            {id: 14, mensagem: null, criado_em: 1780000002000, created_at: 1780000002002, tipo_evento: "reatribuicao", alteracoes: null, visibilidade: "interna", chamados_id: 101, usuarios_id: 4, autor_id: 4, autor_nome: "Diretoria", tecnico_anterior_id: 12, tecnico_anterior_nome: "Técnico", tecnico_novo_id: 10, tecnico_novo_nome: "Outro Técnico"},
+            {id: 15, mensagem: null, criado_em: 1780000005000, created_at: 1780000005001, tipo_evento: "alteracao_chamado", alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}}, visibilidade: "interna", chamados_id: 101, usuarios_id: 12, autor_id: 12, autor_nome: "Técnico", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null}
           ]
           ```
         "retorna detalhe Diretoria": []
@@ -158,6 +159,7 @@ function "service_desk/obter_chamado_tecnico" {
         id: $$.id,
         tipo: ($$.tipo_evento == null || $$.tipo_evento == "") ? "comentario" : $$.tipo_evento,
         conteudo: $$.mensagem,
+        alteracoes: $$.alteracoes,
         visibilidade: $$.visibilidade,
         criado_em: ($$.criado_em ?? $$.created_at),
         ordenacao: (($$.criado_em ?? $$.created_at)|to_text) ~ "-" ~ ($$.id|to_text),
@@ -178,6 +180,7 @@ function "service_desk/obter_chamado_tecnico" {
         id: $$.id,
         tipo: $$.tipo,
         conteudo: $$.conteudo,
+        alteracoes: $$.alteracoes,
         visibilidade: $$.visibilidade,
         criado_em: $$.criado_em,
         autor: $$.autor,
@@ -238,10 +241,11 @@ function "service_desk/obter_chamado_tecnico" {
     input = {usuarios_id: 12, chamados_id: 101}
     expect.to_equal ($response.timeline) {
       value = [
-        {id: 12, tipo: "comentario", conteudo: "Comentário recente", visibilidade: "interna", criado_em: 1780000004000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
-        {id: 14, tipo: "reatribuicao", conteudo: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 4, nome: "Diretoria"}, tecnico_anterior: {id: 12, nome: "Técnico"}, tecnico_novo: {id: 10, nome: "Outro Técnico"}},
-        {id: 13, tipo: "atribuicao", conteudo: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}},
-        {id: 11, tipo: "comentario", conteudo: "Comentário legado", visibilidade: "publica", criado_em: 1780000001000, autor: {id: 8, nome: "Gerente"}, tecnico_anterior: null, tecnico_novo: null}
+        {id: 15, tipo: "alteracao_chamado", conteudo: null, alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}}, visibilidade: "interna", criado_em: 1780000005000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
+        {id: 12, tipo: "comentario", conteudo: "Comentário recente", alteracoes: null, visibilidade: "interna", criado_em: 1780000004000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
+        {id: 14, tipo: "reatribuicao", conteudo: null, alteracoes: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 4, nome: "Diretoria"}, tecnico_anterior: {id: 12, nome: "Técnico"}, tecnico_novo: {id: 10, nome: "Outro Técnico"}},
+        {id: 13, tipo: "atribuicao", conteudo: null, alteracoes: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}},
+        {id: 11, tipo: "comentario", conteudo: "Comentário legado", alteracoes: null, visibilidade: "publica", criado_em: 1780000001000, autor: {id: 8, nome: "Gerente"}, tecnico_anterior: null, tecnico_novo: null}
       ]
     }
   }

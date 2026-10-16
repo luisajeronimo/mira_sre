@@ -42,6 +42,11 @@ def test_timeline_combina_interacoes_e_ordena_instante_e_id_descendentes():
     assert 'ordenacao: (($$.criado_em ?? $$.created_at)|to_text) ~ "-" ~ ($$.id|to_text)' in DETALHE
     assert 'value = ($eventos|sort:"ordenacao":"natural":true)|reverse' in DETALHE
     assert 'test "retorna timeline cronológica decrescente com legado"' in DETALHE
+    assert 'tipo_evento: "alteracao_chamado"' in DETALHE
+    assert "json? alteracoes?" in (ROOT / "xano/table/interacoes_chamado.xs").read_text(
+        encoding="utf-8"
+    )
+    assert 'alteracoes: $$.alteracoes' in DETALHE
     assert "{id: 12, tipo: \"comentario\"" in DETALHE
     assert "{id: 14, tipo: \"reatribuicao\"" in DETALHE
 

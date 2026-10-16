@@ -26,6 +26,13 @@ SAVE_TRATATIVA = (
 SAVE_TRATATIVA_API = (
     ROOT / "xano/api/mira_service_desk/tecnico/chamados/chamados_id_tratativa_POST.xs"
 ).read_text(encoding="utf-8")
+COMENTARIO_OPERACIONAL = (
+    ROOT / "xano/function/service_desk/criar_comentario_operacional.xs"
+).read_text(encoding="utf-8")
+COMENTARIO_OPERACIONAL_API = (
+    ROOT
+    / "xano/api/mira_service_desk/tecnico/chamados/chamados_id_comentarios_POST.xs"
+).read_text(encoding="utf-8")
 LISTAGEM = (ROOT / "xano/function/service_desk/listar_chamados_tecnico.xs").read_text(
     encoding="utf-8"
 )
@@ -203,3 +210,70 @@ def test_save_cobre_rollback_conflito_status_invalido_e_status_terminais_no_xano
     assert 'status: "Cancelado"' in SAVE_TRATATIVA
     assert 'status: "Aguardando Terceiro"' not in SAVE_TRATATIVA.split('input = {usuarios_id: 12, chamados_id: 101, tecnico_id: null, status: "Aguardando Terceiro"')[0]
     assert 'error = "Status ou prioridade inválido para tratativa."' in SAVE_TRATATIVA
+
+
+def test_comentario_operacional_e_contrato_independente_do_save():
+    assert (
+        'query "tecnico/chamados/{chamados_id}/comentarios" verb=POST'
+        in COMENTARIO_OPERACIONAL_API
+    )
+    assert 'auth = "usuarios"' in COMENTARIO_OPERACIONAL_API
+    assert 'function.run "service_desk/criar_comentario_operacional"' in COMENTARIO_OPERACIONAL_API
+    assert 'usuarios_id: $auth.id' in COMENTARIO_OPERACIONAL_API
+    for campo in ("int chamados_id", "text? conteudo? filters=trim", "text visibilidade filters=trim"):
+        assert campo in COMENTARIO_OPERACIONAL_API
+    for campo_proibido in (
+        "status:",
+        "prioridade:",
+        "tecnico_id:",
+        "categorias_servico_id:",
+        "sla_horas_aplicado:",
+        "ultima_atualizacao_em:",
+    ):
+        assert campo_proibido not in COMENTARIO_OPERACIONAL_API
+
+
+def test_comentario_operacional_valida_autor_visibilidade_e_conteudo():
+    assert 'function.run "autorizacao/exigir_perfil"' in COMENTARIO_OPERACIONAL
+    assert "tecnico: true, diretoria: true, administrador: true" in COMENTARIO_OPERACIONAL
+    assert '$input.conteudo == null || $input.conteudo == ""' in COMENTARIO_OPERACIONAL
+    assert 'error = "Comentário não pode estar vazio."' in COMENTARIO_OPERACIONAL
+    assert '$input.visibilidade != "publica" && $input.visibilidade != "interna"' in COMENTARIO_OPERACIONAL
+    assert 'error = "Visibilidade do comentário inválida."' in COMENTARIO_OPERACIONAL
+    assert 'test "rejeita comentário vazio"' in COMENTARIO_OPERACIONAL
+    assert 'test "rejeita comentário com espaços"' in COMENTARIO_OPERACIONAL
+
+
+def test_comentario_operacional_persiste_apenas_comentario_e_ultima_atualizacao():
+    inicio_transacao = COMENTARIO_OPERACIONAL.index("db.transaction {")
+    cria_comentario = COMENTARIO_OPERACIONAL.index("db.add interacoes_chamado")
+    atualiza_chamado = COMENTARIO_OPERACIONAL.index("db.patch chamados")
+    detalhe = COMENTARIO_OPERACIONAL.index('function.run "service_desk/obter_chamado_tecnico"')
+
+    assert inicio_transacao < cria_comentario < atualiza_chamado < detalhe
+    assert COMENTARIO_OPERACIONAL.count("db.add interacoes_chamado") == 1
+    assert 'tipo_evento: "comentario"' in COMENTARIO_OPERACIONAL
+    assert 'tipo_evento: "alteracao_chamado"' not in COMENTARIO_OPERACIONAL
+    assert "usuarios_id: $usuario.id" in COMENTARIO_OPERACIONAL
+    assert "criado_em: $instante" in COMENTARIO_OPERACIONAL
+    assert "visibilidade: $input.visibilidade" in COMENTARIO_OPERACIONAL
+
+    patch = COMENTARIO_OPERACIONAL[atualiza_chamado:detalhe]
+    assert "data = {ultima_atualizacao_em: $instante}" in patch
+    for campo_funcional in (
+        "status:",
+        "prioridade:",
+        "tecnico_id:",
+        "categorias_servico_id:",
+        "sla_horas_aplicado:",
+        "atribuido_em:",
+    ):
+        assert campo_funcional not in patch
+
+
+def test_comentario_operacional_aceita_terminal_e_mantem_timeline_compativel():
+    assert '"cria comentário em terminal": {id: 103, status: "Encerrado"' in COMENTARIO_OPERACIONAL
+    assert 'test "cria comentário em terminal"' in COMENTARIO_OPERACIONAL
+    assert 'expect.to_equal ($response.chamado.status) { value = "Encerrado" }' in COMENTARIO_OPERACIONAL
+    assert "timeline: [{id: 303, tipo: \"comentario\"" in COMENTARIO_OPERACIONAL
+    assert "response = $detalhe" in COMENTARIO_OPERACIONAL

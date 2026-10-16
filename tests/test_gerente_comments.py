@@ -239,13 +239,14 @@ def test_descarte_do_rascunho_e_exclusivamente_local():
     assert estado.rascunho_comentario == ""
 
 
-def test_terminal_oculta_postagem_mas_mantem_leitura_planejada():
-    fonte = Path(paginas.__file__).read_text()
+def test_contrato_gerente_aceita_comentario_publico_em_terminal():
+    criar = (ROOT / "xano/function/service_desk/criar_comentario_publico_gerente.xs").read_text()
 
-    assert 'ChamadosGerenteState.chamado["status"] != "Encerrado"' in fonte
-    assert 'ChamadosGerenteState.chamado["status"] != "Cancelado"' in fonte
-    assert 'rx.heading("Comentários"' in fonte
-    assert fonte.count("ChamadosGerenteState.detalhe_carregado") >= 2
+    assert 'test "cria comentario em encerrado"' in criar
+    assert 'test "cria comentario em cancelado"' in criar
+    assert 'Chamado não aceita novos comentários.' not in criar
+    assert '$chamado.status == "Encerrado"' not in criar
+    assert '$chamado.status == "Cancelado"' not in criar
 
 
 def test_xanoscript_preserva_timestamps_e_visibilidade_fechada():

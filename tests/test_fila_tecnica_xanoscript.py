@@ -128,7 +128,10 @@ def test_save_da_tratativa_persiste_em_transacao_unica_e_retorna_detalhe_canonic
     assert 'ultima_atualizacao_em: $instante' in SAVE_TRATATIVA
     assert 'value = $responsavel_alterado || $status_alterado || $prioridade_alterada || $categoria_alterada' in SAVE_TRATATIVA
     assert 'value = ($chamado_persistido.tecnico_id == null || $chamado_persistido.tecnico_id == 0) ? null : $chamado_persistido.tecnico_id' in SAVE_TRATATIVA
-    assert 'precondition ($chamado_persistido != null && $tecnico_persistido_id == $input.tecnico_id' in SAVE_TRATATIVA
+    confirmacao_nao_nula = SAVE_TRATATIVA.index("precondition ($chamado_persistido != null)")
+    tecnico_persistido = SAVE_TRATATIVA.index("var $tecnico_persistido_id", confirmacao_nao_nula)
+    confirmacao_campos = SAVE_TRATATIVA.index("precondition ($tecnico_persistido_id == $input.tecnico_id", tecnico_persistido)
+    assert confirmacao_nao_nula < tecnico_persistido < confirmacao_campos
     assert 'test "libera responsável"' in SAVE_TRATATIVA
 
 
@@ -144,6 +147,11 @@ def test_save_gera_um_evento_estruturado_completo_e_preserva_categoria_inativa_s
     assert 'if ($categoria == null || $categoria.ativo == false)' in SAVE_TRATATIVA
     assert 'test "preserva categoria inativa sem troca"' in SAVE_TRATATIVA
     assert 'test "salva sem diferença"' in SAVE_TRATATIVA
+    # O cenário Xano sem diferenças percorre o contrato sem mock de escrita;
+    # o bloco de patch/interações só é alcançável dentro desta guarda.
+    inicio_sem_diferenca = SAVE_TRATATIVA.index('if ($houve_diferenca_funcional)')
+    patch_chamado = SAVE_TRATATIVA.index("db.patch chamados")
+    assert inicio_sem_diferenca < patch_chamado
 
 
 def test_save_valida_status_comentario_responsavel_e_categoria_sem_regra_manual():
@@ -154,3 +162,44 @@ def test_save_valida_status_comentario_responsavel_e_categoria_sem_regra_manual(
     assert "permite_abertura_manual" not in SAVE_TRATATIVA
     assert 'test "preserva categoria inativa sem troca"' in SAVE_TRATATIVA
     assert 'test "rejeita categoria inativa na troca"' in SAVE_TRATATIVA
+
+
+def test_save_cobre_rollback_conflito_status_invalido_e_status_terminais_no_xano():
+    # Estes são casos de teste inline do Xano, não somente afirmações Python:
+    # cada um recebe mocks completos do caminho que alcança ou aborta a transação.
+    for caso in (
+        'test "falha ao persistir chamado"',
+        'test "falha ao criar comentário de status"',
+        'test "falha ao criar auditoria"',
+        'test "rejeita versão desatualizada"',
+        'test "rejeita aguardando terceiro"',
+        'test "encerra manualmente com alterações"',
+        'test "cancela com alterações combinadas"',
+    ):
+        assert caso in SAVE_TRATATIVA
+
+    assert '"falha ao persistir chamado": null' in SAVE_TRATATIVA
+    falha_patch = SAVE_TRATATIVA.index('"falha ao persistir chamado": null')
+    patch_iniciado = SAVE_TRATATIVA.rfind("db.patch chamados", 0, falha_patch)
+    patch_confirmado = SAVE_TRATATIVA.index("precondition ($chamado_atualizado != null)", falha_patch)
+    comentario = SAVE_TRATATIVA.index('tipo_evento: "comentario"', patch_confirmado)
+    auditoria = SAVE_TRATATIVA.index('tipo_evento: "alteracao_chamado"', comentario)
+    assert patch_iniciado < falha_patch < patch_confirmado < comentario < auditoria
+
+    falha_comentario = SAVE_TRATATIVA.index('"falha ao criar comentário de status": null')
+    falha_auditoria = SAVE_TRATATIVA.index('"falha ao criar auditoria": null')
+    precondition_comentario = SAVE_TRATATIVA.index("precondition ($comentario_status_criado != null)", falha_comentario)
+    precondition_auditoria = SAVE_TRATATIVA.index("precondition ($evento_alteracao != null)", falha_auditoria)
+    assert comentario < falha_comentario < precondition_comentario < auditoria
+    assert auditoria < falha_auditoria < precondition_auditoria
+
+    conflito = SAVE_TRATATIVA.index("$input.ultima_atualizacao_em != $chamado.ultima_atualizacao_em")
+    status_invalido = SAVE_TRATATIVA.index("!$status_atual_valido || !$status_resultante_valido || !$prioridade_valida")
+    terminal = SAVE_TRATATIVA.index('$chamado.status == "Encerrado" || $chamado.status == "Cancelado"', status_invalido)
+    assert status_invalido < terminal < conflito < patch_iniciado
+    assert '"encerra manualmente com alterações": {id: 101, tecnico_id: 10' in SAVE_TRATATIVA
+    assert 'status: "Encerrado"' in SAVE_TRATATIVA
+    assert '"cancela com alterações combinadas": {id: 101, tecnico_id: 10' in SAVE_TRATATIVA
+    assert 'status: "Cancelado"' in SAVE_TRATATIVA
+    assert 'status: "Aguardando Terceiro"' not in SAVE_TRATATIVA.split('input = {usuarios_id: 12, chamados_id: 101, tecnico_id: null, status: "Aguardando Terceiro"')[0]
+    assert 'error = "Status ou prioridade inválido para tratativa."' in SAVE_TRATATIVA

@@ -15,7 +15,7 @@
 ## 3. Comentários e autorização
 
 - [x] 3.1 Implementar comentário operacional independente Público/Interno para Técnico, Diretoria e Administrador, inclusive em terminal, com atualização de `ultima_atualizacao_em`; verificar UNIT, XANO e PERSISTENCE.
-- [ ] 3.2 Ajustar o comentário Público do Gerente para terminal dentro da Loja e jornada já autorizadas, sem conceder comentário Interno, fila global ou edição funcional; verificar CONTRACT, XANO e REST_AUTH para escopo próprio e negado.
+- [x] 3.2 Ajustar o comentário Público do Gerente para terminal dentro da Loja e jornada já autorizadas, sem conceder comentário Interno, fila global ou edição funcional; verificar CONTRACT, XANO e REST_AUTH para escopo próprio e negado. **Evidência aceita por decisão humana:** REST_AUTH foi comprovado somente na jornada real autenticada do Gerente (comentário Público não terminal e terminal, escopo por Loja e entrada vazia). A negação de `visibilidade=interna` foi comprovada por CONTRACT e XANO live antes da transação, sem REST_AUTH específico, pois a jornada normal não produz esse payload e não foi autorizado criar mecanismo artificial para exercitá-lo.
 - [ ] 3.3 Aplicar no Xano a matriz de autorização da tratativa para Técnico, Diretoria e Administrador e manter CRUD genérico negado; verificar XANO e REST_AUTH com 401, 403 e cada perfil.
 
 ## 4. Reflex: edição pendente e comentário

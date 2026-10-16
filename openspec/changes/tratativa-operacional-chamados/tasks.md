@@ -9,8 +9,8 @@
 
 - [ ] 2.1 Implementar o contrato único de Save para Responsável, Status, Prioridade e Categoria, com lista canônica de valores, validação de Técnico responsável, comparação simples de `ultima_atualizacao_em` e detalhe canônico pós-commit; verificar UNIT, CONTRACT e XANO.
 - [ ] 2.2 Persistir em uma mesma transação as diferenças funcionais, `atribuido_em`, SLA decorrente de Categoria, comentário obrigatório, exatamente um `alteracao_chamado` por Save efetivo e `ultima_atualizacao_em`; verificar XANO e PERSISTENCE com Save combinado válido.
-- [ ] 2.3 Cobrir rollback de validação, falha de persistência, Save sem diferença funcional e proteção otimista simples: carregar detalhe, alterar o mesmo chamado por outra operação, salvar com `ultima_atualizacao_em` antigo e recarregar; verificar PERSISTENCE que não há campo, comentário, evento nem timestamp parcial. UNIT isolado não conclui esta tarefa.
-- [ ] 2.4 Validar no Xano status terminal, Encerrado manual, Cancelado com mudanças combinadas e rejeição de Aguardando Terceiro; verificar CONTRACT, XANO e PERSISTENCE.
+- [ ] 2.3 Cobrir rollback de validação, falha de persistência, Save sem diferença funcional e proteção otimista simples: carregar detalhe, alterar o mesmo chamado por outra operação, salvar com `ultima_atualizacao_em` antigo e recarregar; verificar PERSISTENCE que não há campo, comentário, evento nem timestamp parcial. UNIT isolado não conclui esta tarefa. **BLOQUEADA por decisão humana:** o ambiente Xano Free não oferece isolamento seguro para injeção real de falha após escrita; não criar hook, endpoint ou função temporária no workspace live. Permanecem como evidência parcial os mocks de falha de patch/comentário/auditoria, XanoScript válido, Save sem diferença, atribuição/liberação persistentes e conflito otimista real sem efeito parcial.
+- [x] 2.4 Validar no Xano status terminal, Encerrado manual, Cancelado com mudanças combinadas e rejeição de Aguardando Terceiro; verificar CONTRACT, XANO e PERSISTENCE.
 
 ## 3. Comentários e autorização
 

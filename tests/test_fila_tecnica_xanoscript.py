@@ -277,3 +277,38 @@ def test_comentario_operacional_aceita_terminal_e_mantem_timeline_compativel():
     assert 'expect.to_equal ($response.chamado.status) { value = "Encerrado" }' in COMENTARIO_OPERACIONAL
     assert "timeline: [{id: 303, tipo: \"comentario\"" in COMENTARIO_OPERACIONAL
     assert "response = $detalhe" in COMENTARIO_OPERACIONAL
+
+
+def test_matriz_operacional_concentra_os_tres_perfis_nos_contratos_especificos():
+    perfis = "tecnico: true, diretoria: true, administrador: true"
+
+    assert perfis in SAVE_TRATATIVA
+    assert perfis in COMENTARIO_OPERACIONAL
+    assert 'auth = "usuarios"' in SAVE_TRATATIVA_API
+    assert 'usuarios_id: $auth.id' in SAVE_TRATATIVA_API
+    assert 'auth = "usuarios"' in COMENTARIO_OPERACIONAL_API
+    assert 'usuarios_id: $auth.id' in COMENTARIO_OPERACIONAL_API
+
+
+def test_matriz_operacional_bloqueia_edicao_terminal_antes_da_escrita():
+    guarda_terminal = SAVE_TRATATIVA.index(
+        '$chamado.status == "Encerrado" || $chamado.status == "Cancelado"'
+    )
+    patch_chamado = SAVE_TRATATIVA.index("db.patch chamados")
+
+    assert guarda_terminal < patch_chamado
+    assert 'error = "Chamado terminal não permite edição funcional."' in SAVE_TRATATIVA
+
+
+def test_crud_generico_de_chamados_permanece_fora_da_tratativa():
+    crud_patch = (
+        ROOT / "xano/api/apis_from_table_chamados/chamados/chamados_id_PATCH.xs"
+    ).read_text(encoding="utf-8")
+    crud_post = (ROOT / "xano/api/apis_from_table_chamados/chamados_POST.xs").read_text(
+        encoding="utf-8"
+    )
+
+    for contrato in (crud_patch, crud_post):
+        assert 'auth = "usuarios"' in contrato
+        assert 'function.run "autorizacao/negar_mutacao_generica"' in contrato
+        assert "usuarios_id: $auth.id" in contrato

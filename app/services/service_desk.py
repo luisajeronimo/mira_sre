@@ -681,6 +681,7 @@ class XanoServiceDeskCliente(XanoCliente):
             f"/gerente/chamados/{chamado_id}/comentarios",
             token=token,
             json={"conteudo": conteudo},
+            erro_400_como_entrada=True,
         )
         return _comentario_publico(dados.get("comentario"))
 

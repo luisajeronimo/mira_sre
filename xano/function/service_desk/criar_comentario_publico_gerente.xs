@@ -6,6 +6,7 @@ function "service_desk/criar_comentario_publico_gerente" {
     }
     int chamados_id
     text conteudo? filters=trim
+    text? visibilidade? filters=trim
   }
 
   stack {
@@ -29,6 +30,20 @@ function "service_desk/criar_comentario_publico_gerente" {
         precondition (false) {
           error_type = "inputerror"
           error = "Entrada inválida."
+        }
+      }
+    }
+
+    conditional {
+      if ($input.visibilidade != null && $input.visibilidade != "" && $input.visibilidade != "publica") {
+        util.set_header {
+          value = "HTTP/1.1 422 Unprocessable Entity"
+          duplicates = "replace"
+        }
+
+        precondition (false) {
+          error_type = "inputerror"
+          error = "Gerente só pode criar comentário Público."
         }
       }
     }
@@ -105,6 +120,11 @@ function "service_desk/criar_comentario_publico_gerente" {
 
   test "rejeita conteudo vazio" {
     input = {usuarios_id: 8, chamados_id: 101, conteudo: "   "}
+    expect.to_throw { exception = "" }
+  }
+
+  test "rejeita comentario interno" {
+    input = {usuarios_id: 8, chamados_id: 101, conteudo: "Comentário", visibilidade: "interna"}
     expect.to_throw { exception = "" }
   }
 

@@ -6,6 +6,7 @@ query "gerente/chamados/{chamados_id}/comentarios" verb=POST {
   input {
     int chamados_id filters=min:1
     text conteudo? filters=trim
+    text? visibilidade? filters=trim
   }
 
   stack {
@@ -14,6 +15,7 @@ query "gerente/chamados/{chamados_id}/comentarios" verb=POST {
         usuarios_id: $auth.id
         chamados_id: $input.chamados_id
         conteudo: $input.conteudo
+        visibilidade: $input.visibilidade
       }
     } as $resultado
 

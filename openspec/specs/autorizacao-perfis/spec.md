@@ -18,14 +18,14 @@ O sistema DEVE (MUST) autorizar cada requisição destinada a usuários no Xano,
 - **THEN** o Xano permite que a operação prossiga
 
 ### Requirement: Negação por padrão
-O sistema DEVE (MUST) negar qualquer operação destinada a usuários que não esteja explicitamente autorizada para o perfil e o escopo do usuário autenticado. `administrador` somente recebe nesta capacidade a criação administrativa de usuários; `admin`, `bot_fiscalizacao` e valores não oficiais não recebem permissões humanas.
+O sistema DEVE (MUST) negar qualquer consulta técnica global destinada a usuário que não esteja explicitamente autorizado para o perfil e escopo autenticados. Administrador possui acesso global à fila e ao detalhe nesta capacidade, além das permissões administrativas já definidas. `admin`, `bot_fiscalizacao` e valores não oficiais não recebem permissões humanas.
 
 #### Scenario: Operação sem permissão definida
-- **WHEN** um usuário autenticado solicita uma operação sem permissão definida para seu perfil
-- **THEN** o Xano rejeita a operação sem executar alterações
+- **WHEN** um usuário autenticado solicita consulta técnica global sem permissão definida para seu perfil
+- **THEN** o Xano rejeita a operação sem expor dados
 
 #### Scenario: Perfil não oficial
-- **WHEN** uma requisição está associada a `admin`, `tecnico_n1`, `tecnico_n2`, `tecnico_n3`, `bot_fiscalizacao` ou qualquer outro valor que não represente Gerente, Técnico, Diretoria ou Administrador
+- **WHEN** uma requisição está associada a `admin`, `tecnico_n1`, `tecnico_n2`, `tecnico_n3`, `bot_fiscalizacao` ou qualquer outro valor não oficial
 - **THEN** o Xano não atribui permissões de um perfil oficial à requisição
 
 ### Requirement: Gerente acessa somente sua unidade
@@ -42,28 +42,6 @@ O sistema DEVE (MUST) restringir o Gerente à unidade à qual ele estiver associ
 #### Scenario: Gerente sem unidade associada
 - **WHEN** um Gerente autenticado solicita uma operação dependente de unidade e não possui uma associação válida com uma Loja
 - **THEN** o Xano rejeita a operação sem ampliar seu escopo de acesso
-
-### Requirement: Técnico recebe acesso operacional compatível com a tratativa
-O sistema DEVE (MUST) autorizar o Técnico a consultar os chamados da fila e as informações de ativos e telemetria necessárias à tratativa, sem criar níveis distintos de Técnico.
-
-#### Scenario: Técnico consulta dados necessários à tratativa
-- **WHEN** um Técnico autenticado consulta a fila ou as informações de ativo e telemetria necessárias ao atendimento
-- **THEN** o Xano autoriza a consulta conforme os contratos funcionais disponíveis
-
-#### Scenario: Técnico solicita operação administrativa
-- **WHEN** um Técnico autenticado solicita uma operação administrativa ou destrutiva que não pertence à tratativa documentada
-- **THEN** o Xano rejeita a operação sem executá-la
-
-### Requirement: Diretoria possui acesso global de consulta
-O sistema DEVE (MUST) autorizar a Diretoria a consultar dados globais necessários aos dashboards e indicadores, sem conceder por esse motivo permissões de alteração operacional.
-
-#### Scenario: Diretoria consulta dados globais
-- **WHEN** um usuário da Diretoria autenticado solicita uma consulta global prevista pelo MIRA
-- **THEN** o Xano autoriza a consulta sem restringi-la a uma única unidade
-
-#### Scenario: Diretoria tenta alterar dados operacionais
-- **WHEN** um usuário da Diretoria autenticado solicita uma alteração operacional que não faz parte de suas responsabilidades documentadas
-- **THEN** o Xano rejeita a operação sem executá-la
 
 ### Requirement: CRUDs genéricos não ampliam permissões
 O sistema NÃO DEVE (MUST NOT) permitir que endpoints CRUD genéricos contornem as regras de autorização ou concedam operações administrativas e destrutivas não previstas para os perfis oficiais. A criação de usuário administrativo DEVE permanecer no contrato funcional específico autorizado apenas a Administrador.
@@ -93,3 +71,59 @@ O sistema DEVE (MUST) aplicar centralmente o estado de troca obrigatória antes 
 #### Scenario: Operação permitida durante pendência
 - **WHEN** uma sessão pendente consulta a própria identidade ou envia sua nova senha ao contrato de primeiro acesso
 - **THEN** o sistema permite a operação autenticada correspondente
+
+### Requirement: Técnico consulta fila e detalhe globais
+O sistema DEVE (MUST) autorizar Técnico a consultar globalmente fila e detalhe e a executar a tratativa definida: editar Responsável, Status, Prioridade e Categoria em chamado não terminal e adicionar comentários Público ou Interno, inclusive em terminal. A autorização DEVE (MUST) ser aplicada no Xano.
+
+#### Scenario: Técnico salva tratativa global
+- **WHEN** um Técnico autenticado envia Save válido para chamado global não terminal
+- **THEN** o Xano autoriza a operação conforme o contrato de tratativa
+
+#### Scenario: Técnico altera chamado terminal
+- **WHEN** um Técnico tenta editar campo funcional de chamado Encerrado ou Cancelado
+- **THEN** o Xano rejeita a alteração sem impedir comentário permitido
+
+#### Scenario: Técnico consulta dados da fila
+- **WHEN** um Técnico autenticado consulta fila, detalhe ou catálogo necessário à tratativa
+- **THEN** o Xano retorna somente os dados globais previstos pelos contratos funcionais
+
+#### Scenario: Técnico solicita operação administrativa
+- **WHEN** um Técnico autenticado solicita operação administrativa ou destrutiva fora da tratativa documentada
+- **THEN** o Xano rejeita a operação sem executá-la
+
+### Requirement: Diretoria consulta fila e detalhe globais
+O sistema DEVE (MUST) autorizar Diretoria a consultar globalmente fila e detalhe e a executar a mesma tratativa operacional do Técnico em chamados não terminais, além de adicionar comentários Público ou Interno inclusive em terminal. Essa autorização NÃO DEVE (MUST NOT) conceder CRUD genérico.
+
+#### Scenario: Diretoria salva tratativa global
+- **WHEN** usuário da Diretoria autenticado envia Save válido para chamado não terminal
+- **THEN** o Xano autoriza a operação no escopo global
+
+#### Scenario: Diretoria usa CRUD genérico
+- **WHEN** usuário da Diretoria tenta alterar chamado por CRUD genérico
+- **THEN** o Xano rejeita a requisição sem modificar dados
+
+#### Scenario: Diretoria consulta dados globais
+- **WHEN** usuário da Diretoria autenticado solicita consulta global prevista pelo MIRA
+- **THEN** o Xano autoriza a consulta sem restringi-la a uma única Loja
+
+#### Scenario: Diretoria tenta alterar dados operacionais
+- **WHEN** usuário da Diretoria solicita alteração operacional fora da tratativa documentada
+- **THEN** o Xano rejeita a operação sem executá-la
+
+### Requirement: Gerente não acessa a fila técnica global
+O sistema NÃO DEVE (MUST NOT) conceder ao Gerente acesso à fila ou ao detalhe técnico global; sua jornada autorizada permanece separada.
+
+#### Scenario: Gerente tenta consultar jornada técnica global
+- **WHEN** um Gerente autenticado solicita a fila ou o detalhe técnico global
+- **THEN** o Xano responde HTTP 403 sem expor chamados fora dos contratos próprios do Gerente
+
+### Requirement: Administrador possui tratativa operacional global
+O sistema DEVE (MUST) autorizar Administrador a consultar globalmente fila e detalhe e a executar a mesma tratativa operacional do Técnico em chamados não terminais, além de adicionar comentários Público ou Interno inclusive em terminal. As permissões administrativas existentes permanecem separadas desse contrato funcional.
+
+#### Scenario: Administrador salva tratativa global
+- **WHEN** Administrador autenticado envia Save válido para chamado não terminal
+- **THEN** o Xano autoriza a operação no escopo global
+
+#### Scenario: Administrador comenta chamado terminal
+- **WHEN** Administrador autenticado envia comentário Interno não vazio para chamado terminal
+- **THEN** o Xano cria o comentário sem reabrir nem editar campos funcionais

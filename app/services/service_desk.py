@@ -19,6 +19,15 @@ from app.services.xano import (
 ORIGENS_CHAMADO = frozenset({"manual", "automatico"})
 CRIADORES_SISTEMA_CHAMADO = frozenset({"bot_fiscalizacao"})
 PRIORIDADES_CHAMADO = ("Baixa", "Média", "Alta", "Urgente")
+TIPOS_EVENTO_TIMELINE = frozenset(
+    {
+        "comentario",
+        "atribuicao",
+        "reatribuicao",
+        "liberacao",
+        "alteracao_chamado",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +66,12 @@ class ReferenciaUsuario:
 
 
 @dataclass(frozen=True, slots=True)
+class ReferenciaLoja:
+    id: int
+    nome: str
+
+
+@dataclass(frozen=True, slots=True)
 class AutorComentarioPublico:
     nome: str
 
@@ -73,7 +88,7 @@ class ComentarioPublico:
 class ChamadoResumo:
     id: int
     titulo: str
-    status: str
+    status: str | None
     prioridade: str
     origem: str | None
     criado_em: int
@@ -100,7 +115,7 @@ class ChamadoDetalhe:
     id: int
     titulo: str
     descricao: str | None
-    status: str
+    status: str | None
     prioridade: str
     origem: str | None
     criado_em: int
@@ -112,6 +127,27 @@ class ChamadoDetalhe:
     tecnico: ReferenciaUsuario | None
     atribuido_em: int | None = None
     criador_sistema: str | None = None
+    loja: ReferenciaLoja | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EventoTimelineChamado:
+    id: int
+    tipo: str
+    conteudo: str | None
+    visibilidade: str
+    criado_em: int
+    autor: ReferenciaUsuario | None
+    tecnico_anterior: ReferenciaUsuario | None
+    tecnico_novo: ReferenciaUsuario | None
+    alteracoes: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DetalheChamadoTecnico:
+    chamado: ChamadoDetalhe
+    timeline: list[EventoTimelineChamado]
+    tecnicos: list[ReferenciaUsuario]
 
 
 def _inteiro(valor: Any, campo: str) -> int:
@@ -214,6 +250,18 @@ def _referencia_usuario(
     )
 
 
+def _referencia_loja(valor: Any) -> ReferenciaLoja | None:
+    if valor is None:
+        return None
+    dados = _objeto(valor, "loja")
+    if dados.get("id") is None and dados.get("nome") is None:
+        return None
+    return ReferenciaLoja(
+        id=_inteiro(dados.get("id"), "loja.id"),
+        nome=_texto(dados.get("nome"), "loja.nome"),
+    )
+
+
 def _origem(valor: Any) -> str | None:
     if valor is None:
         return None
@@ -237,11 +285,19 @@ def _criador_sistema(valor: Any) -> str | None:
     return valor
 
 
-def _resumo(dados: dict[str, Any]) -> ChamadoResumo:
+def _resumo(
+    dados: dict[str, Any],
+    *,
+    permitir_status_nulo: bool = False,
+) -> ChamadoResumo:
     return ChamadoResumo(
         id=_inteiro(dados.get("id"), "id"),
         titulo=_texto(dados.get("titulo"), "titulo"),
-        status=_texto(dados.get("status"), "status"),
+        status=(
+            _texto_opcional(dados.get("status"), "status")
+            if permitir_status_nulo
+            else _texto(dados.get("status"), "status")
+        ),
         prioridade=_texto(dados.get("prioridade"), "prioridade"),
         origem=_origem(dados.get("origem")),
         criado_em=_inteiro(dados.get("criado_em"), "criado_em"),
@@ -301,12 +357,20 @@ def _lista_chamados_gerente(dados: dict[str, Any]) -> ListaChamadosGerente:
     )
 
 
-def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
+def _detalhe(
+    dados: dict[str, Any],
+    *,
+    permitir_status_nulo: bool = False,
+) -> ChamadoDetalhe:
     return ChamadoDetalhe(
         id=_inteiro(dados.get("id"), "id"),
         titulo=_texto(dados.get("titulo"), "titulo"),
         descricao=_texto_opcional(dados.get("descricao"), "descricao"),
-        status=_texto(dados.get("status"), "status"),
+        status=(
+            _texto_opcional(dados.get("status"), "status")
+            if permitir_status_nulo
+            else _texto(dados.get("status"), "status")
+        ),
         prioridade=_texto(dados.get("prioridade"), "prioridade"),
         origem=_origem(dados.get("origem")),
         criado_em=_inteiro(dados.get("criado_em"), "criado_em"),
@@ -330,6 +394,81 @@ def _detalhe(dados: dict[str, Any]) -> ChamadoDetalhe:
             "atribuido_em",
         ),
         criador_sistema=_criador_sistema(dados.get("criador_sistema")),
+        loja=_referencia_loja(dados.get("loja")),
+    )
+
+
+def _evento_timeline(dados: Any) -> EventoTimelineChamado:
+    evento = _objeto(dados, "timeline")
+    tipo = _texto(evento.get("tipo"), "timeline.tipo")
+    if tipo not in TIPOS_EVENTO_TIMELINE:
+        raise XanoContratoInvalido(
+            "Campo inválido na resposta: timeline.tipo."
+        )
+    conteudo = evento.get("conteudo")
+    # Eventos operacionais não carregam mensagem. O Xano os representa como
+    # texto vazio, enquanto comentários legados podem usar null.
+    conteudo_normalizado = (
+        None
+        if conteudo is None
+        or (
+            conteudo == ""
+            and tipo
+            in {
+                "atribuicao",
+                "reatribuicao",
+                "liberacao",
+                "alteracao_chamado",
+            }
+        )
+        else _texto(conteudo, "timeline.conteudo")
+    )
+    alteracoes = evento.get("alteracoes")
+    if alteracoes is not None and not isinstance(alteracoes, dict):
+        raise XanoContratoInvalido(
+            "Campo inválido na resposta: timeline.alteracoes."
+        )
+    return EventoTimelineChamado(
+        id=_inteiro(evento.get("id"), "timeline.id"),
+        tipo=tipo,
+        conteudo=conteudo_normalizado,
+        visibilidade=_texto(evento.get("visibilidade"), "timeline.visibilidade"),
+        criado_em=_inteiro(evento.get("criado_em"), "timeline.criado_em"),
+        autor=_referencia_usuario(evento.get("autor"), "timeline.autor"),
+        tecnico_anterior=_referencia_usuario(
+            evento.get("tecnico_anterior"),
+            "timeline.tecnico_anterior",
+        ),
+        tecnico_novo=_referencia_usuario(
+            evento.get("tecnico_novo"),
+            "timeline.tecnico_novo",
+        ),
+        alteracoes=alteracoes,
+    )
+
+
+def _detalhe_tecnico(dados: dict[str, Any]) -> DetalheChamadoTecnico:
+    timeline = dados.get("timeline")
+    tecnicos = dados.get("tecnicos")
+    if not isinstance(timeline, list) or not isinstance(tecnicos, list):
+        raise XanoContratoInvalido(
+            "O Xano retornou um detalhe técnico incompatível."
+        )
+    tecnicos_validos: list[ReferenciaUsuario] = []
+    for tecnico in tecnicos:
+        referencia = _referencia_usuario(tecnico, "tecnicos")
+        if referencia is None:
+            raise XanoContratoInvalido(
+                "O Xano retornou um Técnico inválido no detalhe."
+            )
+        tecnicos_validos.append(referencia)
+    return DetalheChamadoTecnico(
+        chamado=_detalhe(
+            _objeto(dados.get("chamado"), "chamado"),
+            permitir_status_nulo=True,
+        ),
+        timeline=[_evento_timeline(evento) for evento in timeline],
+        tecnicos=tecnicos_validos,
     )
 
 
@@ -357,7 +496,7 @@ def _comentario_publico(dados: Any) -> ComentarioPublico:
 
 
 class XanoServiceDeskCliente(XanoCliente):
-    """Adaptador dos cinco contratos funcionais do Gerente."""
+    """Adaptador tipado dos contratos funcionais do Service Desk."""
 
     def __init__(
         self,
@@ -408,6 +547,27 @@ class XanoServiceDeskCliente(XanoCliente):
             for item in _colecao(dados)
         ]
 
+    async def listar_ativos_tecnico(
+        self, token: str
+    ) -> list[AtivoServiceDesk]:
+        dados = await self._requisitar(
+            "GET",
+            "/tecnico/ativos",
+            token=token,
+        )
+        return [
+            AtivoServiceDesk(
+                id=_inteiro(item.get("id"), "id"),
+                nome_ativo=_texto(item.get("nome_ativo"), "nome_ativo"),
+                tipo=_texto(item.get("tipo"), "tipo"),
+                status_atual=_texto(
+                    item.get("status_atual"),
+                    "status_atual",
+                ),
+            )
+            for item in _colecao(dados)
+        ]
+
     async def listar_categorias(
         self,
         token: str,
@@ -415,6 +575,32 @@ class XanoServiceDeskCliente(XanoCliente):
         dados = await self._requisitar(
             "GET",
             "/gerente/categorias",
+            token=token,
+        )
+        return [
+            CategoriaServiceDesk(
+                id=_inteiro(item.get("id"), "id"),
+                nome=_texto(item.get("nome"), "nome"),
+                tipo_itil=_texto(item.get("tipo_itil"), "tipo_itil"),
+                descricao=_texto(item.get("descricao"), "descricao"),
+                sla_horas=_numero(item.get("sla_horas"), "sla_horas"),
+            )
+            for item in _colecao(dados)
+        ]
+
+    async def listar_categorias_tratativa(
+        self,
+        token: str,
+    ) -> list[CategoriaServiceDesk]:
+        """Lista somente categorias ativas disponíveis para nova seleção.
+
+        A Categoria persistida no chamado é lida do detalhe canônico e pode
+        ser inativa. Este catálogo não decide regras de abertura manual.
+        """
+
+        dados = await self._requisitar(
+            "GET",
+            "/tecnico/categorias",
             token=token,
         )
         return [
@@ -521,30 +707,131 @@ class XanoServiceDeskCliente(XanoCliente):
             f"/gerente/chamados/{chamado_id}/comentarios",
             token=token,
             json={"conteudo": conteudo},
+            erro_400_como_entrada=True,
         )
         return _comentario_publico(dados.get("comentario"))
 
     async def listar_chamados_tecnico(
         self,
         token: str,
-        visao: str,
-    ) -> list[ChamadoResumo]:
+        *,
+        numero: int | None = None,
+        status: str | None = None,
+        ativo_id: int | None = None,
+        data_inicio: int | None = None,
+        data_fim: int | None = None,
+        somente_atribuidos_a_mim: bool = False,
+    ) -> ListaChamadosGerente:
+        """Lista global com o mesmo envelope e filtros da lista do Gerente."""
+
+        params: dict[str, str | int] = {}
+        for campo, valor in (
+            ("numero", numero),
+            ("status", status),
+            ("ativo_id", ativo_id),
+            ("data_inicio", data_inicio),
+            ("data_fim", data_fim),
+        ):
+            if valor is not None and valor != "":
+                params[campo] = valor
+        if somente_atribuidos_a_mim:
+            params["somente_atribuidos_a_mim"] = True
         dados = await self._requisitar(
             "GET",
-            f"/tecnico/chamados?visao={visao}",
+            "/tecnico/chamados",
             token=token,
+            params=params,
         )
-        return [_resumo(item) for item in _colecao(dados)]
+        return _lista_chamados_gerente(dados)
 
     async def obter_chamado_tecnico(
         self,
         token: str,
         chamado_id: int,
-    ) -> ChamadoDetalhe:
+    ) -> DetalheChamadoTecnico:
         dados = await self._requisitar(
             "GET",
             f"/tecnico/chamados/{chamado_id}",
             token=token,
+        )
+        return _detalhe_tecnico(dados)
+
+    async def salvar_tratativa_chamado(
+        self,
+        token: str,
+        chamado_id: int,
+        *,
+        tecnico_id: int | None,
+        status: str,
+        prioridade: str,
+        categorias_servico_id: int,
+        ultima_atualizacao_em: int,
+        comentario_status: str | None = None,
+        visibilidade_comentario_status: str | None = None,
+    ) -> DetalheChamadoTecnico:
+        """Envia o rascunho completo ao único Save transacional do Xano.
+
+        O cliente mantém ``tecnico_id: null`` explícito para representar a
+        liberação. Validações de status, perfil, Categoria, comentário e
+        versão pertencem exclusivamente ao contrato Xano.
+        """
+
+        payload: dict[str, Any] = {
+            "tecnico_id": tecnico_id,
+            "status": status,
+            "prioridade": prioridade,
+            "categorias_servico_id": categorias_servico_id,
+            "ultima_atualizacao_em": ultima_atualizacao_em,
+        }
+        if comentario_status is not None:
+            payload["comentario_status"] = comentario_status
+        if visibilidade_comentario_status is not None:
+            payload["visibilidade_comentario_status"] = (
+                visibilidade_comentario_status
+            )
+        dados = await self._requisitar(
+            "POST",
+            f"/tecnico/chamados/{chamado_id}/tratativa",
+            token=token,
+            json=payload,
+            erro_400_como_entrada=True,
+        )
+        return _detalhe_tecnico(dados)
+
+    async def criar_comentario_operacional(
+        self,
+        token: str,
+        chamado_id: int,
+        *,
+        conteudo: str,
+        visibilidade: str,
+    ) -> DetalheChamadoTecnico:
+        """Cria comentário independente e devolve o detalhe pós-operação."""
+
+        dados = await self._requisitar(
+            "POST",
+            f"/tecnico/chamados/{chamado_id}/comentarios",
+            token=token,
+            json={"conteudo": conteudo, "visibilidade": visibilidade},
+            erro_400_como_entrada=True,
+        )
+        return _detalhe_tecnico(dados)
+
+    async def alterar_responsavel_tecnico(
+        self,
+        token: str,
+        chamado_id: int,
+        acao: str,
+        tecnico_id: int | None = None,
+    ) -> ChamadoDetalhe:
+        payload: dict[str, Any] = {"acao": acao}
+        if acao == "atribuir" and tecnico_id is not None:
+            payload["tecnico_id"] = tecnico_id
+        dados = await self._requisitar(
+            "POST",
+            f"/tecnico/chamados/{chamado_id}/assumir",
+            token=token,
+            json=payload,
         )
         return _detalhe(_objeto(dados.get("chamado"), "chamado"))
 
@@ -553,13 +840,11 @@ class XanoServiceDeskCliente(XanoCliente):
         token: str,
         chamado_id: int,
     ) -> ChamadoDetalhe:
-        dados = await self._requisitar(
-            "POST",
-            f"/tecnico/chamados/{chamado_id}/assumir",
-            token=token,
-            json={},
+        return await self.alterar_responsavel_tecnico(
+            token,
+            chamado_id,
+            "assumir",
         )
-        return _detalhe(_objeto(dados.get("chamado"), "chamado"))
 
 
 def criar_cliente_service_desk() -> XanoServiceDeskCliente:

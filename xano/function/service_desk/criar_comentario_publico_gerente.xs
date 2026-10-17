@@ -6,6 +6,7 @@ function "service_desk/criar_comentario_publico_gerente" {
     }
     int chamados_id
     text conteudo? filters=trim
+    text? visibilidade? filters=trim
   }
 
   stack {
@@ -14,8 +15,8 @@ function "service_desk/criar_comentario_publico_gerente" {
       mock = {
         "cria comentario publico": {id: 101, status: "Novo", autor_nome: "Gerente"}
         "rejeita conteudo vazio": {id: 101, status: "Novo", autor_nome: "Gerente"}
-        "rejeita encerrado": {id: 101, status: "Encerrado", autor_nome: "Gerente"}
-        "rejeita cancelado": {id: 101, status: "Cancelado", autor_nome: "Gerente"}
+        "cria comentario em encerrado": {id: 101, status: "Encerrado", autor_nome: "Gerente"}
+        "cria comentario em cancelado": {id: 101, status: "Cancelado", autor_nome: "Gerente"}
       }
     } as $chamado
 
@@ -34,7 +35,7 @@ function "service_desk/criar_comentario_publico_gerente" {
     }
 
     conditional {
-      if ($chamado.status == "Encerrado" || $chamado.status == "Cancelado") {
+      if ($input.visibilidade != null && $input.visibilidade != "" && $input.visibilidade != "publica") {
         util.set_header {
           value = "HTTP/1.1 422 Unprocessable Entity"
           duplicates = "replace"
@@ -42,7 +43,7 @@ function "service_desk/criar_comentario_publico_gerente" {
 
         precondition (false) {
           error_type = "inputerror"
-          error = "Chamado não aceita novos comentários."
+          error = "Gerente só pode criar comentário Público."
         }
       }
     }
@@ -122,14 +123,19 @@ function "service_desk/criar_comentario_publico_gerente" {
     expect.to_throw { exception = "" }
   }
 
-  test "rejeita encerrado" {
-    input = {usuarios_id: 8, chamados_id: 101, conteudo: "Comentário"}
+  test "rejeita comentario interno" {
+    input = {usuarios_id: 8, chamados_id: 101, conteudo: "Comentário", visibilidade: "interna"}
     expect.to_throw { exception = "" }
   }
 
-  test "rejeita cancelado" {
+  test "cria comentario em encerrado" {
     input = {usuarios_id: 8, chamados_id: 101, conteudo: "Comentário"}
-    expect.to_throw { exception = "" }
+    expect.to_equal ($response.comentario.conteudo) { value = "Comentário" }
+  }
+
+  test "cria comentario em cancelado" {
+    input = {usuarios_id: 8, chamados_id: 101, conteudo: "Comentário"}
+    expect.to_equal ($response.comentario.conteudo) { value = "Comentário" }
   }
   guid = "miraCriarComentarioGerente01"
 }

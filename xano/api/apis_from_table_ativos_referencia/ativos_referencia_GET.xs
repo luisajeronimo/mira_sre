@@ -12,7 +12,8 @@ query ativos_referencia verb=GET {
         usuarios_id: $auth.id,
         gerente: true,
         tecnico: true,
-        diretoria: true
+        diretoria: true,
+        administrador: true
       }
     } as $usuario
 
@@ -22,7 +23,7 @@ query ativos_referencia verb=GET {
     }
 
     db.query ativos_referencia {
-      where = $usuario.role == "tecnico" || $usuario.role == "diretoria" || ($usuario.role == "gerente" && $db.ativos_referencia.lojas_id == $usuario.lojas_id)
+      where = $usuario.role == "tecnico" || $usuario.role == "diretoria" || $usuario.role == "administrador" || ($usuario.role == "gerente" && $db.ativos_referencia.lojas_id == $usuario.lojas_id)
       return = {type: "list"}
     } as $ativos_referencia
   }

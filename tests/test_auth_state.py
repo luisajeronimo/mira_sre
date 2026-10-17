@@ -269,7 +269,7 @@ def test_403_preserva_sessao_e_nao_vira_expiracao(monkeypatch):
 
     assert estado._auth_token == "token-valido"
     assert estado.nome == "Usuário anterior"
-    assert estado.sessao_confirmada is False
+    assert estado.sessao_confirmada is True
     assert estado.mensagem_erro == MENSAGEM_NAO_AUTORIZADO
     assert estado.mensagem_erro != MENSAGEM_EXPIRADA
     assert eventos == [None]

@@ -110,6 +110,17 @@ def test_cliente_usa_contratos_especificos_e_payload_minimo():
     assert requisicoes[1].read() == b'{"conteudo":"Texto"}'
 
 
+@pytest.mark.parametrize("status", [400, 422])
+def test_cliente_classifica_rejeicao_de_comentario_como_entrada(status):
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(lambda _: httpx.Response(status, json={})),
+    )
+
+    with pytest.raises(XanoEntradaInvalida):
+        executar(cliente.criar_comentario_publico("token", 101, conteudo="   "))
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -239,13 +250,23 @@ def test_descarte_do_rascunho_e_exclusivamente_local():
     assert estado.rascunho_comentario == ""
 
 
-def test_terminal_oculta_postagem_mas_mantem_leitura_planejada():
-    fonte = Path(paginas.__file__).read_text()
+def test_contrato_gerente_aceita_comentario_publico_em_terminal():
+    criar = (ROOT / "xano/function/service_desk/criar_comentario_publico_gerente.xs").read_text()
+    endpoint = (
+        ROOT / "xano/api/mira_service_desk/gerente/chamados/chamados_id_comentarios_POST.xs"
+    ).read_text()
+    pagina = Path(paginas.__file__).read_text()
 
-    assert 'ChamadosGerenteState.chamado["status"] != "Encerrado"' in fonte
-    assert 'ChamadosGerenteState.chamado["status"] != "Cancelado"' in fonte
-    assert 'rx.heading("Comentários"' in fonte
-    assert fonte.count("ChamadosGerenteState.detalhe_carregado") >= 2
+    assert 'test "cria comentario em encerrado"' in criar
+    assert 'test "cria comentario em cancelado"' in criar
+    assert 'Chamado não aceita novos comentários.' not in criar
+    assert '$chamado.status == "Encerrado"' not in criar
+    assert '$chamado.status == "Cancelado"' not in criar
+    assert 'ChamadosGerenteState.chamado["status"] != "Encerrado"' not in pagina
+    assert 'ChamadosGerenteState.chamado["status"] != "Cancelado"' not in pagina
+    assert 'text? visibilidade? filters=trim' in endpoint
+    assert '$input.visibilidade != "publica"' in criar
+    assert 'test "rejeita comentario interno"' in criar
 
 
 def test_xanoscript_preserva_timestamps_e_visibilidade_fechada():
@@ -260,7 +281,7 @@ def test_xanoscript_preserva_timestamps_e_visibilidade_fechada():
     assert "timestamp? ultima_atualizacao_em?" in chamados
     assert 'values = ["publica", "interna"]' in interacoes
     assert "ultima_atualizacao_em: $criado_em" in manual
-    assert "ultima_atualizacao_em: $atribuido_em" in assumir
+    assert "ultima_atualizacao_em: $instante" in assumir
     assert "ultima_atualizacao_em: $criado_em" in heartbeat
     assert '$db.interacoes_chamado.visibilidade == "publica"' in listar
     assert 'sort = {interacoes_chamado.criado_em: "desc"}' in listar

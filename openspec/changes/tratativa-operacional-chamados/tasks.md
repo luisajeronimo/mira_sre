@@ -32,5 +32,6 @@
 
 ## 6. Validação integrada e humana
 
-- [ ] 6.1 Executar a suíte Python completa, compile Reflex --dry, validação OpenSpec estrita, validação XanoScript, testes de contrato e `git diff --check`; registrar separadamente UNIT, CONTRACT, XANO, PERSISTENCE, REST_AUTH e REFLEX passados, falhos ou bloqueados.
+- [x] 6.1 Executar a suíte Python completa, compile Reflex --dry, validação OpenSpec estrita, validação XanoScript, testes de contrato e `git diff --check`; registrar separadamente UNIT, CONTRACT, XANO, PERSISTENCE, REST_AUTH e REFLEX passados, falhos ou bloqueados.
+  **Evidência 6.1:** UNIT PASSOU (323 testes); CONTRACT PASSOU (58 testes relevantes); XANO PASSOU (validação e dry-run sem alterações); PERSISTENCE PASSOU (5.1); REST_AUTH PASSOU (5.1); REFLEX PASSOU (5.2); HUMAN PENDENTE (6.2). A 2.3 permanece bloqueada pela limitação humana aprovada de fault injection pós-escrita.
 - [ ] 6.2 Conduzir validação humana com Técnico, Diretoria, Administrador e Gerente nos cenários definidos pelas specs; verificar HUMAN para permissões, Save atômico, comentário em terminal, Categoria/SLA, evento único e preservação da fila. Não marcar a change concluída antes dessa evidência.

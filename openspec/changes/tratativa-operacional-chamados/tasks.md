@@ -28,7 +28,7 @@
 ## 5. Integração autenticada e persistência real
 
 - [x] 5.1 Sincronizar somente recursos Xano aprovados após validação de XanoScript e dry-run, e executar o endpoint REST autenticado real do Save para atribuição, reatribuição, liberação, Categoria inativa, Status com comentário e terminal; verificar XANO, PERSISTENCE e REST_AUTH. `xano function run` não conclui esta tarefa.
-- [ ] 5.2 Exercitar pelo Reflex em execução real o detalhe, rascunho, Descartar, Save combinado, falha sem confirmação visual, comentário Público/Interno e timeline mista; verificar REFLEX com dados reais e contrato autenticado.
+- [x] 5.2 Exercitar pelo Reflex em execução real o detalhe, rascunho, Descartar, Save combinado, falha sem confirmação visual, comentário Público/Interno e timeline mista; verificar REFLEX com dados reais e contrato autenticado.
 
 ## 6. Validação integrada e humana
 

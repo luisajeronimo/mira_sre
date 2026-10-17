@@ -30,6 +30,7 @@ from app.services.xano import (
     XanoNaoEncontrado,
 )
 from app.states.auth import (
+    DESTINO_PRIMEIRO_ACESSO,
     MENSAGEM_EXPIRADA,
     MENSAGEM_INDISPONIVEL,
     MENSAGEM_NAO_AUTORIZADO,
@@ -57,6 +58,9 @@ class ChamadosTecnicoState(AuthState):
     data_fim_aplicada: int | None = None
     filtros_aplicados: list[str] = []
     escopo_rapido: str = "todos"
+    usuario_id_contexto_fila: int | None = None
+    _token_contexto_fila: str = ""
+    versao_sessao_contexto_fila: int = -1
     ativos: list[str] = []
     total_chamados: int = 0
     chamados: list[TecnicoView] = []
@@ -244,6 +248,8 @@ class ChamadosTecnicoState(AuthState):
         self.detalhe_tecnico_carregado = True
 
     async def _validar_acesso_fila(self) -> str | None:
+        if self.deve_trocar_senha:
+            return DESTINO_PRIMEIRO_ACESSO
         if (
             self.sessao_confirmada
             and self._auth_token
@@ -256,6 +262,40 @@ class ChamadosTecnicoState(AuthState):
         if self.role not in {"tecnico", "diretoria", "administrador"}:
             return self.destino_por_perfil(self.role) or "/login"
         return None
+
+    @rx.event
+    async def redirecionar_alias_fila(self):
+        revalidar = not (
+            self.sessao_confirmada
+            and self._auth_token
+            and self.role in {"tecnico", "diretoria", "administrador"}
+        )
+        if revalidar:
+            self._iniciar_carregamento()
+            yield
+        destino = await self._validar_acesso_fila()
+        if revalidar:
+            self._finalizar_carregamento()
+        yield rx.redirect(destino or "/chamados")
+
+    @rx.event
+    async def redirecionar_alias_detalhe(self):
+        revalidar = not (
+            self.sessao_confirmada
+            and self._auth_token
+            and self.role in {"tecnico", "diretoria", "administrador"}
+        )
+        if revalidar:
+            self._iniciar_carregamento()
+            yield
+        destino = await self._validar_acesso_fila()
+        if revalidar:
+            self._finalizar_carregamento()
+        if destino is not None:
+            yield rx.redirect(destino)
+            return
+        chamado_id = self.router.page.params.get("chamado_id", "")
+        yield rx.redirect(f"/chamados/{chamado_id}")
 
     def _registrar_erro_fila(self, erro: Exception) -> str | None:
         if isinstance(erro, XanoNaoAutenticado):
@@ -406,6 +446,68 @@ class ChamadosTecnicoState(AuthState):
         self.filtro_data_inicio = self.filtro_data_inicio_confirmada
         self.filtro_data_fim = self.filtro_data_fim_confirmada
 
+    def _limpar_contexto_fila(self) -> None:
+        """Descarta dados protegidos e filtros associados a outra identidade."""
+        self.filtro_numero = ""
+        self.filtro_status = ""
+        self.filtro_ativo = ""
+        self.filtro_data_inicio = ""
+        self.filtro_data_fim = ""
+        self.filtro_numero_confirmado = ""
+        self.filtro_status_confirmado = ""
+        self.filtro_ativo_confirmado = ""
+        self.filtro_data_inicio_confirmada = ""
+        self.filtro_data_fim_confirmada = ""
+        self.numero_aplicado = None
+        self.status_aplicado = ""
+        self.ativo_id_aplicado = None
+        self.data_inicio_aplicada = None
+        self.data_fim_aplicada = None
+        self.filtros_aplicados = []
+        self.escopo_rapido = "todos"
+        self.ativos = []
+        self.total_chamados = 0
+        self.chamados = []
+        self.chamado = {}
+        self.timeline = []
+        self.tecnicos = []
+        self.categorias_tratativa = []
+        self.detalhe_tecnico_carregado = False
+        self.responsavel_confirmado_id = None
+        self.status_confirmado = ""
+        self.prioridade_confirmada = ""
+        self.categoria_confirmada_id = None
+        self.ultima_atualizacao_confirmada = None
+        self._copiar_confirmado_para_pendente()
+
+    def _sincronizar_contexto_fila(self) -> bool:
+        """Isola a fila entre identidades e reinicia o escopo a cada sessão."""
+        if self.usuario_id is None:
+            self._limpar_contexto_fila()
+            self.usuario_id_contexto_fila = None
+            self._token_contexto_fila = ""
+            self.versao_sessao_contexto_fila = -1
+            return True
+        if self.usuario_id_contexto_fila is None:
+            self.usuario_id_contexto_fila = self.usuario_id
+            self._token_contexto_fila = self._auth_token
+            self.versao_sessao_contexto_fila = self._versao_sessao
+            return False
+        identidade_alterada = self.usuario_id_contexto_fila != self.usuario_id
+        if identidade_alterada:
+            self._limpar_contexto_fila()
+        elif (
+            self._token_contexto_fila != self._auth_token
+            or self.versao_sessao_contexto_fila != self._versao_sessao
+        ):
+            # Filtros são uma preferência legítima do mesmo usuário; o escopo
+            # rápido é deliberadamente não persistente entre sessões.
+            self.escopo_rapido = "todos"
+        self.usuario_id_contexto_fila = self.usuario_id
+        self._token_contexto_fila = self._auth_token
+        self.versao_sessao_contexto_fila = self._versao_sessao
+        return identidade_alterada
+
     @rx.event
     async def aplicar_filtros(self):
         filtros = self._filtros_solicitados()
@@ -435,6 +537,7 @@ class ChamadosTecnicoState(AuthState):
             filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados),
             confirmar_filtros=False,
             escopo_rapido=escopo,
+            alteracao_explicita=True,
         ):
             yield evento
 
@@ -453,6 +556,7 @@ class ChamadosTecnicoState(AuthState):
         filtros: tuple[int | None, str, int | None, int | None, int | None, list[str]],
         confirmar_filtros: bool,
         escopo_rapido: str,
+        alteracao_explicita: bool = False,
     ):
         if self.carregando_fila:
             return
@@ -466,10 +570,26 @@ class ChamadosTecnicoState(AuthState):
                 return
             if not self.sessao_confirmada:
                 return
+            identidade_alterada = self._sincronizar_contexto_fila()
+            if identidade_alterada:
+                filtros = (None, "", None, None, None, [])
+            escopo_solicitado = (
+                escopo_rapido if alteracao_explicita else self.escopo_rapido
+            )
+            escopo_efetivo = (
+                escopo_solicitado
+                if self.role == "tecnico"
+                and escopo_solicitado in {"todos", "atribuidos_a_mim"}
+                else "todos"
+            )
+            # Perfis globais nunca carregam nem exibem um escopo pessoal que
+            # tenha permanecido no State de um Técnico que saiu da sessão.
+            if self.role != "tecnico":
+                self.escopo_rapido = "todos"
             try:
                 numero, status, ativo_id, inicio, fim, etiquetas = filtros
                 cliente = criar_cliente_service_desk()
-                resultado = await cliente.listar_chamados_tecnico(self._auth_token, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, somente_atribuidos_a_mim=(escopo_rapido == "atribuidos_a_mim"))
+                resultado = await cliente.listar_chamados_tecnico(self._auth_token, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, somente_atribuidos_a_mim=(escopo_efetivo == "atribuidos_a_mim"))
                 ativos_carregados: list[str] | None = None
                 if not self.ativos:
                     ativos = await cliente.listar_ativos_tecnico(self._auth_token)
@@ -478,7 +598,7 @@ class ChamadosTecnicoState(AuthState):
                 # dados auxiliares necessários à mesma tela também chegaram.
                 self.chamados = [_tecnico_para_dict(item) for item in resultado.items]
                 self.total_chamados = resultado.total
-                self.escopo_rapido = escopo_rapido
+                self.escopo_rapido = escopo_efetivo
                 if ativos_carregados is not None:
                     self.ativos = ativos_carregados
                 if confirmar_filtros:

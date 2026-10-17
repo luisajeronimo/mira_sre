@@ -52,6 +52,13 @@ class AdministracaoState(AuthState):
         self.loja_selecionada = loja_id
 
     @rx.event
+    async def redirecionar_alias_administracao(self):
+        async for evento in self._executar_guard("administrador", False):
+            yield evento
+        if self.sessao_confirmada and self.role == "administrador" and not self.deve_trocar_senha:
+            yield rx.redirect("/administracao/usuarios")
+
+    @rx.event
     async def carregar_administracao(self):
         if self.carregando_lojas:
             return
@@ -215,7 +222,7 @@ def administracao() -> rx.Component:
         estado_carregamento(),
         rx.cond(
             AuthState.sessao_confirmada & (AuthState.role == "administrador"),
-            casca_conteudo(conteudo, "/administracao"),
+            casca_conteudo(conteudo, "/inicio"),
             estado_revalidacao(AdministracaoState.carregar_administracao),
         ),
     )

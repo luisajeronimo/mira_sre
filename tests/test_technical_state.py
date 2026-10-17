@@ -22,9 +22,10 @@ from app.services.xano import (
     XanoContratoInvalido,
     XanoEntradaInvalida,
     XanoIndisponivel,
+    XanoNaoAutenticado,
     XanoNaoAutorizado,
 )
-from app.states.auth import MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
+from app.states.auth import AuthState, MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
 from app.chamados.shared import _detalhe_para_dict, _tecnico_para_dict
 from app.chamados.tecnico import ChamadosTecnicoState
 
@@ -193,6 +194,13 @@ def novo_estado_tecnico(role="tecnico"):
     return estado
 
 
+def test_marcadores_privados_da_fila_sao_backend_only():
+    assert "_auth_token" in ChamadosTecnicoState.backend_vars
+    assert "_token_contexto_fila" in ChamadosTecnicoState.backend_vars
+    assert "_auth_token" not in ChamadosTecnicoState.base_vars
+    assert "_token_contexto_fila" not in ChamadosTecnicoState.base_vars
+
+
 def liberar_validacao_de_sessao(monkeypatch):
     async def validar(_estado):
         return None
@@ -239,7 +247,7 @@ def test_fila_global_redireciona_perfil_fora_do_escopo(monkeypatch):
     monkeypatch.setattr(ChamadosTecnicoState, "_revalidar", revalidar)
     estado = novo_estado_tecnico("gerente")
 
-    assert asyncio.run(estado._validar_acesso_fila()) == "/gerente"
+    assert asyncio.run(estado._validar_acesso_fila()) == "/inicio"
 
 
 def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
@@ -423,11 +431,125 @@ def test_limpar_filtros_preserva_escopo_atribuidos_a_mim(monkeypatch):
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado_tecnico()
     estado.escopo_rapido = "atribuidos_a_mim"
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-de-teste"
+    estado.versao_sessao_contexto_fila = 0
 
     executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
 
     assert estado.escopo_rapido == "atribuidos_a_mim"
     assert cliente.consultas[-1][1]["somente_atribuidos_a_mim"] is True
+
+
+def test_troca_de_identidade_limpa_dados_e_filtros_antes_da_fila_global(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    antigo = _tecnico_para_dict(resumo_tecnico())
+    novo = resumo_tecnico(tecnico=ReferenciaUsuario(id=18, nome="Diretoria"))
+    cliente = ClienteTecnicoFalso(listas={"resultado": [novo]})
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-tecnico"
+    estado.escopo_rapido = "atribuidos_a_mim"
+    estado.numero_aplicado = 38
+    estado.filtro_numero = "38"
+    estado.filtro_numero_confirmado = "38"
+    estado.filtros_aplicados = ["Número: 38"]
+    estado.ativos = ["1 — Totem protegido"]
+    estado.chamados = [antigo]
+    estado.total_chamados = 1
+    object.__setattr__(estado, "_auth_token", "token-diretoria")
+    object.__setattr__(estado, "role", "diretoria")
+    object.__setattr__(estado, "usuario_id", 18)
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert cliente.consultas == [
+        (
+            "token-diretoria",
+            {
+                "numero": None,
+                "status": None,
+                "ativo_id": None,
+                "data_inicio": None,
+                "data_fim": None,
+                "somente_atribuidos_a_mim": False,
+            },
+        )
+    ]
+    assert estado.escopo_rapido == "todos"
+    assert estado.numero_aplicado is None
+    assert estado.filtro_numero == ""
+    assert estado.filtros_aplicados == []
+    assert estado.chamados == [_tecnico_para_dict(novo)]
+    assert antigo not in estado.chamados
+
+
+def test_reentrada_do_mesmo_tecnico_preserva_filtros_mas_reinicia_escopo(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-de-teste"
+    estado.versao_sessao_contexto_fila = 0
+    estado.escopo_rapido = "atribuidos_a_mim"
+    estado.numero_aplicado = 38
+    estado.status_aplicado = "Novo"
+    estado.filtros_aplicados = ["Número: 38", "Status: Novo"]
+    object.__setattr__(estado, "_versao_sessao", 1)
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert estado.escopo_rapido == "todos"
+    assert cliente.consultas[-1] == (
+        "token-de-teste",
+        {
+            "numero": 38,
+            "status": "Novo",
+            "ativo_id": None,
+            "data_inicio": None,
+            "data_fim": None,
+            "somente_atribuidos_a_mim": False,
+        },
+    )
+    assert estado.filtros_aplicados == ["Número: 38", "Status: Novo"]
+
+
+@pytest.mark.parametrize(
+    ("erro", "sessao_confirmada", "mensagem"),
+    [
+        (XanoNaoAutenticado("expirado"), False, MENSAGEM_INDISPONIVEL),
+        (XanoNaoAutorizado("negado"), True, MENSAGEM_NAO_AUTORIZADO),
+    ],
+)
+def test_troca_de_identidade_distingue_401_e_403_sem_reusar_dados_protegidos(
+    monkeypatch, erro, sessao_confirmada, mensagem
+):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(listas={"resultado": erro})
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    raiz = AuthState(_reflex_internal_init=True)
+    estado = ChamadosTecnicoState(parent_state=raiz, _reflex_internal_init=True)
+    object.__setattr__(raiz, "_auth_token", "token-diretoria")
+    object.__setattr__(raiz, "sessao_confirmada", True)
+    object.__setattr__(raiz, "role", "diretoria")
+    object.__setattr__(raiz, "usuario_id", 18)
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-tecnico"
+    estado.escopo_rapido = "atribuidos_a_mim"
+    estado.chamados = [_tecnico_para_dict(resumo_tecnico())]
+
+    eventos = executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert cliente.consultas[-1][1]["somente_atribuidos_a_mim"] is False
+    assert estado.chamados == []
+    assert estado.escopo_rapido == "todos"
+    assert raiz.sessao_confirmada is sessao_confirmada
+    if isinstance(erro, XanoNaoAutenticado):
+        assert eventos[-1].args[0][1]._var_value == "/login"
+    else:
+        assert estado.mensagem_fila == mensagem
 
 
 @pytest.mark.parametrize("role", ["diretoria", "administrador"])

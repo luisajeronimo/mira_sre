@@ -1,19 +1,35 @@
-"""Regressões de ligação entre rotas e eventos funcionais."""
+"""Regressões do registro de rotas funcionais do Reflex."""
 
 from app.app import app
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
+from app.pages.administracao import AdministracaoState
+from app.states.auth import AuthState
 
 
-def test_rota_gerente_carrega_a_listagem_de_chamados():
-    pagina = app._unevaluated_pages["gerente"]
+def test_rotas_canonicas_usam_dispatcher_apos_revalidacao():
+    inicio = app._unevaluated_pages["inicio"]
+    chamados = app._unevaluated_pages["chamados"]
+    detalhe = app._unevaluated_pages["chamados/[chamado_id]"]
 
-    assert pagina.on_load.fn is ChamadosGerenteState.carregar_lista.fn
+    assert inicio.on_load.fn is AuthState.carregar_inicio.fn
+    assert chamados.on_load.fn is AuthState.carregar_chamados.fn
+    assert detalhe.on_load.fn is AuthState.carregar_detalhe_chamado.fn
 
 
-def test_rotas_tecnicas_carregam_fila_e_detalhe():
-    fila = app._unevaluated_pages["tecnico"]
-    detalhe = app._unevaluated_pages["tecnico/chamados/[chamado_id]"]
+def test_aliases_sao_redirecionadores_protegidos():
+    gerente = app._unevaluated_pages["gerente"]
+    gerente_novo = app._unevaluated_pages["gerente/chamados/novo"]
+    tecnico = app._unevaluated_pages["tecnico"]
+    admin = app._unevaluated_pages["administracao"]
 
-    assert fila.on_load.fn is ChamadosTecnicoState.carregar_fila.fn
-    assert detalhe.on_load.fn is ChamadosTecnicoState.carregar_detalhe_tecnico.fn
+    assert gerente.on_load.fn is ChamadosGerenteState.redirecionar_alias_lista.fn
+    assert gerente_novo.on_load.fn is ChamadosGerenteState.redirecionar_alias_novo.fn
+    assert tecnico.on_load.fn is ChamadosTecnicoState.redirecionar_alias_fila.fn
+    assert admin.on_load.fn is AdministracaoState.redirecionar_alias_administracao.fn
+
+
+def test_rota_estatica_de_novo_e_registrada_antes_do_detalhe_dinamico():
+    rotas = list(app._unevaluated_pages)
+
+    assert rotas.index("chamados/novo") < rotas.index("chamados/[chamado_id]")

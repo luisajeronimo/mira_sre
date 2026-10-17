@@ -135,7 +135,7 @@ def _fila_tecnico() -> rx.Component:
                                     rx.table.cell(
                                         rx.link(
                                             "#" + item["id"].to_string(),
-                                            href="/tecnico/chamados/" + item["id"].to_string(),
+                                            href="/chamados/" + item["id"].to_string(),
                                         )
                                     ),
                                     rx.table.cell(item["titulo"]),
@@ -149,7 +149,7 @@ def _fila_tecnico() -> rx.Component:
                                         rx.hstack(
                                             rx.link(
                                                 "Ver detalhe",
-                                                href="/tecnico/chamados/" + item["id"].to_string(),
+                                                href="/chamados/" + item["id"].to_string(),
                                             ),
                                             spacing="3",
                                         )
@@ -468,7 +468,7 @@ def _detalhe_tecnico() -> rx.Component:
             ),
             rx.fragment(),
         ),
-        rx.link("Voltar à fila", href="/tecnico"),
+        rx.link("Voltar à fila", href="/chamados"),
         spacing="5",
         width="100%",
     )
@@ -485,7 +485,7 @@ def _protegida_fila_global(conteudo: rx.Component, evento) -> rx.Component:
                 | (AuthState.role == "diretoria")
                 | (AuthState.role == "administrador")
             ),
-            casca_conteudo(conteudo, "/tecnico"),
+            casca_conteudo(conteudo, "/inicio"),
             estado_revalidacao(evento),
         ),
     )

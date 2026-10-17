@@ -34,7 +34,7 @@ def _lista() -> rx.Component:
         rx.hstack(
             rx.link(
                 rx.button("Criar chamado", color_scheme="pink"),
-                href="/gerente/chamados/novo",
+                href="/chamados/novo",
             ),
             justify="end",
             width="100%",
@@ -139,7 +139,7 @@ def _lista() -> rx.Component:
                                     rx.table.cell(
                                         rx.link(
                                             "#" + item["id"].to_string(),
-                                            href="/gerente/chamados/"
+                                            href="/chamados/"
                                             + item["id"].to_string(),
                                         )
                                     ),
@@ -378,7 +378,7 @@ def _detalhe() -> rx.Component:
                 spacing="3",
             ),
         ),
-        rx.link("Voltar aos chamados", href="/gerente"),
+        rx.link("Voltar aos chamados", href="/chamados"),
         spacing="5",
         width="100%",
     )
@@ -390,7 +390,7 @@ def _protegida(conteudo: rx.Component, evento) -> rx.Component:
         estado_carregamento(),
         rx.cond(
             AuthState.sessao_confirmada & (AuthState.role == "gerente"),
-            casca_conteudo(conteudo, "/gerente"),
+            casca_conteudo(conteudo, "/inicio"),
             estado_revalidacao(evento),
         ),
     )

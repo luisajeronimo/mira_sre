@@ -2,170 +2,85 @@
 
 ## Purpose
 
-Definir a fila técnica mínima do MIRA, permitindo que Técnicos consultem chamados elegíveis, vejam os chamados não atribuídos ou atribuídos a si e assumam um chamado com a proteção de concorrência best-effort disponível no plano Free, sem iniciar ainda a tratativa completa.
+Definir a fila técnica de consulta global do MIRA, com filtros explícitos,
+escopos aprovados, detalhe canônico e histórico compatível para Técnico,
+Diretoria e Administrador, sem definir a tratativa operacional.
 
 ## Requirements
 
 ### Requirement: Fila técnica oferece somente as visões aprovadas
-O sistema DEVE (MUST) fornecer no grupo `MIRA Service Desk` uma consulta autenticada exclusiva do perfil `tecnico`, usando `GET /tecnico/chamados?visao=nao_atribuidos` e `GET /tecnico/chamados?visao=atribuidos_a_mim`. O filtro DEVE (MUST) ser aplicado no Xano e a visão DEVE (MUST) aceitar somente esses dois valores.
+O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnico, Diretoria e Administrador, aplicando no Xano os mesmos filtros explícitos da listagem do Gerente: número, status, Totem e período de abertura. Sem filtros aplicados, `Todos` DEVE significar todos os chamados dentro do escopo global. O Técnico possui `Atribuídos a mim` como escopo rápido, não como preferência persistente; Diretoria e Administrador não o recebem. O Gerente NÃO DEVE acessar esta fila.
 
 #### Scenario: Visão de chamados não atribuídos
-- **WHEN** um Técnico autenticado consulta `visao=nao_atribuidos`
-- **THEN** o Xano retorna somente chamados com `status = "Novo"` e Técnico ausente (`tecnico_id = null` ou `tecnico_id = 0` na representação legada), ordenados por `id` decrescente
+- **WHEN** um Técnico consulta a fila global
+- **THEN** a interface não apresenta uma visão rápida de chamados não atribuídos
 
 #### Scenario: Visão de chamados atribuídos a mim
-- **WHEN** um Técnico autenticado consulta `visao=atribuidos_a_mim`
-- **THEN** o Xano retorna somente chamados com `status = "Novo"` e `tecnico_id` igual ao identificador do Técnico autenticado, ordenados por `id` decrescente
+- **WHEN** um Técnico seleciona `Atribuídos a mim`
+- **THEN** o Xano retorna somente chamados cujo responsável atual é o próprio Técnico autenticado
 
 #### Scenario: Chamado atribuído a outro Técnico
-- **WHEN** um chamado tem `status = "Novo"` e `tecnico_id` preenchido com outro Técnico
-- **THEN** ele não aparece em nenhuma das duas visões principais desta capacidade
+- **WHEN** um chamado possui responsável diferente do usuário autenticado
+- **THEN** ele continua consultável em `Todos`, sem criar uma visão ou filtro específico
 
 #### Scenario: Status nulo ou inelegível
-- **WHEN** um chamado possui `status = null` ou status diferente de `Novo`
-- **THEN** ele não aparece na fila e não é tornado elegível por inferência
+- **WHEN** um chamado possui status nulo ou qualquer status persistido
+- **THEN** o Xano não infere nem altera o status e a fila não o exclui apenas por ser diferente de `Novo`
 
 #### Scenario: Visão inválida
-- **WHEN** uma requisição informa `visao` diferente de `nao_atribuidos` ou `atribuidos_a_mim`
-- **THEN** o Xano responde HTTP 422 sem consultar uma visão implícita ou retornar dados
+- **WHEN** uma requisição informa visão diferente de `Todos` ou `Atribuídos a mim` autorizados ao perfil
+- **THEN** o Xano responde HTTP 422 sem retornar dados de uma visão implícita
 
 #### Scenario: Ordenação e ausência de paginação
-- **WHEN** qualquer uma das visões retorna chamados
-- **THEN** os itens são ordenados somente por `id desc` e a resposta não introduz ordenação por prioridade, SLA ou paginação nesta capacidade
+- **WHEN** a consulta válida retorna chamados
+- **THEN** os itens são ordenados por `id` decrescente e a resposta não introduz paginação ou busca avançada nesta capacidade
+
+#### Scenario: Escopo rápido combina com filtros operacionais
+- **WHEN** um Técnico seleciona `Atribuídos a mim` e informa número, status, Totem ou período
+- **THEN** o Xano retorna a interseção entre o responsável atual e os filtros explícitos
+
+#### Scenario: Limpeza preserva escopo rápido atual
+- **WHEN** um Técnico limpa os filtros operacionais dentro de `Atribuídos a mim`
+- **THEN** a consulta remove número, status, Totem e período, mas mantém o escopo atual até o usuário selecionar outra visão
+
+#### Scenario: Todos sem filtro
+- **WHEN** um perfil autorizado consulta a fila sem filtros
+- **THEN** o Xano retorna todos os chamados globais permitidos, inclusive atribuídos, não atribuídos, terminais e não terminais
+
+#### Scenario: Consulta global por Diretoria ou Administrador
+- **WHEN** um usuário autenticado de Diretoria ou Administrador consulta a fila
+- **THEN** o Xano retorna a mesma visão global de chamados permitida ao Técnico
+
+#### Scenario: Interseção de filtros explícitos
+- **WHEN** um perfil autorizado pesquisa por número ou combina status, Totem e período de abertura
+- **THEN** o Xano retorna somente os chamados que correspondem à interseção dos filtros enviados
+
+#### Scenario: Responsável não cria visão de navegação
+- **WHEN** um chamado possui ou não possui Técnico responsável
+- **THEN** ele permanece na tabela global e a interface não apresenta `Atribuídos a outros Técnicos` ou `Não atribuídos` como visão de atribuição
+
+#### Scenario: Falha de consulta não confirma filtro no Reflex
+- **WHEN** uma pesquisa ou filtro solicitado falha antes de o Xano retornar a lista
+- **THEN** o Reflex mantém o último filtro aplicado e seu resultado coerentes e informa a falha sem indicar o novo filtro como aplicado
+
+#### Scenario: Gerente tenta consultar a fila global
+- **WHEN** um Gerente tenta consultar a fila global
+- **THEN** o Xano responde HTTP 403 sem expor chamados fora dos contratos próprios do Gerente
 
 ### Requirement: Listagem técnica retorna DTO funcional estável
-
-O sistema DEVE (MUST) retornar em cada item da fila `id`, `titulo`, `status`, `prioridade`, `origem`, `criado_em`, `ultima_atualizacao_em`, `sla_horas_aplicado`, `atribuido_em`, ativo, categoria, solicitante e técnico atual quando existir. Todo chamado válido possui ambos os timestamps funcionais; o contrato NÃO DEVE (MUST NOT) inferi-los de `created_at` nem apresentar fallback temporal para registros históricos que os tenham ausentes.
+O sistema DEVE (MUST) retornar em cada item da fila o DTO canônico de consulta, incluindo `id`, `titulo`, `status`, `prioridade`, `origem`, `criado_em`, `ultima_atualizacao_em`, `sla_horas_aplicado`, `atribuido_em`, ativo, categoria, solicitante e Técnico atual quando existir. Valores históricos ausentes DEVEM (MUST) permanecer nulos, sem inferência.
 
 #### Scenario: Chamado manual na fila
-
-- **WHEN** um chamado manual elegível e válido é retornado
-- **THEN** a resposta preserva origem manual, prioridade, os dois timestamps funcionais, snapshot de SLA, ativo, categoria e Técnico atual
+- **WHEN** um chamado manual válido é retornado
+- **THEN** a resposta preserva origem manual, prioridade, timestamps funcionais, snapshot de SLA, ativo, categoria e Técnico atual
 
 #### Scenario: Chamado automático na fila
-
-- **WHEN** um chamado automático elegível e válido é retornado
-- **THEN** a resposta preserva origem automática, os dois timestamps funcionais e os demais dados já persistidos, sem alterar a regra do heartbeat
+- **WHEN** um chamado automático válido é retornado
+- **THEN** a resposta preserva origem automática, timestamps funcionais e os demais dados já persistidos, sem alterar a regra do heartbeat
 
 #### Scenario: Chamado legado na consulta
-
-- **WHEN** um registro histórico elegível possui origem, SLA ou atribuição ausentes
-- **THEN** a resposta preserva esses campos como nulos sem inferência; timestamps funcionais ausentes não recebem fallback nem tornam o registro compatível com a jornada operacional
-
-### Requirement: Técnico pode consultar detalhe global somente leitura
-O sistema DEVE (MUST) fornecer `GET /tecnico/chamados/{chamados_id}` para o perfil `tecnico`, com escopo global de consulta já consolidado. O detalhe DEVE (MUST) reutilizar o formato funcional consolidado quando possível, incluir `atribuido_em` e NÃO DEVE (MUST NOT) oferecer mutação de status, edição, reatribuição, liberação ou tratativa.
-
-#### Scenario: Detalhe antes da assunção
-- **WHEN** um Técnico consulta um chamado elegível ainda não atribuído
-- **THEN** o Xano retorna o detalhe funcional com técnico e `atribuido_em` nulos, quando aplicável
-
-#### Scenario: Detalhe depois da assunção
-- **WHEN** um Técnico consulta um chamado atribuído
-- **THEN** o Xano retorna o técnico responsável e o `atribuido_em` persistido sem permitir alteração pelo contrato de consulta
-
-#### Scenario: Chamado inexistente
-- **WHEN** o Técnico consulta identificador inexistente
-- **THEN** o Xano responde HTTP 404
-
-#### Scenario: Dados protegidos por rota indevida
-- **WHEN** um consumidor tenta usar a jornada técnica sem ser Técnico
-- **THEN** o Xano não retorna o detalhe e responde HTTP 403
-
-### Requirement: Schema registra a atribuição sem backfill
-O sistema DEVE (MUST) adicionar `atribuido_em` como timestamp opcional em `chamados`. O valor DEVE (MUST) ser definido somente pelo Xano quando uma assunção for efetivada, e registros existentes DEVEM (MUST) permanecer com `atribuido_em = null` sem limpeza ou preenchimento retroativo.
-
-#### Scenario: Assunção grava timestamp do backend
-- **WHEN** uma assunção válida efetiva a atribuição
-- **THEN** o Xano grava `atribuido_em` usando o timestamp do backend
-
-#### Scenario: Cliente tenta informar timestamp
-- **WHEN** o cliente envia `atribuido_em` na requisição de assunção ou em campos adicionais
-- **THEN** o valor do cliente não possui autoridade e não substitui o timestamp definido pelo Xano
-
-#### Scenario: Registro legado
-- **WHEN** a evolução do schema encontra um chamado existente
-- **THEN** o registro é preservado e `atribuido_em` permanece nulo
-
-### Requirement: Assunção é autoatribuição idempotente com consistência best-effort no plano Free
-O sistema DEVE (MUST) fornecer `POST /tecnico/chamados/{chamados_id}/assumir` sem aceitar `tecnico_id`, `status` ou `atribuido_em` no payload. O Xano DEVE (MUST) derivar o Técnico por `$auth.id`, manter `status = "Novo"`, validar a ausência de Técnico antes da edição, reler o registro após a edição e responder HTTP 409 quando observar atribuição por outro Técnico. O contrato NÃO DEVE (MUST NOT) afirmar compare-and-set, isolamento forte ou garantia matemática de um único vencedor em duas escritas exatamente simultâneas no plano Free.
-
-#### Scenario: Assunção válida
-- **WHEN** um Técnico autenticado assume chamado com `status = "Novo"` e Técnico ausente (`tecnico_id = null` ou `tecnico_id = 0` na representação legada)
-- **THEN** o Xano define `tecnico_id` como o usuário autenticado, define `atribuido_em` pelo backend, mantém `status = "Novo"` e retorna o DTO atualizado com sucesso
-
-#### Scenario: Repetição pelo mesmo Técnico
-- **WHEN** o mesmo Técnico repete a assunção de chamado já atribuído a ele
-- **THEN** a operação é idempotente, retorna o estado atual com sucesso e não altera novamente `tecnico_id` ou `atribuido_em`
-
-#### Scenario: Outro Técnico já assumiu
-- **WHEN** outro Técnico efetiva a assunção antes da requisição atual
-- **THEN** o Xano não sobrescreve `tecnico_id` nem `atribuido_em` e responde HTTP 409
-
-#### Scenario: Dois Técnicos concorrem
-- **WHEN** dois Técnicos tentam assumir simultaneamente o mesmo chamado não atribuído
-- **THEN** o sistema tenta validar a ausência antes da edição, executa as operações gratuitas em transação e relê o chamado após a edição; quando uma atribuição já estiver observável, a outra requisição recebe HTTP 409 sem sobrescrever o estado observado
-- **AND** a documentação da capacidade registra que o plano Free não fornece evidência de compare-and-set ou isolamento forte suficiente para garantir matematicamente um único vencedor em uma simultaneidade exata
-
-#### Scenario: Chamado inelegível para assunção
-- **WHEN** o chamado possui status diferente de `Novo` ou status nulo
-- **THEN** o Xano responde HTTP 422, sem inventar transição ou criar efeito parcial
-
-#### Scenario: Chamado atribuído a outro Técnico
-- **WHEN** o chamado possui `status = "Novo"` e `tecnico_id` pertence a outro Técnico
-- **THEN** o Xano responde HTTP 409, sem sobrescrever `tecnico_id` ou `atribuido_em`
-
-#### Scenario: Campos sob autoridade do Xano
-- **WHEN** o cliente envia `tecnico_id`, `status` ou `atribuido_em` com valores próprios
-- **THEN** esses valores são ignorados ou rejeitados pelo contrato e não substituem os valores derivados pelo Xano
-
-### Requirement: Autorização e erros da jornada técnica são estáveis
-Todos os contratos técnicos DEVEM (MUST) exigir autenticação de `usuarios`, autorizar exclusivamente `tecnico` e preservar a negação dos CRUDs genéricos. As falhas DEVEM (MUST) ser classificadas como 401 para sessão ausente ou inválida, 403 para perfil sem permissão, 404 para chamado inexistente, 409 para conflito de assunção, 422 para visão ou operação incompatível e 5xx para falha interna ou indisponibilidade.
-
-#### Scenario: Sessão ausente
-- **WHEN** uma rota técnica recebe requisição sem token válido
-- **THEN** o Xano responde HTTP 401 sem consultar ou alterar chamados
-
-#### Scenario: Gerente ou Diretoria tenta usar rota técnica
-- **WHEN** um Gerente ou usuário da Diretoria chama qualquer contrato técnico
-- **THEN** o Xano responde HTTP 403 sem expor dados ou executar assunção
-
-#### Scenario: CRUD genérico continua negado
-- **WHEN** um usuário tenta alterar `chamados` pelo CRUD genérico
-- **THEN** a negação por padrão permanece aplicada e nenhum chamado é modificado
-
-### Requirement: Assunção efetiva atualiza a última atualização observável
-Uma assunção que efetivamente altera o Técnico responsável DEVE (MUST) atualizar `ultima_atualizacao_em` pelo Xano junto com `tecnico_id` e `atribuido_em`. A repetição idempotente pelo mesmo Técnico NÃO DEVE (MUST NOT) alterar novamente esse timestamp.
-
-#### Scenario: Assunção válida atualiza a data
-- **WHEN** um Técnico efetiva assunção válida de chamado sem responsável
-- **THEN** o Xano persiste `tecnico_id`, `atribuido_em` e `ultima_atualizacao_em` definidos pelo backend
-
-#### Scenario: Repetição idempotente não atualiza a data
-- **WHEN** o mesmo Técnico repete a assunção de chamado já atribuído a ele
-- **THEN** `ultima_atualizacao_em` permanece inalterada
-
-### Requirement: Reflex oferece a jornada técnica mínima
-O Reflex DEVE (MUST) transformar `/tecnico` em fila técnica, criar `/tecnico/chamados/{chamado_id}` e reutilizar a sessão backend-only e `XANO_SERVICE_DESK_BASE_URL`. A interface DEVE (MUST) exibir as duas visões aprovadas, permitir abrir o detalhe e mostrar a ação `Assumir` somente quando o chamado estiver elegível e não atribuído.
-
-#### Scenario: Técnico carrega a fila
-- **WHEN** um Técnico autenticado acessa `/tecnico`
-- **THEN** o Reflex consulta a visão selecionada no Xano e apresenta estados de carregamento, vazio, sucesso e erro sem filtrar somente no cliente
-
-#### Scenario: Assunção bem-sucedida
-- **WHEN** o Técnico confirma `Assumir` em chamado com `status = "Novo"` e Técnico atual ausente, independentemente de `atribuido_em`, e o Xano responde sucesso
-- **THEN** o Reflex atualiza o State e o chamado passa a aparecer em `Atribuídos a mim`, mantendo status `Novo`
-
-#### Scenario: Conflito de assunção
-- **WHEN** o Xano responde HTTP 409 porque outro Técnico assumiu
-- **THEN** o Reflex informa o conflito sem substituir dados e recarrega lista ou detalhe
-
-#### Scenario: Sessão ou autorização rejeitada
-- **WHEN** uma rota técnica responde 401 ou 403
-- **THEN** o Reflex encerra a sessão em 401, preserva a sessão em 403 e não trata proteção visual como autorização
-
-#### Scenario: Jornada permanece somente leitura além da assunção
-- **WHEN** o Técnico consulta fila ou detalhe
-- **THEN** a interface não oferece mudança de status, work log, diagnóstico, solução, resolução, reatribuição, liberação ou cancelamento
+- **WHEN** um registro histórico possui origem, SLA ou atribuição ausentes
+- **THEN** a resposta preserva esses campos como nulos sem inferência
 
 ### Requirement: Detalhe técnico distingue o criador de sistema
 O detalhe global somente leitura de um chamado para Técnico DEVE (MUST) expor
@@ -195,17 +110,11 @@ tratativa.
   histórica
 
 ### Requirement: Detalhe técnico preserva segurança e credenciais apartadas
-A autoria exposta no detalhe técnico DEVE (MUST) representar apenas o ator
-lógico canônico do domínio e NÃO DEVE (MUST NOT) revelar, aceitar ou depender
-de cabeçalho, segredo, chave de automação, token de usuário ou Environment
-Variable. Autenticação humana, autorização exclusiva de Técnico e classificação
-de erros do contrato permanecem as já consolidadas.
+A autoria exposta no detalhe global DEVE (MUST) representar apenas o ator lógico canônico do domínio e NÃO DEVE (MUST NOT) revelar, aceitar ou depender de cabeçalho, segredo, chave de automação, token de usuário ou variável de ambiente. Autenticação humana e autorização dos perfis globais permanecem aplicadas no Xano.
 
 #### Scenario: Consumidor tenta informar autoria
-- **WHEN** um consumidor tenta informar ou substituir autoria de sistema por
-  payload, parâmetro ou credencial técnica em uma rota técnica de leitura
-- **THEN** o contrato não usa esse valor como autoridade e não modifica o
-  chamado
+- **WHEN** um consumidor tenta informar ou substituir autoria de sistema por payload, parâmetro ou credencial técnica em uma rota de leitura
+- **THEN** o contrato não usa esse valor como autoridade e não modifica o chamado
 
 ### Requirement: Detalhe técnico apresenta o Bot sem ampliar a fila
 O Reflex DEVE (MUST) mostrar no detalhe técnico existente `Criado por: Bot de
@@ -224,3 +133,86 @@ colunas permanecem inalteradas.
 - **WHEN** o detalhe técnico recebe `criador_sistema = null`
 - **THEN** a interface não mostra o Bot como criador e continua apresentando os
   demais dados disponíveis sem inferência
+
+### Requirement: Perfis globais consultam detalhe técnico canônico
+O sistema DEVE (MUST) fornecer detalhe global de chamado para Técnico, Diretoria e Administrador em DTO canônico, incluindo número, título, descrição, status, prioridade, origem, solicitante, Loja, Totem, categoria, SLA, responsável atual, `atribuido_em` e timeline. A leitura NÃO DEVE (MUST NOT) alterar o chamado; estados terminais continuam consultáveis.
+
+#### Scenario: Detalhe sem responsável
+- **WHEN** um perfil autorizado consulta chamado ainda sem responsável
+- **THEN** o Xano retorna responsável e `atribuido_em` nulos, quando aplicável
+
+#### Scenario: Detalhe com responsável
+- **WHEN** um perfil autorizado consulta chamado atribuído
+- **THEN** o Xano retorna o Técnico responsável e o `atribuido_em` persistido
+
+#### Scenario: Chamado inexistente
+- **WHEN** um perfil autorizado consulta identificador inexistente
+- **THEN** o Xano responde HTTP 404
+
+#### Scenario: Dados protegidos por rota indevida
+- **WHEN** um Gerente tenta usar o detalhe da fila global
+- **THEN** o Xano responde HTTP 403 sem expor o chamado
+
+#### Scenario: Contrato de detalhe incompatível
+- **WHEN** o backend omite campo obrigatório do DTO canônico
+- **THEN** o service recusa a resposta e a interface informa erro de carregamento sem renderizar valores `undefined`
+
+### Requirement: Dados de responsável e atribuição permanecem compatíveis
+O sistema DEVE (MUST) manter `tecnico_id` e `atribuido_em` como dados de leitura do responsável atual e do início da atribuição atual, preservando registros históricos sem preenchimento retroativo. Esta capacidade não define a mutação desses campos.
+
+#### Scenario: Registro legado
+- **WHEN** a consulta encontra chamado existente sem data de atribuição persistida
+- **THEN** o registro é preservado e `atribuido_em` permanece nulo quando não houver valor persistido
+
+#### Scenario: Dados retornados pelo detalhe
+- **WHEN** o chamado possui responsável e data de atribuição persistidos
+- **THEN** o detalhe canônico os retorna sem inferir ou alterar valores
+
+### Requirement: Autorização e erros da consulta técnica são estáveis
+Os contratos da fila global DEVEM (MUST) exigir autenticação e aplicar no Xano os perfis autorizados, independentemente da interface Reflex.
+
+#### Scenario: Sessão ausente
+- **WHEN** uma rota da fila global recebe requisição sem sessão válida
+- **THEN** o Xano responde HTTP 401 sem consultar ou alterar chamados
+
+#### Scenario: Perfil sem acesso global
+- **WHEN** um Gerente solicita a fila ou detalhe técnico global
+- **THEN** o Xano responde HTTP 403 sem expor dados
+
+### Requirement: Reflex oferece jornada técnica de consulta global
+O Reflex DEVE (MUST) reutilizar a fila e o detalhe existentes para Técnico, Diretoria e Administrador, exibindo pesquisa por número, filtros explícitos, responsável atual e timeline. A interface NÃO substitui a autorização do Xano.
+
+#### Scenario: Técnico carrega a fila
+- **WHEN** um Técnico autenticado acessa a fila
+- **THEN** o Reflex consulta o Xano e apresenta a tabela global com estados de carregamento, vazio, sucesso e erro
+
+#### Scenario: Escopo rápido exclusivo do Técnico
+- **WHEN** Diretoria ou Administrador acessa a fila
+- **THEN** a interface apresenta `Todos`, sem oferecer `Atribuídos a mim`
+
+#### Scenario: Chamado terminal
+- **WHEN** a interface apresenta chamado `Encerrado` ou `Cancelado`
+- **THEN** ela mantém o detalhe disponível para consulta
+
+#### Scenario: Sessão ou autorização rejeitada
+- **WHEN** uma rota da fila responde HTTP 401 ou 403
+- **THEN** o Reflex encerra a sessão em 401, preserva a sessão em 403 e não trata proteção visual como autorização
+
+#### Scenario: Erro de contrato ou carregamento da fila
+- **WHEN** a consulta da fila recebe resposta incompatível, falha de rede ou filtro inválido
+- **THEN** o Reflex informa o erro correspondente sem encerrar a sessão nem apresentar a falha como problema de identidade
+
+### Requirement: Timeline global preserva comentários e eventos legados
+A timeline do chamado DEVE (MUST) apresentar comentários existentes e eventos legados de atribuição, reatribuição e liberação em uma única timeline cronológica, do mais recente para o mais antigo, pelo instante efetivo e por `id` decrescente no empate. A capacidade preserva os dados estruturados existentes sem backfill ou conversão do histórico.
+
+#### Scenario: Comentários e eventos legados intercalados
+- **WHEN** um chamado possui comentários e eventos históricos de responsável com instantes distintos
+- **THEN** Técnico, Diretoria e Administrador veem todos na mesma timeline do evento mais recente para o mais antigo
+
+#### Scenario: Evento legado de responsável
+- **WHEN** a timeline contém evento histórico de atribuição, reatribuição ou liberação
+- **THEN** a interface mostra seu tipo, autor, instante e responsáveis anterior e resultante quando aplicáveis
+
+#### Scenario: Interações históricas
+- **WHEN** uma interação existente não possui tipo de evento estruturado
+- **THEN** ela continua apresentada como comentário sem backfill ou autoria inventada

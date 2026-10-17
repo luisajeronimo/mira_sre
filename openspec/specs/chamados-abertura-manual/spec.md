@@ -74,7 +74,7 @@ O sistema DEVE (MUST) persistir em cada categoria a propriedade booleana `permit
 - **THEN** ela recebe explicitamente `permite_abertura_manual = false` sem alterar a forma como o heartbeat a localiza
 
 ### Requirement: SLA da categoria possui representação numérica segura
-O sistema DEVE (MUST) representar `categorias_servico.sla_horas` e `chamados.sla_horas_aplicado` em formato numérico compatível entre si. Antes da mudança de tipo, a implementação DEVE (MUST) identificar e verificar todos os consumidores existentes de `categorias_servico.sla_horas`, incluindo XanoScript, Python e demais contratos locais relevantes, e definir a adaptação ou a evidência de compatibilidade de cada consumidor. A migração somente DEVE (MUST) converter valores textuais existentes cuja equivalência numérica seja inequívoca e DEVE (MUST) interromper a ativação dos novos contratos diante de consumidor incompatível ou de valor vazio, não numérico ou ambíguo em categoria que precise participar de um novo fluxo.
+Durante a tratativa operacional, troca efetiva de Categoria DEVE (MUST) atualizar `sla_horas_aplicado` para o SLA da Categoria resultante sem reiniciar a referência temporal original. A alteração do SLA cadastral sem troca de Categoria no chamado não o modifica. Esta change preserva a representação de SLA já consolidada e não introduz migração de tipo, conversão textual ou auditoria global de consumidores.
 
 #### Scenario: Consumidores do SLA auditados antes da mudança de tipo
 - **WHEN** a implementação prepara a alteração de `categorias_servico.sla_horas` de texto para decimal
@@ -93,8 +93,8 @@ O sistema DEVE (MUST) representar `categorias_servico.sla_horas` e `chamados.sla
 - **THEN** a migração ou ativação é interrompida para correção explícita, sem escolher um SLA padrão
 
 #### Scenario: Alteração posterior da categoria
-- **WHEN** o `sla_horas` de uma categoria é alterado depois da criação de um chamado
-- **THEN** o `sla_horas_aplicado` já persistido no chamado permanece inalterado
+- **WHEN** a Categoria é efetivamente alterada durante Save operacional válido
+- **THEN** o `sla_horas_aplicado` passa a ser o SLA da Categoria resultante sem reiniciar a referência temporal do chamado
 
 ### Requirement: Grupo funcional fornece catálogo de ativos da Loja
 O sistema DEVE (MUST) fornecer no grupo `mira-service-desk` uma consulta autenticada de ativos para o Gerente que retorne somente os ativos cuja `lojas_id` corresponda à Loja derivada da identidade autenticada. A resposta DEVE (MUST) conter uma coleção de itens com `id`, `nome_ativo`, `tipo` e `status_atual`.

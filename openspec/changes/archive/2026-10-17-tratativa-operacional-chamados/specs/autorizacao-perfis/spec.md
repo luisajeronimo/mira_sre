@@ -2,7 +2,7 @@
 
 ## MODIFIED Requirements
 
-### Requirement: Técnico recebe acesso operacional compatível com a tratativa
+### Requirement: Técnico consulta fila e detalhe globais
 O sistema DEVE (MUST) autorizar Técnico a consultar globalmente fila e detalhe e a executar a tratativa definida: editar Responsável, Status, Prioridade e Categoria em chamado não terminal e adicionar comentários Público ou Interno, inclusive em terminal. A autorização DEVE (MUST) ser aplicada no Xano.
 
 #### Scenario: Técnico salva tratativa global
@@ -13,7 +13,7 @@ O sistema DEVE (MUST) autorizar Técnico a consultar globalmente fila e detalhe 
 - **WHEN** um Técnico tenta editar campo funcional de chamado Encerrado ou Cancelado
 - **THEN** o Xano rejeita a alteração sem impedir comentário permitido
 
-#### Scenario: Técnico consulta dados necessários à tratativa
+#### Scenario: Técnico consulta dados da fila
 - **WHEN** um Técnico autenticado consulta fila, detalhe ou catálogo necessário à tratativa
 - **THEN** o Xano retorna somente os dados globais previstos pelos contratos funcionais
 
@@ -21,7 +21,7 @@ O sistema DEVE (MUST) autorizar Técnico a consultar globalmente fila e detalhe 
 - **WHEN** um Técnico autenticado solicita operação administrativa ou destrutiva fora da tratativa documentada
 - **THEN** o Xano rejeita a operação sem executá-la
 
-### Requirement: Diretoria possui acesso global de consulta
+### Requirement: Diretoria consulta fila e detalhe globais
 O sistema DEVE (MUST) autorizar Diretoria a consultar globalmente fila e detalhe e a executar a mesma tratativa operacional do Técnico em chamados não terminais, além de adicionar comentários Público ou Interno inclusive em terminal. Essa autorização NÃO DEVE (MUST NOT) conceder CRUD genérico.
 
 #### Scenario: Diretoria salva tratativa global

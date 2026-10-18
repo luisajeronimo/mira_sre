@@ -204,6 +204,9 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
         "prioridade": chamado.prioridade,
         "origem": chamado.origem or "Não informado",
         "criado_em_texto": _timestamp_funcional_para_texto(chamado.criado_em),
+        "ultima_atualizacao_em_texto": _timestamp_funcional_para_texto(
+            chamado.ultima_atualizacao_em
+        ),
         "sla_horas_texto": _numero_para_texto(chamado.sla_horas_aplicado),
         "atribuido_em_texto": _timestamp_para_texto(chamado.atribuido_em),
         "ativo_nome": chamado.ativo.nome_ativo,
@@ -289,6 +292,7 @@ class TecnicoView(TypedDict, total=False):
     prioridade: str
     origem: str
     criado_em_texto: str
+    ultima_atualizacao_em_texto: str
     sla_horas_texto: str
     atribuido_em_texto: str
     ativo_nome: str

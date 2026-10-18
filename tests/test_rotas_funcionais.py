@@ -64,6 +64,17 @@ class _ClienteFilaRastreado:
     async def listar_ativos_tecnico(self, _token):
         return []
 
+    async def obter_preferencia_fila_tecnica(self, _token, *, escopo):
+        return SimpleNamespace(
+            escopo=escopo, numero=None, status=None, ativo_id=None,
+            data_inicio=None, data_fim=None, prioridade=None,
+            responsavel_id=None, somente_nao_atribuido=False,
+            ordenar_por="numero", direcao="DESC",
+        )
+
+    async def salvar_preferencia_fila_tecnica(self, _token, **payload):
+        return SimpleNamespace(**payload)
+
 
 class _ClienteSessaoAlternada:
     def __init__(self, identidade):
@@ -254,7 +265,9 @@ def test_troca_real_de_sessao_nao_reutiliza_contexto_tecnico_nas_rotas_canonicas
         assert cliente.consultas == []
     else:
         eventos = _coletar(handler, sessao)
-        numero_esperado = 38 if perfil == "tecnico" else None
+        # O novo ciclo consulta a preferência durável do escopo Todos; o
+        # marcador rápido e filtros em memória do login anterior não vazam.
+        numero_esperado = None
         assert eventos[0] is None
         assert cliente.consultas == [
             (

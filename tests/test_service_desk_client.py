@@ -506,6 +506,69 @@ def test_timeline_rejeita_comentario_vazio_mas_aceita_evento_operacional_vazio()
         executar(cliente.obter_chamado_tecnico("token", 36))
 
 
+def test_preferencia_fila_tecnica_nao_envia_usuario_e_valida_retorno_canonico():
+    requisicoes = []
+    preferencia = {
+        "escopo": "todos", "numero": None, "status": "Novo", "ativo_id": None,
+        "data_inicio": None, "data_fim": None, "prioridade": "Alta",
+        "responsavel_id": None, "somente_nao_atribuido": False,
+        "ordenar_por": "ultima_atualizacao_em", "direcao": "ASC",
+    }
+
+    def responder(requisicao):
+        requisicoes.append(requisicao)
+        return httpx.Response(200, json={"preferencia": preferencia})
+
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(responder))
+    lida = executar(cliente.obter_preferencia_fila_tecnica("token", escopo="todos"))
+    salva = executar(cliente.salvar_preferencia_fila_tecnica(
+        "token", escopo="todos", numero=None, status="Novo", ativo_id=None,
+        data_inicio=None, data_fim=None, prioridade="Alta",
+        responsavel_id=None, somente_nao_atribuido=False,
+        ordenar_por="ultima_atualizacao_em", direcao="ASC",
+    ))
+
+    assert lida == salva
+    assert dict(requisicoes[0].url.params) == {"escopo": "todos"}
+    assert requisicoes[1].method == "PUT"
+    payload = json.loads(requisicoes[1].read())
+    assert "usuarios_id" not in payload
+    assert payload["ordenar_por"] == "ultima_atualizacao_em"
+
+
+@pytest.mark.parametrize(
+    ("status", "erro"),
+    [
+        (401, XanoNaoAutenticado),
+        (403, XanoNaoAutorizado),
+        (422, XanoEntradaInvalida),
+    ],
+)
+def test_save_preferencia_classifica_erros_de_sessao_escopo_e_entrada(status, erro):
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(lambda _: httpx.Response(status, json={})),
+    )
+
+    with pytest.raises(erro):
+        executar(
+            cliente.salvar_preferencia_fila_tecnica(
+                "token",
+                escopo="todos",
+                numero=None,
+                status=None,
+                ativo_id=None,
+                data_inicio=None,
+                data_fim=None,
+                prioridade=None,
+                responsavel_id=None,
+                somente_nao_atribuido=False,
+                ordenar_por="numero",
+                direcao="DESC",
+            )
+        )
+
+
 def test_detalhe_tecnico_aceita_evento_estruturado_de_alteracao_sem_afetar_legado():
     cliente = XanoServiceDeskCliente(
         BASE_URL,

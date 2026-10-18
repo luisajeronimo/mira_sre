@@ -5,6 +5,7 @@ comando que omitia valores nulos na liberação antes de chegar ao Xano.
 """
 
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).parents[1]
@@ -34,6 +35,21 @@ COMENTARIO_OPERACIONAL_API = (
     / "xano/api/mira_service_desk/tecnico/chamados/chamados_id_comentarios_POST.xs"
 ).read_text(encoding="utf-8")
 LISTAGEM = (ROOT / "xano/function/service_desk/listar_chamados_tecnico.xs").read_text(
+    encoding="utf-8"
+)
+PREFERENCIA_SALVAR = (
+    ROOT / "xano/function/service_desk/salvar_preferencia_fila_tecnica.xs"
+).read_text(encoding="utf-8")
+PREFERENCIA_OBTER = (
+    ROOT / "xano/function/service_desk/obter_preferencia_fila_tecnica.xs"
+).read_text(encoding="utf-8")
+PREFERENCIA_PUT = (
+    ROOT / "xano/api/mira_service_desk/tecnico/preferencias-fila_PUT.xs"
+).read_text(encoding="utf-8")
+PREFERENCIA_GET = (
+    ROOT / "xano/api/mira_service_desk/tecnico/preferencias-fila_GET.xs"
+).read_text(encoding="utf-8")
+PREFERENCIA_TABELA = (ROOT / "xano/table/preferencias_fila_chamados.xs").read_text(
     encoding="utf-8"
 )
 
@@ -72,6 +88,140 @@ def test_timeline_combina_interacoes_e_ordena_instante_e_id_descendentes():
 
 def test_listagem_normaliza_timestamp_de_atribuicao_nulo_do_xano():
     assert "atribuido_em: ($$.atribuido_em != null && $$.atribuido_em != 0) ? $$.atribuido_em : null" in LISTAGEM
+
+
+def test_preferencia_usa_upsert_atomico_por_chave_do_usuario_e_escopo():
+    # db.add_or_edit substitui a sequência vulnerável consulta+add e a chave
+    # lógica é formada apenas depois de obter a identidade autorizada.
+    assert 'text chave_logica { visibility = "private" }' in PREFERENCIA_TABELA
+    assert '{type: "btree|unique", field: [{name: "usuarios_id"}, {name: "escopo"}]}' in PREFERENCIA_TABELA
+    assert '{type: "btree|unique", field: [{name: "chave_logica"}]}' in PREFERENCIA_TABELA
+    assert 'value = ($usuario.id|to_text) ~ ":" ~ $input.escopo' in PREFERENCIA_SALVAR
+    assert "db.add_or_edit preferencias_fila_chamados" in PREFERENCIA_SALVAR
+    assert 'field_name = "chave_logica"' in PREFERENCIA_SALVAR
+    assert "field_value = $chave_logica" in PREFERENCIA_SALVAR
+    assert "chave_logica: $chave_logica" in PREFERENCIA_SALVAR
+    assert "db.query preferencias_fila_chamados" not in PREFERENCIA_SALVAR
+    assert "db.add preferencias_fila_chamados" not in PREFERENCIA_SALVAR
+    assert "db.patch preferencias_fila_chamados" not in PREFERENCIA_SALVAR
+
+
+def test_preferencias_autorizam_sessao_validam_escopo_e_normalizam_status():
+    for endpoint in (PREFERENCIA_GET, PREFERENCIA_PUT):
+        assert 'auth = "usuarios"' in endpoint
+        assert "usuarios_id: $auth.id" in endpoint
+        assert "usuarios_id" not in endpoint.split("input", 1)[1].split("stack", 1)[0]
+    for funcao in (PREFERENCIA_OBTER, PREFERENCIA_SALVAR):
+        assert 'function.run "autorizacao/exigir_perfil"' in funcao
+        assert "tecnico: true, diretoria: true, administrador: true" in funcao
+        assert 'error_type = "inputerror"' in funcao
+        assert 'error = "Escopo inválido."' in funcao
+        assert 'error_type = "accessdenied"' in funcao
+        assert 'error = "Acesso não autorizado."' in funcao
+    assert "$input.status|to_lower" in PREFERENCIA_SALVAR
+    assert 'value = "Em Atendimento"' in PREFERENCIA_SALVAR
+    assert 'value = "Solução Rejeitada"' in PREFERENCIA_SALVAR
+    assert '($input.status == null || $input.status == "" || $status != null)' in PREFERENCIA_SALVAR
+
+
+def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
+    for campo in (
+        "numero",
+        "titulo",
+        "status",
+        "prioridade",
+        "totem",
+        "categoria",
+        "responsavel",
+        "criado_em",
+        "ultima_atualizacao_em",
+    ):
+        assert f'$ordenar_por == "{campo}"' in LISTAGEM
+    assert '($direcao == "ASC" || $direcao == "DESC")' in LISTAGEM
+    for campo_ordenado in (
+        "titulo_ordenavel",
+        "status_ordenavel",
+        "prioridade_ordenavel",
+        "totem_ordenavel",
+        "categoria_ordenavel",
+        "chamados.criado_em",
+        "chamados.ultima_atualizacao_em",
+    ):
+        assert f'sort = {{{campo_ordenado}: "asc", chamados.id: "asc"}}' in LISTAGEM
+        assert f'sort = {{{campo_ordenado}: "desc", chamados.id: "desc"}}' in LISTAGEM
+    assert 'sort = {chamados.id: "asc"}' in LISTAGEM
+    assert 'sort = {chamados.id: "desc"}' in LISTAGEM
+    assert "titulo_ordenavel: $db.chamados.titulo|to_lower" in LISTAGEM
+    assert "ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em" in LISTAGEM
+    assert "tecnico_ordenavel: $db.tecnico.nome|to_lower" in LISTAGEM
+    assert 'sort = {tecnico_ordenavel: "asc", chamados.id: "asc"}' in LISTAGEM
+    assert 'sort = {tecnico_ordenavel: "desc", chamados.id: "desc"}' in LISTAGEM
+    assert '$input.responsavel_id' in LISTAGEM
+    assert '$responsavel.role == "tecnico"' in LISTAGEM
+
+
+def test_listagem_particiona_responsavel_sem_expressao_invalida_no_eval():
+    """Nulos são deslocados após a query, pois o ``eval`` não aceita booleano.
+
+    Em runtime, tanto ``!$db.tecnico.id`` quanto a comparação de nulidade no
+    campo ``eval`` falham. A partição conserva a ordem da query dentro de cada
+    grupo e junta responsáveis antes de não atribuídos.
+    """
+    assert "tecnico_sem_responsavel:" not in LISTAGEM
+    assert "!$db.tecnico.id" not in LISTAGEM
+    assert "$db.chamados.tecnico_id == null" not in LISTAGEM
+    assert (
+        "array.filter ($chamados) if ($this.tecnico_id != null && "
+        "$this.tecnico_id != 0) as $chamados_com_responsavel"
+    ) in LISTAGEM
+    assert (
+        "array.filter ($chamados) if ($this.tecnico_id == null || "
+        "$this.tecnico_id == 0) as $chamados_sem_responsavel"
+    ) in LISTAGEM
+    assert "value = $chamados_com_responsavel|merge:$chamados_sem_responsavel" in LISTAGEM
+
+
+def test_listagem_restaura_where_da_consulta_base_e_filtra_apos_ordenar():
+    """O ``where`` de cada ramificação preserva a base funcional de c3ece88.
+
+    O traceback remoto aponta ``search``. Depois de retirar o predicado dinâmico
+    de Responsável, a única diferença no caminho padrão era
+    ``chamados.prioridade ==? $prioridade_normalizada``. O predicado também não
+    integra mais as 18 consultas: Prioridade e Responsável são filtrados no
+    backend sobre a lista já ordenada, preservando sua ordem.
+    """
+    wheres = re.findall(r"^\s*where = (.+)$", LISTAGEM, flags=re.MULTILINE)
+    where_base = (
+        "($db.chamados.id ==? $numero_normalizado) && "
+        "($db.chamados.status ==? $status_normalizado) && "
+        "($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && "
+        "($db.chamados.criado_em >=? $input.data_inicio) && "
+        "($db.chamados.criado_em <? $input.data_fim) && "
+        "($db.chamados.tecnico_id ==? $tecnico_id_normalizado)"
+    )
+
+    assert len(wheres) == 18
+    assert all(where == where_base for where in wheres)
+    assert all("$aplicar_responsavel" not in where for where in wheres)
+    assert all("$filtrar_sem_responsavel" not in where for where in wheres)
+    assert all("$responsavel_id_normalizado" not in where for where in wheres)
+    assert all("$aplicar_prioridade" not in where for where in wheres)
+    assert all("$prioridade_normalizada" not in where for where in wheres)
+    assert "array.filter ($chamados_filtrados) if ($this.prioridade == $prioridade_normalizada)" in LISTAGEM
+    assert "array.filter ($chamados_filtrados) if ($this.tecnico_id == null || $this.tecnico_id == 0)" in LISTAGEM
+    assert "array.filter ($chamados_filtrados) if ($this.tecnico_id == $responsavel_id_normalizado)" in LISTAGEM
+    # Os filtros de coleção recebem a saída da query; não há ordenação local
+    # posterior que possa invalidar o desempate já resolvido pelo Xano.
+    inicio_pos_filtro = LISTAGEM.index("var $chamados_filtrados")
+    inicio_items = LISTAGEM.index("var $items", inicio_pos_filtro)
+    trecho_pos_filtro = LISTAGEM[inicio_pos_filtro:inicio_items]
+    assert "array.filter" in trecho_pos_filtro
+    assert "sort =" not in trecho_pos_filtro
+    assert 'test "consulta padrão preserva query base"' in LISTAGEM
+    assert 'test "filtra prioridade após query base"' in LISTAGEM
+    assert 'test "combina prioridade e responsável após query ordenada"' in LISTAGEM
+    assert 'test "filtra responsável sem predicado search dinâmico"' in LISTAGEM
+    assert 'test "filtra não atribuído sem predicado search dinâmico"' in LISTAGEM
 
 
 def test_catalogo_de_tratativa_lista_somente_categoria_ativa_sem_regra_manual():

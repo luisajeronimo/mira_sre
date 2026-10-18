@@ -27,6 +27,7 @@ from app.services.xano import (
     XanoNaoEncontrado,
 )
 from app.states.auth import (
+    DESTINO_PRIMEIRO_ACESSO,
     MENSAGEM_EXPIRADA,
     MENSAGEM_INDISPONIVEL,
     MENSAGEM_NAO_AUTORIZADO,
@@ -147,9 +148,60 @@ class ChamadosGerenteState(AuthState):
 
     async def _garantir_gerente(self) -> str | None:
         """Evita revalidar /me em cada interação já autenticada da jornada."""
+        if self.deve_trocar_senha:
+            return DESTINO_PRIMEIRO_ACESSO
         if self.sessao_confirmada and self.role == "gerente" and self._auth_token:
             return None
         return await self._validar_gerente()
+
+    @rx.event
+    async def redirecionar_alias_lista(self):
+        revalidar = not (
+            self.sessao_confirmada
+            and self.role == "gerente"
+            and self._auth_token
+        )
+        if revalidar:
+            self._iniciar_carregamento()
+            yield
+        destino = await self._garantir_gerente()
+        if revalidar:
+            self._finalizar_carregamento()
+        yield rx.redirect(destino or "/chamados")
+
+    @rx.event
+    async def redirecionar_alias_novo(self):
+        revalidar = not (
+            self.sessao_confirmada
+            and self.role == "gerente"
+            and self._auth_token
+        )
+        if revalidar:
+            self._iniciar_carregamento()
+            yield
+        destino = await self._garantir_gerente()
+        if revalidar:
+            self._finalizar_carregamento()
+        yield rx.redirect(destino or "/chamados/novo")
+
+    @rx.event
+    async def redirecionar_alias_detalhe(self):
+        revalidar = not (
+            self.sessao_confirmada
+            and self.role == "gerente"
+            and self._auth_token
+        )
+        if revalidar:
+            self._iniciar_carregamento()
+            yield
+        destino = await self._garantir_gerente()
+        if revalidar:
+            self._finalizar_carregamento()
+        if destino is not None:
+            yield rx.redirect(destino)
+            return
+        chamado_id = self.router.page.params.get("chamado_id", "")
+        yield rx.redirect(f"/chamados/{chamado_id}")
 
     @staticmethod
     def _id_da_opcao(valor: str) -> int | None:
@@ -581,7 +633,7 @@ class ChamadosGerenteState(AuthState):
             self._limpar_formulario_local()
             self.enviando = False
             yield rx.toast.success("Chamado aberto com sucesso.")
-            yield rx.redirect(f"/gerente/chamados/{resultado.id}")
+            yield rx.redirect(f"/chamados/{resultado.id}")
             return
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             destino = self._registrar_erro(erro, "mensagem_formulario")
@@ -601,9 +653,9 @@ class ChamadosGerenteState(AuthState):
         """Abandona o rascunho sem executar mutação no backend."""
         self._limpar_formulario_local()
         self.mensagem_formulario = ""
-        return rx.redirect("/gerente")
+        return rx.redirect("/chamados")
 
     @rx.event
     def voltar_para_lista(self):
         """Navega sem alterar nem descartar explicitamente o rascunho."""
-        return rx.redirect("/gerente")
+        return rx.redirect("/chamados")

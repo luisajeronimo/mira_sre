@@ -9,7 +9,14 @@ Diretoria e Administrador, sem definir a tratativa operacional.
 ## Requirements
 
 ### Requirement: Fila técnica oferece somente as visões aprovadas
-O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnico, Diretoria e Administrador, aplicando no Xano os mesmos filtros explícitos da listagem do Gerente: número, status, Totem e período de abertura. Sem filtros aplicados, `Todos` DEVE significar todos os chamados dentro do escopo global. O Técnico possui `Atribuídos a mim` como escopo rápido, não como preferência persistente; Diretoria e Administrador não o recebem. O Gerente NÃO DEVE acessar esta fila.
+A fila global DEVE (MUST) manter os filtros explícitos de número, Status,
+Totem, Responsável e período de abertura e adicionar Prioridade canônica.
+O filtro Responsável DEVE (MUST) usar o identificador de Técnico e aceitar a
+opção `Não atribuído` para chamados sem responsável. Técnico DEVE
+(MUST) manter preferências independentes de filtros e ordenação para `Todos` e
+`Atribuídos a mim`; Diretoria e Administrador DEVEM (MUST) usar somente
+`Todos`. A seleção de escopo rápido NÃO DEVE (MUST NOT) persistir: todo login
+inicia em `Todos`.
 
 #### Scenario: Visão de chamados não atribuídos
 - **WHEN** um Técnico consulta a fila global
@@ -21,27 +28,31 @@ O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnic
 
 #### Scenario: Chamado atribuído a outro Técnico
 - **WHEN** um chamado possui responsável diferente do usuário autenticado
-- **THEN** ele continua consultável em `Todos`, sem criar uma visão ou filtro específico
+- **THEN** ele continua consultável em `Todos`, sem criar visão específica
 
 #### Scenario: Status nulo ou inelegível
 - **WHEN** um chamado possui status nulo ou qualquer status persistido
 - **THEN** o Xano não infere nem altera o status e a fila não o exclui apenas por ser diferente de `Novo`
 
 #### Scenario: Visão inválida
-- **WHEN** uma requisição informa visão diferente de `Todos` ou `Atribuídos a mim` autorizados ao perfil
-- **THEN** o Xano responde HTTP 422 sem retornar dados de uma visão implícita
+- **WHEN** consulta ou preferência informa literal de escopo desconhecido, ou
+  combinação contraditória de escopo
+- **THEN** o Xano responde HTTP 422 sem retornar dados, salvar preferência ou
+  inferir escopo
 
 #### Scenario: Ordenação e ausência de paginação
 - **WHEN** a consulta válida retorna chamados
-- **THEN** os itens são ordenados por `id` decrescente e a resposta não introduz paginação ou busca avançada nesta capacidade
+- **THEN** os itens seguem a ordenação autorizada e estável e a resposta não
+  introduz paginação ou busca avançada
 
 #### Scenario: Escopo rápido combina com filtros operacionais
-- **WHEN** um Técnico seleciona `Atribuídos a mim` e informa número, status, Totem ou período
-- **THEN** o Xano retorna a interseção entre o responsável atual e os filtros explícitos
+- **WHEN** um Técnico seleciona `Atribuídos a mim` e informa filtros válidos
+- **THEN** o Xano retorna a interseção entre responsável, filtros e ordenação
 
 #### Scenario: Limpeza preserva escopo rápido atual
 - **WHEN** um Técnico limpa os filtros operacionais dentro de `Atribuídos a mim`
-- **THEN** a consulta remove número, status, Totem e período, mas mantém o escopo atual até o usuário selecionar outra visão
+- **THEN** a consulta remove filtros, mantém o escopo atual até nova seleção e
+  preserva sua ordenação
 
 #### Scenario: Todos sem filtro
 - **WHEN** um perfil autorizado consulta a fila sem filtros
@@ -52,20 +63,141 @@ O sistema DEVE (MUST) oferecer uma única tabela global de chamados para Técnic
 - **THEN** o Xano retorna a mesma visão global de chamados permitida ao Técnico
 
 #### Scenario: Interseção de filtros explícitos
-- **WHEN** um perfil autorizado pesquisa por número ou combina status, Totem e período de abertura
-- **THEN** o Xano retorna somente os chamados que correspondem à interseção dos filtros enviados
+- **WHEN** perfil autorizado combina filtros válidos
+- **THEN** o Xano retorna somente os chamados que correspondem à interseção
 
 #### Scenario: Responsável não cria visão de navegação
 - **WHEN** um chamado possui ou não possui Técnico responsável
-- **THEN** ele permanece na tabela global e a interface não apresenta `Atribuídos a outros Técnicos` ou `Não atribuídos` como visão de atribuição
+- **THEN** ele permanece na tabela global e a interface não apresenta outras
+  visões de atribuição
 
 #### Scenario: Falha de consulta não confirma filtro no Reflex
-- **WHEN** uma pesquisa ou filtro solicitado falha antes de o Xano retornar a lista
-- **THEN** o Reflex mantém o último filtro aplicado e seu resultado coerentes e informa a falha sem indicar o novo filtro como aplicado
+- **WHEN** pesquisa, filtro ou ordenação candidata falha antes de confirmação
+- **THEN** o Reflex mantém o último filtro, ordenação e resultado confirmados
 
 #### Scenario: Gerente tenta consultar a fila global
 - **WHEN** um Gerente tenta consultar a fila global
-- **THEN** o Xano responde HTTP 403 sem expor chamados fora dos contratos próprios do Gerente
+- **THEN** o Xano responde HTTP 403 sem expor chamados fora de seus contratos
+
+#### Scenario: Preferências independentes do Técnico
+- **WHEN** Técnico aplica filtros ou ordenação em um escopo e troca para o outro
+- **THEN** a fila carrega somente a preferência persistida daquele escopo, sem
+  reutilizar os critérios do escopo anterior
+
+#### Scenario: Login não restaura escopo pessoal
+- **WHEN** Técnico encerra sessão após usar `Atribuídos a mim` e autentica novamente
+- **THEN** inicia em `Todos` e carrega somente a preferência persistida de `Todos`
+
+#### Scenario: Perfil global sem escopo pessoal
+- **WHEN** Diretoria ou Administrador carrega ou salva preferência da fila
+- **THEN** a interface não exibe `Atribuídos a mim` e o Xano responde HTTP 403
+  se receber o escopo enumerado `Atribuídos a mim`
+
+#### Scenario: Filtros aplicados são persistidos
+- **WHEN** um perfil global aplica ou limpa filtros válidos
+- **THEN** somente número, Status, Totem, Responsável, período, Prioridade e ordenação
+  confirmados são persistidos para seu usuário e escopo
+
+#### Scenario: Rascunho não é preferência
+- **WHEN** usuário edita filtros, mas não aplica nem limpa
+- **THEN** nenhuma preferência durável é alterada
+
+#### Scenario: Status normalizado
+- **WHEN** Status válido é informado com variação de maiúsculas e minúsculas
+- **THEN** o Xano o aceita sem diferenciar caixa, consulta pelo literal canônico
+  e persiste esse literal
+
+#### Scenario: Falha de lista ou persistência
+- **WHEN** a consulta ou o save da preferência falha
+- **THEN** o Reflex mantém o último resultado, filtros e ordenação confirmados,
+  informa a falha e não confirma a preferência candidata
+
+#### Scenario: Consulta candidata antecede persistência
+- **WHEN** usuário aplica, limpa ou ordena uma preferência candidata válida
+- **THEN** o Reflex consulta primeiro a lista candidata, salva somente após seu
+  sucesso e confirma State e lista somente após ambas as etapas
+
+### Requirement: Ordenação global é autorizada e estável no Xano
+O Xano DEVE (MUST) ordenar a fila global antes de responder. Aceita somente
+`numero`, `titulo`, `status`, `prioridade`, `totem`, `categoria`, `responsavel`, `criado_em` e
+`ultima_atualizacao_em`, com `ASC` ou `DESC`; `numero` e os timestamps
+funcionais são numéricos e os demais campos são textuais sem distinção de
+caixa. `criado_em` e `ultima_atualizacao_em` DEVEM (MUST) ordenar
+cronologicamente. `id` DEVE (MUST) desempatar de forma estável na mesma direção.
+O padrão é `numero` em `DESC`, mapeado internamente para `chamados.id`; ao
+escolher nova coluna, a interface inicia em `ASC` e novo clique alterna a
+direção. `id` NÃO DEVE (MUST NOT) ser exposto como coluna ou campo adicional de
+ordenação. Limpar filtros NÃO DEVE (MUST NOT) alterar a ordenação persistida.
+
+#### Scenario: Filtro e ordenação combinados
+- **WHEN** usuário aplica filtros válidos e escolhe ordenação autorizada
+- **THEN** o Xano retorna a interseção filtrada na ordem solicitada, sem ordenar
+  somente a coleção local
+
+#### Scenario: Empate ordenado
+- **WHEN** dois chamados possuem o mesmo valor na coluna ordenada
+- **THEN** o Xano os ordena por `id` na mesma direção escolhida
+
+#### Scenario: Ordenação inválida
+- **WHEN** cliente informa campo ou direção fora da whitelist
+- **THEN** o Xano responde HTTP 422 sem retornar lista ou alterar preferência
+
+#### Scenario: Limpeza preserva ordenação
+- **WHEN** usuário limpa filtros com ordenação previamente confirmada
+- **THEN** a lista remove somente os filtros e preserva a mesma ordenação
+
+#### Scenario: Filtro por Técnico responsável
+- **WHEN** usuário seleciona um Técnico do catálogo disponível
+- **THEN** a consulta usa o identificador desse Técnico e retorna somente os
+  chamados atualmente atribuídos a ele
+
+#### Scenario: Filtro Não atribuído
+- **WHEN** usuário seleciona `Não atribuído`
+- **THEN** a consulta retorna somente chamados sem Técnico responsável
+
+#### Scenario: Ordenação por responsável
+- **WHEN** usuário ordena por Responsável em ASC ou DESC
+- **THEN** o Xano ordena alfabeticamente pelo nome do Técnico sem diferenciar
+  caixa, mantém os chamados sem responsável após qualquer nome nas duas
+  direções e desempata por `id` na direção solicitada
+
+#### Scenario: Responsável persiste por escopo
+- **WHEN** Técnico confirma o filtro ou a ordenação por Responsável em um escopo
+- **THEN** a preferência daquele escopo preserva esses critérios sem alterar a
+  preferência do outro escopo
+
+#### Scenario: Coluna de atribuição não integra a fila global
+- **WHEN** usuário consulta a tabela da fila global
+- **THEN** a tabela não exibe a coluna `Atribuído em`, sem remover o dado dos
+  detalhes, APIs ou histórico
+
+### Requirement: Preferências da fila pertencem ao usuário autenticado
+O Xano DEVE (MUST) persistir uma preferência canônica por usuário autenticado e
+escopo permitido. Um save válido substitui integralmente a preferência anterior
+do mesmo usuário+escopo; a última escrita válida vence. O cliente NÃO DEVE
+(MUST NOT) escolher o usuário da preferência.
+
+#### Scenario: Usuários distintos
+- **WHEN** dois usuários salvam filtros ou ordenação
+- **THEN** cada um lê somente sua própria preferência, inclusive quando possuem
+  o mesmo perfil
+
+#### Scenario: Escritas concorrentes válidas
+- **WHEN** duas escritas válidas atingem a mesma preferência de usuário+escopo
+- **THEN** a última escrita válida persiste o conjunto completo de critérios
+
+#### Scenario: Sessão ausente ou expirada
+- **WHEN** consulta ou save de preferência ocorre sem sessão válida
+- **THEN** o Xano responde HTTP 401 sem retornar ou alterar preferência
+
+#### Scenario: Perfil ou escopo negado
+- **WHEN** Gerente acessa a preferência global, ou Diretoria/Administrador usa
+  `Atribuídos a mim`
+- **THEN** o Xano responde HTTP 403 sem retornar ou alterar preferência
+
+#### Scenario: Preferência inválida
+- **WHEN** save informa filtro, Prioridade, Status, período, coluna ou direção inválidos
+- **THEN** o Xano responde HTTP 422 sem alterar a última preferência válida
 
 ### Requirement: Listagem técnica retorna DTO funcional estável
 O sistema DEVE (MUST) retornar em cada item da fila o DTO canônico de consulta, incluindo `id`, `titulo`, `status`, `prioridade`, `origem`, `criado_em`, `ultima_atualizacao_em`, `sla_horas_aplicado`, `atribuido_em`, ativo, categoria, solicitante e Técnico atual quando existir. Valores históricos ausentes DEVEM (MUST) permanecer nulos, sem inferência.
@@ -296,3 +428,32 @@ A timeline do chamado DEVE (MUST) apresentar comentários existentes e eventos l
 #### Scenario: Interações históricas
 - **WHEN** uma interação existente não possui tipo de evento estruturado
 - **THEN** ela continua apresentada como comentário sem backfill ou autoria inventada
+
+### Requirement: Jornada global usa rotas canônicas de chamados
+O Reflex DEVE (MUST) apresentar a fila global existente em `/inicio` e `/chamados` e seu detalhe operacional existente em `/chamados/[chamado_id]` para Técnico, Diretoria e Administrador. A jornada DEVE reutilizar `ChamadosTecnicoState`, componentes, filtros, timeline e tratativa atuais; ela NÃO DEVE (MUST NOT) converter Diretoria ou Administrador em responsável de chamado.
+
+#### Scenario: Perfil global acessa início ou lista canônica
+- **WHEN** Técnico, Diretoria ou Administrador autenticado acessa `/inicio` ou `/chamados`
+- **THEN** o Reflex revalida a identidade e apresenta a fila global existente
+
+#### Scenario: Detalhe canônico global
+- **WHEN** Técnico, Diretoria ou Administrador autenticado acessa `/chamados/[chamado_id]`
+- **THEN** o Reflex carrega o detalhe, a timeline e a tratativa operacional existentes conforme o contrato atual
+
+#### Scenario: Escopo rápido exclusivo do Técnico
+- **WHEN** Diretoria ou Administrador acessa a fila canônica
+- **THEN** a interface não apresenta `Atribuídos a mim`; quando Técnico acessa a mesma rota, o escopo rápido aprovado permanece disponível
+
+#### Scenario: Troca de identidade não reutiliza o contexto da fila
+- **WHEN** um Técnico usa `Atribuídos a mim`, encerra a sessão e outra identidade acessa `/inicio` ou `/chamados`
+- **THEN** o Reflex descarta antes da consulta os dados, filtros e escopo da identidade anterior e solicita a fila apenas com o escopo permitido ao novo perfil
+- **AND WHEN** o mesmo Técnico inicia uma nova sessão
+- **THEN** os filtros desse usuário podem ser mantidos, mas `Atribuídos a mim` volta para `Todos`
+
+#### Scenario: Navegação global canônica
+- **WHEN** perfil global segue link de detalhe, retorna à fila ou seleciona `Início`
+- **THEN** a navegação usa as rotas canônicas sem alterar filtros, contratos Xano ou comportamento de tratativa
+
+#### Scenario: Gerente acessa rota global canônica
+- **WHEN** Gerente tenta acessar uma rota que resolveria para a jornada global
+- **THEN** o Reflex não apresenta a jornada global e o Xano continua respondendo 403 para contrato global indevido

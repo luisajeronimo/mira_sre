@@ -111,6 +111,23 @@ class ListaChamadosGerente:
 
 
 @dataclass(frozen=True, slots=True)
+class PreferenciaFilaTecnica:
+    """Filtro e ordenação confirmados para um usuário e escopo da fila."""
+
+    escopo: str
+    numero: int | None
+    status: str | None
+    ativo_id: int | None
+    data_inicio: int | None
+    data_fim: int | None
+    prioridade: str | None
+    ordenar_por: str
+    direcao: str
+    responsavel_id: int | None = None
+    somente_nao_atribuido: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class ChamadoDetalhe:
     id: int
     titulo: str
@@ -354,6 +371,39 @@ def _lista_chamados_gerente(dados: dict[str, Any]) -> ListaChamadosGerente:
     return ListaChamadosGerente(
         items=[_resumo_gerente(item) for item in items],
         total=total,
+    )
+
+
+def _preferencia_fila_tecnica(dados: dict[str, Any]) -> PreferenciaFilaTecnica:
+    """Valida a preferência já normalizada pelo contrato autenticado do Xano."""
+
+    campos = {
+        "escopo", "numero", "status", "ativo_id", "data_inicio", "data_fim",
+        "prioridade", "responsavel_id", "somente_nao_atribuido", "ordenar_por", "direcao",
+    }
+    dados = _objeto_exato(dados, "preferencia", campos)
+    escopo = dados.get("escopo")
+    ordenar_por = dados.get("ordenar_por")
+    direcao = dados.get("direcao")
+    if escopo not in {"todos", "atribuidos_a_mim"}:
+        raise XanoContratoInvalido("Campo inválido na resposta: preferencia.escopo.")
+    if ordenar_por not in {
+        "numero", "titulo", "status", "prioridade", "totem", "categoria", "responsavel",
+        "criado_em", "ultima_atualizacao_em",
+    } or direcao not in {"ASC", "DESC"}:
+        raise XanoContratoInvalido("Campo inválido na resposta: preferencia.ordenacao.")
+    return PreferenciaFilaTecnica(
+        escopo=escopo,
+        numero=_inteiro(dados["numero"], "preferencia.numero") if dados["numero"] is not None else None,
+        status=_texto(dados["status"], "preferencia.status") if dados["status"] is not None else None,
+        ativo_id=_inteiro(dados["ativo_id"], "preferencia.ativo_id") if dados["ativo_id"] is not None else None,
+        data_inicio=_inteiro(dados["data_inicio"], "preferencia.data_inicio") if dados["data_inicio"] is not None else None,
+        data_fim=_inteiro(dados["data_fim"], "preferencia.data_fim") if dados["data_fim"] is not None else None,
+        prioridade=_texto(dados["prioridade"], "preferencia.prioridade") if dados["prioridade"] is not None else None,
+        responsavel_id=_inteiro(dados["responsavel_id"], "preferencia.responsavel_id") if dados["responsavel_id"] is not None else None,
+        somente_nao_atribuido=dados["somente_nao_atribuido"] is True,
+        ordenar_por=ordenar_por,
+        direcao=direcao,
     )
 
 
@@ -720,6 +770,10 @@ class XanoServiceDeskCliente(XanoCliente):
         ativo_id: int | None = None,
         data_inicio: int | None = None,
         data_fim: int | None = None,
+        prioridade: str | None = None,
+        responsavel_id: int | None = None,
+        ordenar_por: str = "numero",
+        direcao: str = "DESC",
         somente_atribuidos_a_mim: bool = False,
     ) -> ListaChamadosGerente:
         """Lista global com o mesmo envelope e filtros da lista do Gerente."""
@@ -731,11 +785,19 @@ class XanoServiceDeskCliente(XanoCliente):
             ("ativo_id", ativo_id),
             ("data_inicio", data_inicio),
             ("data_fim", data_fim),
+            ("prioridade", prioridade),
+            ("responsavel_id", responsavel_id),
         ):
             if valor is not None and valor != "":
                 params[campo] = valor
         if somente_atribuidos_a_mim:
             params["somente_atribuidos_a_mim"] = True
+        # O contrato possui o mesmo padrão inicial; omiti-lo preserva URLs
+        # concisas sem deixar o frontend decidir a ordenação no servidor.
+        if ordenar_por != "numero":
+            params["ordenar_por"] = ordenar_por
+        if direcao != "DESC":
+            params["direcao"] = direcao
         dados = await self._requisitar(
             "GET",
             "/tecnico/chamados",
@@ -743,6 +805,45 @@ class XanoServiceDeskCliente(XanoCliente):
             params=params,
         )
         return _lista_chamados_gerente(dados)
+
+    async def obter_preferencia_fila_tecnica(
+        self, token: str, *, escopo: str
+    ) -> PreferenciaFilaTecnica:
+        dados = await self._requisitar(
+            "GET", "/tecnico/preferencias-fila", token=token,
+            params={"escopo": escopo},
+        )
+        return _preferencia_fila_tecnica(dados.get("preferencia"))
+
+    async def salvar_preferencia_fila_tecnica(
+        self,
+        token: str,
+        *,
+        escopo: str,
+        numero: int | None,
+        status: str | None,
+        ativo_id: int | None,
+        data_inicio: int | None,
+        data_fim: int | None,
+        prioridade: str | None,
+        responsavel_id: int | None,
+        somente_nao_atribuido: bool,
+        ordenar_por: str,
+        direcao: str,
+    ) -> PreferenciaFilaTecnica:
+        dados = await self._requisitar(
+            "PUT", "/tecnico/preferencias-fila", token=token,
+            json={
+                "escopo": escopo, "numero": numero, "status": status,
+                "ativo_id": ativo_id, "data_inicio": data_inicio,
+                "data_fim": data_fim, "prioridade": prioridade,
+                "responsavel_id": responsavel_id,
+                "somente_nao_atribuido": somente_nao_atribuido,
+                "ordenar_por": ordenar_por, "direcao": direcao,
+            },
+            erro_400_como_entrada=True,
+        )
+        return _preferencia_fila_tecnica(dados.get("preferencia"))
 
     async def obter_chamado_tecnico(
         self,

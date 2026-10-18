@@ -10,6 +10,7 @@ from app.services.service_desk import (
     ChamadoDetalhe,
     ChamadoResumo,
     ListaChamadosGerente,
+    PreferenciaFilaTecnica,
     DetalheChamadoTecnico,
     EventoTimelineChamado,
     ReferenciaAtivo,
@@ -22,9 +23,10 @@ from app.services.xano import (
     XanoContratoInvalido,
     XanoEntradaInvalida,
     XanoIndisponivel,
+    XanoNaoAutenticado,
     XanoNaoAutorizado,
 )
-from app.states.auth import MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
+from app.states.auth import AuthState, MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
 from app.chamados.shared import _detalhe_para_dict, _tecnico_para_dict
 from app.chamados.tecnico import ChamadosTecnicoState
 
@@ -102,6 +104,8 @@ class ClienteTecnicoFalso:
         resultado_comentario=None,
         erro_comentario=None,
         listas=None,
+        preferencias=None,
+        erro_preferencia=None,
     ):
         self.resultado_assuncao = resultado_assuncao or detalhe_tecnico(
             tecnico=ReferenciaUsuario(id=9, nome="Técnico 9")
@@ -119,12 +123,15 @@ class ClienteTecnicoFalso:
         self.resultado_comentario = resultado_comentario
         self.erro_comentario = erro_comentario
         self.listas = listas or {}
+        self.preferencias = preferencias or {}
+        self.erro_preferencia = erro_preferencia
         self.consultas = []
         self.assuncoes = []
         self.detalhes = []
         self.atribuicoes = []
         self.saves = []
         self.comentarios = []
+        self.preferencias_salvas = []
 
     async def listar_chamados_tecnico(self, token, **filtros):
         self.consultas.append((token, filtros))
@@ -137,6 +144,25 @@ class ClienteTecnicoFalso:
         if self.erro_ativos is not None:
             raise self.erro_ativos
         return []
+
+    async def obter_preferencia_fila_tecnica(self, token, *, escopo):
+        if self.erro_preferencia is not None:
+            raise self.erro_preferencia
+        return self.preferencias.get(escopo, PreferenciaFilaTecnica(
+            escopo=escopo, numero=None, status=None, ativo_id=None,
+            data_inicio=None, data_fim=None, prioridade=None,
+            ordenar_por="numero", direcao="DESC",
+        ))
+
+    async def salvar_preferencia_fila_tecnica(self, token, **payload):
+        self.preferencias_salvas.append((token, payload))
+        return PreferenciaFilaTecnica(
+            escopo=payload["escopo"], numero=payload["numero"],
+            status=payload["status"], ativo_id=payload["ativo_id"],
+            data_inicio=payload["data_inicio"], data_fim=payload["data_fim"],
+            prioridade=payload["prioridade"], ordenar_por=payload["ordenar_por"],
+            direcao=payload["direcao"],
+        )
 
     async def listar_categorias_tratativa(self, token):
         if self.erro_categorias is not None:
@@ -193,6 +219,36 @@ def novo_estado_tecnico(role="tecnico"):
     return estado
 
 
+def test_marcadores_privados_da_fila_sao_backend_only():
+    assert "_auth_token" in ChamadosTecnicoState.backend_vars
+    assert "_token_contexto_fila" in ChamadosTecnicoState.backend_vars
+    assert "_auth_token" not in ChamadosTecnicoState.base_vars
+    assert "_token_contexto_fila" not in ChamadosTecnicoState.base_vars
+
+
+def test_filtro_de_responsavel_usa_id_e_nao_atribuido_sem_comparar_nomes():
+    estado = novo_estado_tecnico()
+    estado.tecnicos = [{"id": 17, "nome": "Ana Técnica"}]
+
+    estado.filtro_responsavel = "17 — Ana Técnica"
+    filtros = estado._filtros_solicitados()
+    assert filtros is not None
+    assert filtros[6:8] == (17, False)
+    assert "Responsável: Ana Técnica" in filtros[-1]
+
+    estado.filtro_responsavel = "0 — Não atribuído"
+    filtros = estado._filtros_solicitados()
+    assert filtros is not None
+    assert filtros[6:8] == (None, True)
+
+
+def test_fila_global_exibe_responsavel_ordenavel_sem_coluna_atribuido_em():
+    fonte = inspect.getsource(paginas_chamados._fila_tecnico)
+    assert '_cabecalho_ordenavel("Responsável", "responsavel")' in fonte
+    assert 'rx.table.column_header_cell("Atribuído em")' not in fonte
+    assert 'rx.table.cell(item["atribuido_em_texto"])' not in fonte
+
+
 def liberar_validacao_de_sessao(monkeypatch):
     async def validar(_estado):
         return None
@@ -239,7 +295,7 @@ def test_fila_global_redireciona_perfil_fora_do_escopo(monkeypatch):
     monkeypatch.setattr(ChamadosTecnicoState, "_revalidar", revalidar)
     estado = novo_estado_tecnico("gerente")
 
-    assert asyncio.run(estado._validar_acesso_fila()) == "/gerente"
+    assert asyncio.run(estado._validar_acesso_fila()) == "/inicio"
 
 
 def test_pesquisa_por_numero_envia_o_valor_atual_ao_service(monkeypatch):
@@ -345,6 +401,70 @@ def test_numero_invalido_nao_submete_nem_altera_filtro_aplicado(monkeypatch):
     assert estado.mensagem_fila == "Informe um número de chamado válido."
 
 
+def test_falha_ao_salvar_preferencia_nao_confirma_lista_candidata(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    anterior = _tecnico_para_dict(resumo_tecnico(status="Novo"))
+    candidato = resumo_tecnico(status="Encerrado")
+    cliente = ClienteTecnicoFalso(listas={"resultado": [candidato]})
+
+    async def falhar_save(_token, **_payload):
+        raise XanoIndisponivel("save indisponível")
+
+    cliente.salvar_preferencia_fila_tecnica = falhar_save
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.chamados = [anterior]
+    estado.filtro_status = "Encerrado"
+
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
+
+    assert cliente.consultas[0][1]["status"] == "Encerrado"
+    assert estado.chamados == [anterior]
+    assert estado.status_aplicado == ""
+    assert estado.filtro_status == ""
+
+
+def test_prioridade_e_ordenacao_sao_persistidas_apos_consulta(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.filtro_prioridade = "Urgente"
+
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
+    executar_evento(ChamadosTecnicoState.ordenar_fila, estado, "titulo")
+
+    assert cliente.consultas[0][1]["prioridade"] == "Urgente"
+    assert cliente.consultas[-1][1]["ordenar_por"] == "titulo"
+    assert cliente.consultas[-1][1]["direcao"] == "ASC"
+    assert cliente.preferencias_salvas[-1][1]["ordenar_por"] == "titulo"
+
+
+@pytest.mark.parametrize("falha", ["consulta", "save"])
+def test_ordenacao_candidata_nao_altera_state_confirmado_em_falha(monkeypatch, falha):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    estado = novo_estado_tecnico()
+
+    async def falhar_consulta(_token, **_filtros):
+        assert (estado.ordenar_por, estado.direcao_ordenacao) == ("numero", "DESC")
+        raise XanoIndisponivel("consulta indisponível")
+
+    async def falhar_save(_token, **_payload):
+        assert (estado.ordenar_por, estado.direcao_ordenacao) == ("numero", "DESC")
+        raise XanoIndisponivel("save indisponível")
+
+    if falha == "consulta":
+        cliente.listar_chamados_tecnico = falhar_consulta
+    else:
+        cliente.salvar_preferencia_fila_tecnica = falhar_save
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+
+    executar_evento(ChamadosTecnicoState.ordenar_fila, estado, "titulo")
+
+    assert (estado.ordenar_por, estado.direcao_ordenacao) == ("numero", "DESC")
+
+
 def test_limpar_filtros_com_falha_restaura_os_valores_aplicados(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso(
@@ -391,7 +511,7 @@ def test_fila_global_reutiliza_tabela_e_filtros_sem_abas_de_visao():
     assert '"Não atribuídos"' not in fonte
 
 
-def test_tecnico_alterna_para_atribuidos_a_mim_e_combina_filtros(monkeypatch):
+def test_tecnico_alterna_para_atribuidos_a_mim_sem_vazar_filtros_do_outro_escopo(monkeypatch):
     liberar_validacao_de_sessao(monkeypatch)
     cliente = ClienteTecnicoFalso()
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
@@ -408,8 +528,8 @@ def test_tecnico_alterna_para_atribuidos_a_mim_e_combina_filtros(monkeypatch):
 
     assert estado.escopo_rapido == "atribuidos_a_mim"
     assert cliente.consultas[-1][1] == {
-        "numero": 38,
-        "status": "Novo",
+        "numero": None,
+        "status": None,
         "ativo_id": None,
         "data_inicio": None,
         "data_fim": None,
@@ -423,11 +543,212 @@ def test_limpar_filtros_preserva_escopo_atribuidos_a_mim(monkeypatch):
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado_tecnico()
     estado.escopo_rapido = "atribuidos_a_mim"
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-de-teste"
+    estado.versao_sessao_contexto_fila = 0
 
     executar_evento(ChamadosTecnicoState.limpar_filtros, estado)
 
     assert estado.escopo_rapido == "atribuidos_a_mim"
     assert cliente.consultas[-1][1]["somente_atribuidos_a_mim"] is True
+
+
+def test_troca_de_identidade_limpa_dados_e_filtros_antes_da_fila_global(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    antigo = _tecnico_para_dict(resumo_tecnico())
+    novo = resumo_tecnico(tecnico=ReferenciaUsuario(id=18, nome="Diretoria"))
+    cliente = ClienteTecnicoFalso(listas={"resultado": [novo]})
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-tecnico"
+    estado.escopo_rapido = "atribuidos_a_mim"
+    estado.numero_aplicado = 38
+    estado.filtro_numero = "38"
+    estado.filtro_numero_confirmado = "38"
+    estado.filtros_aplicados = ["Número: 38"]
+    estado.ativos = ["1 — Totem protegido"]
+    estado.chamados = [antigo]
+    estado.total_chamados = 1
+    object.__setattr__(estado, "_auth_token", "token-diretoria")
+    object.__setattr__(estado, "role", "diretoria")
+    object.__setattr__(estado, "usuario_id", 18)
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert cliente.consultas == [
+        (
+            "token-diretoria",
+            {
+                "numero": None,
+                "status": None,
+                "ativo_id": None,
+                "data_inicio": None,
+                "data_fim": None,
+                "somente_atribuidos_a_mim": False,
+            },
+        )
+    ]
+    assert estado.escopo_rapido == "todos"
+    assert estado.numero_aplicado is None
+    assert estado.filtro_numero == ""
+    assert estado.filtros_aplicados == []
+    assert estado.chamados == [_tecnico_para_dict(novo)]
+    assert antigo not in estado.chamados
+
+
+def test_reentrada_do_mesmo_tecnico_recarrega_preferencia_do_escopo_todos(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(preferencias={"todos": PreferenciaFilaTecnica(
+        escopo="todos", numero=38, status="Novo", ativo_id=None,
+        data_inicio=None, data_fim=None, prioridade=None,
+        ordenar_por="numero", direcao="DESC",
+    )})
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-de-teste"
+    estado.versao_sessao_contexto_fila = 0
+    estado.escopo_rapido = "atribuidos_a_mim"
+    estado.numero_aplicado = 38
+    estado.status_aplicado = "Novo"
+    estado.filtros_aplicados = ["Número: 38", "Status: Novo"]
+    object.__setattr__(estado, "_versao_sessao", 1)
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert estado.escopo_rapido == "todos"
+    assert cliente.consultas[-1] == (
+        "token-de-teste",
+        {
+            "numero": 38,
+            "status": "Novo",
+            "ativo_id": None,
+            "data_inicio": None,
+            "data_fim": None,
+            "somente_atribuidos_a_mim": False,
+        },
+    )
+    assert estado.filtros_aplicados == ["Número: 38", "Status: Novo"]
+
+
+def test_carga_inicial_reaproveita_responsaveis_retornados_pela_fila(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(listas={"resultado": [
+        resumo_tecnico(tecnico=ReferenciaUsuario(id=17, nome="Ana Técnica")),
+        resumo_tecnico(tecnico=ReferenciaUsuario(id=11, nome="Bruno Técnico")),
+    ]})
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert estado.tecnicos == [
+        {"id": 17, "nome": "Ana Técnica"},
+        {"id": 11, "nome": "Bruno Técnico"},
+    ]
+    assert estado.responsaveis_filtro == [
+        "0 — Não atribuído", "17 — Ana Técnica", "11 — Bruno Técnico"
+    ]
+
+
+def test_preferencia_por_responsavel_restaura_rotulo_do_item_retornado(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(
+        listas={"resultado": [
+            resumo_tecnico(tecnico=ReferenciaUsuario(id=17, nome="Ana Técnica"))
+        ]},
+        preferencias={"todos": PreferenciaFilaTecnica(
+            escopo="todos", numero=None, status=None, ativo_id=None,
+            data_inicio=None, data_fim=None, prioridade=None,
+            responsavel_id=17, somente_nao_atribuido=False,
+            ordenar_por="numero", direcao="DESC",
+        )},
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert cliente.consultas[-1][1]["responsavel_id"] == 17
+    assert estado.filtro_responsavel == "17 — Ana Técnica"
+    assert estado.filtro_responsavel_confirmado == "17 — Ana Técnica"
+    assert "Responsável: Ana Técnica" in estado.filtros_aplicados
+
+
+def test_preferencia_por_responsavel_vazia_preserva_id_transitorio_ao_reaplicar(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(
+        preferencias={"todos": PreferenciaFilaTecnica(
+            escopo="todos", numero=None, status=None, ativo_id=None,
+            data_inicio=None, data_fim=None, prioridade=None,
+            responsavel_id=17, somente_nao_atribuido=False,
+            ordenar_por="numero", direcao="DESC",
+        )},
+    )
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+
+    executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert estado.filtro_responsavel == "17 — Técnico não listado"
+    assert estado.responsaveis_filtro == [
+        "0 — Não atribuído", "17 — Técnico não listado"
+    ]
+    assert "Responsável: Técnico não listado" in estado.filtros_aplicados
+
+    estado.filtro_status = "Novo"
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
+
+    assert cliente.consultas[-1][1]["responsavel_id"] == 17
+    assert cliente.preferencias_salvas[-1][1]["responsavel_id"] == 17
+
+    cliente.listas["resultado"] = [
+        resumo_tecnico(tecnico=ReferenciaUsuario(id=17, nome="Ana Técnica"))
+    ]
+    executar_evento(ChamadosTecnicoState.aplicar_filtros, estado)
+
+    assert estado.filtro_responsavel == "17 — Ana Técnica"
+    assert estado.filtro_responsavel_confirmado == "17 — Ana Técnica"
+    assert estado.responsaveis_filtro == ["0 — Não atribuído", "17 — Ana Técnica"]
+    assert estado.responsavel_filtro_transitorio_id is None
+    assert "Responsável: Ana Técnica" in estado.filtros_aplicados
+
+
+@pytest.mark.parametrize(
+    ("erro", "sessao_confirmada", "mensagem"),
+    [
+        (XanoNaoAutenticado("expirado"), False, MENSAGEM_INDISPONIVEL),
+        (XanoNaoAutorizado("negado"), True, MENSAGEM_NAO_AUTORIZADO),
+    ],
+)
+def test_troca_de_identidade_distingue_401_e_403_sem_reusar_dados_protegidos(
+    monkeypatch, erro, sessao_confirmada, mensagem
+):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso(listas={"resultado": erro})
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    raiz = AuthState(_reflex_internal_init=True)
+    estado = ChamadosTecnicoState(parent_state=raiz, _reflex_internal_init=True)
+    object.__setattr__(raiz, "_auth_token", "token-diretoria")
+    object.__setattr__(raiz, "sessao_confirmada", True)
+    object.__setattr__(raiz, "role", "diretoria")
+    object.__setattr__(raiz, "usuario_id", 18)
+    estado.usuario_id_contexto_fila = 9
+    estado._token_contexto_fila = "token-tecnico"
+    estado.escopo_rapido = "atribuidos_a_mim"
+    estado.chamados = [_tecnico_para_dict(resumo_tecnico())]
+
+    eventos = executar_evento(ChamadosTecnicoState.carregar_fila, estado)
+
+    assert cliente.consultas[-1][1]["somente_atribuidos_a_mim"] is False
+    assert estado.chamados == []
+    assert estado.escopo_rapido == "todos"
+    assert raiz.sessao_confirmada is sessao_confirmada
+    if isinstance(erro, XanoNaoAutenticado):
+        assert eventos[-1].args[0][1]._var_value == "/login"
+    else:
+        assert estado.mensagem_fila == mensagem
 
 
 @pytest.mark.parametrize("role", ["diretoria", "administrador"])

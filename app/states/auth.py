@@ -19,10 +19,10 @@ from app.services.xano import (
 
 
 DESTINOS_POR_PERFIL = {
-    "gerente": "/gerente",
-    "tecnico": "/tecnico",
-    "diretoria": "/diretoria",
-    "administrador": "/administracao",
+    "gerente": "/inicio",
+    "tecnico": "/inicio",
+    "diretoria": "/inicio",
+    "administrador": "/inicio",
 }
 
 DESTINO_PRIMEIRO_ACESSO = "/primeiro-acesso"
@@ -40,6 +40,7 @@ class AuthState(rx.State):
     """Mantém a identidade pública e o token apenas no backend da sessão."""
 
     _auth_token: str = ""
+    _versao_sessao: int = 0
 
     usuario_id: int | None = None
     nome: str = ""
@@ -69,6 +70,7 @@ class AuthState(rx.State):
         self.sessao_confirmada = False
 
     def _limpar_sessao(self, mensagem: str = "") -> None:
+        self._versao_sessao += 1
         self._auth_token = ""
         self._limpar_identidade()
         self.carregando = False
@@ -231,6 +233,67 @@ class AuthState(rx.State):
     @rx.event
     async def carregar_diretoria(self) -> AsyncIterator[Any]:
         async for evento in self._executar_guard("diretoria", False):
+            yield evento
+
+    @rx.event
+    async def redirecionar_alias_diretoria(self) -> AsyncIterator[Any]:
+        async for evento in self._executar_guard("diretoria", False):
+            yield evento
+        if self.sessao_confirmada and self.role == "diretoria" and not self.deve_trocar_senha:
+            yield rx.redirect("/inicio")
+
+    async def _carregar_jornada_chamados(
+        self,
+        *,
+        detalhe: bool = False,
+    ) -> AsyncIterator[Any]:
+        """Resolve a jornada de chamados somente após confirmar a identidade."""
+        self._iniciar_carregamento()
+        yield
+        destino = await self._revalidar()
+        self._finalizar_carregamento()
+        if destino is not None:
+            yield rx.redirect(destino)
+            return
+        if not self.sessao_confirmada:
+            return
+
+        # As duas jornadas continuam separadas: esta escolha só organiza a URL.
+        if self.role == "gerente":
+            from app.chamados.gerente import ChamadosGerenteState
+
+            estado = await self.get_state(ChamadosGerenteState)
+            handler = (
+                ChamadosGerenteState.carregar_detalhe
+                if detalhe
+                else ChamadosGerenteState.carregar_lista
+            )
+        else:
+            from app.chamados.tecnico import ChamadosTecnicoState
+
+            estado = await self.get_state(ChamadosTecnicoState)
+            handler = (
+                ChamadosTecnicoState.carregar_detalhe_tecnico
+                if detalhe
+                else ChamadosTecnicoState.carregar_fila
+            )
+
+        async for evento in handler.fn(estado):
+            yield evento
+
+    @rx.event
+    async def carregar_inicio(self) -> AsyncIterator[Any]:
+        async for evento in self._carregar_jornada_chamados():
+            yield evento
+
+    @rx.event
+    async def carregar_chamados(self) -> AsyncIterator[Any]:
+        async for evento in self._carregar_jornada_chamados():
+            yield evento
+
+    @rx.event
+    async def carregar_detalhe_chamado(self) -> AsyncIterator[Any]:
+        async for evento in self._carregar_jornada_chamados(detalhe=True):
             yield evento
 
     @rx.event

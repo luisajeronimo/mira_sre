@@ -30,6 +30,7 @@ from app.services.xano import (
     XanoNaoEncontrado,
 )
 from app.states.auth import (
+    DESTINO_PRIMEIRO_ACESSO,
     MENSAGEM_EXPIRADA,
     MENSAGEM_INDISPONIVEL,
     MENSAGEM_NAO_AUTORIZADO,
@@ -43,20 +44,34 @@ class ChamadosTecnicoState(AuthState):
     filtro_numero: str = ""
     filtro_status: str = ""
     filtro_ativo: str = ""
+    filtro_prioridade: str = ""
+    filtro_responsavel: str = ""
     filtro_data_inicio: str = ""
     filtro_data_fim: str = ""
     filtro_numero_confirmado: str = ""
     filtro_status_confirmado: str = ""
     filtro_ativo_confirmado: str = ""
+    filtro_prioridade_confirmada: str = ""
+    filtro_responsavel_confirmado: str = ""
     filtro_data_inicio_confirmada: str = ""
     filtro_data_fim_confirmada: str = ""
     numero_aplicado: int | None = None
     status_aplicado: str = ""
     ativo_id_aplicado: int | None = None
+    prioridade_aplicada: str = ""
+    responsavel_id_aplicado: int | None = None
+    somente_nao_atribuido_aplicado: bool = False
+    responsavel_filtro_transitorio_id: int | None = None
     data_inicio_aplicada: int | None = None
     data_fim_aplicada: int | None = None
     filtros_aplicados: list[str] = []
     escopo_rapido: str = "todos"
+    ordenar_por: str = "numero"
+    direcao_ordenacao: str = "DESC"
+    escopo_preferencia_carregada: str = ""
+    usuario_id_contexto_fila: int | None = None
+    _token_contexto_fila: str = ""
+    versao_sessao_contexto_fila: int = -1
     ativos: list[str] = []
     total_chamados: int = 0
     chamados: list[TecnicoView] = []
@@ -91,6 +106,58 @@ class ChamadosTecnicoState(AuthState):
     @staticmethod
     def prioridades_tratativa() -> list[str]:
         return ["Baixa", "Média", "Alta", "Urgente"]
+
+    @rx.var
+    def responsaveis_filtro(self) -> list[str]:
+        opcoes = ["0 — Não atribuído"] + [
+            f"{tecnico['id']} — {tecnico['nome']}" for tecnico in self.tecnicos
+        ]
+        if (
+            self.responsavel_filtro_transitorio_id is not None
+            and all(
+                tecnico["id"] != self.responsavel_filtro_transitorio_id
+                for tecnico in self.tecnicos
+            )
+        ):
+            opcoes.append(
+                f"{self.responsavel_filtro_transitorio_id} — Técnico não listado"
+            )
+        return opcoes
+
+    def _opcao_responsavel(self, responsavel_id: int | None, somente_nao_atribuido: bool) -> str:
+        if somente_nao_atribuido:
+            return "0 — Não atribuído"
+        if responsavel_id is None:
+            return ""
+        opcao = next(
+            (
+                f"{item['id']} — {item['nome']}"
+                for item in self.tecnicos
+                if item["id"] == responsavel_id
+            ),
+            "",
+        )
+        if opcao:
+            if self.responsavel_filtro_transitorio_id == responsavel_id:
+                self.responsavel_filtro_transitorio_id = None
+            return opcao
+        if responsavel_id == self.responsavel_filtro_transitorio_id:
+            return f"{responsavel_id} — Técnico não listado"
+        return ""
+
+    def _incorporar_responsaveis_da_fila(self, itens) -> None:
+        """Reaproveita responsáveis retornados pela própria lista da fila."""
+        catalogo = {item["id"]: item["nome"] for item in self.tecnicos}
+        for chamado in itens:
+            tecnico = chamado.tecnico
+            if tecnico is not None:
+                catalogo[tecnico.id] = tecnico.nome
+        self.tecnicos = [
+            {"id": tecnico_id, "nome": nome}
+            for tecnico_id, nome in sorted(
+                catalogo.items(), key=lambda item: (item[1].casefold(), item[0])
+            )
+        ]
 
     @staticmethod
     def _status_exige_comentario_publico(status: str) -> bool:
@@ -244,6 +311,8 @@ class ChamadosTecnicoState(AuthState):
         self.detalhe_tecnico_carregado = True
 
     async def _validar_acesso_fila(self) -> str | None:
+        if self.deve_trocar_senha:
+            return DESTINO_PRIMEIRO_ACESSO
         if (
             self.sessao_confirmada
             and self._auth_token
@@ -256,6 +325,40 @@ class ChamadosTecnicoState(AuthState):
         if self.role not in {"tecnico", "diretoria", "administrador"}:
             return self.destino_por_perfil(self.role) or "/login"
         return None
+
+    @rx.event
+    async def redirecionar_alias_fila(self):
+        revalidar = not (
+            self.sessao_confirmada
+            and self._auth_token
+            and self.role in {"tecnico", "diretoria", "administrador"}
+        )
+        if revalidar:
+            self._iniciar_carregamento()
+            yield
+        destino = await self._validar_acesso_fila()
+        if revalidar:
+            self._finalizar_carregamento()
+        yield rx.redirect(destino or "/chamados")
+
+    @rx.event
+    async def redirecionar_alias_detalhe(self):
+        revalidar = not (
+            self.sessao_confirmada
+            and self._auth_token
+            and self.role in {"tecnico", "diretoria", "administrador"}
+        )
+        if revalidar:
+            self._iniciar_carregamento()
+            yield
+        destino = await self._validar_acesso_fila()
+        if revalidar:
+            self._finalizar_carregamento()
+        if destino is not None:
+            yield rx.redirect(destino)
+            return
+        chamado_id = self.router.page.params.get("chamado_id", "")
+        yield rx.redirect(f"/chamados/{chamado_id}")
 
     def _registrar_erro_fila(self, erro: Exception) -> str | None:
         if isinstance(erro, XanoNaoAutenticado):
@@ -315,6 +418,13 @@ class ChamadosTecnicoState(AuthState):
     def alterar_filtro_status(self, valor: str) -> None: self.filtro_status = valor
     @rx.event
     def alterar_filtro_ativo(self, valor: str) -> None: self.filtro_ativo = valor
+    @rx.event
+    def alterar_filtro_prioridade(self, valor: str) -> None: self.filtro_prioridade = valor
+    @rx.event
+    def alterar_filtro_responsavel(self, valor: str) -> None:
+        responsavel_id = self._id_da_opcao(valor)
+        if valor == "0 — Não atribuído" or responsavel_id in {item["id"] for item in self.tecnicos} or responsavel_id == self.responsavel_filtro_transitorio_id:
+            self.filtro_responsavel = valor
     @rx.event
     def alterar_filtro_data_inicio(self, valor: str) -> None: self.filtro_data_inicio = valor
     @rx.event
@@ -376,16 +486,41 @@ class ChamadosTecnicoState(AuthState):
         except (TypeError, ValueError): return None
         return resultado if resultado and resultado > 0 else None
 
+    def _responsavel_solicitado(self) -> tuple[int | None, bool] | None:
+        if not self.filtro_responsavel:
+            return None, False
+        if self.filtro_responsavel == "0 — Não atribuído":
+            return None, True
+        responsavel_id = self._id_da_opcao(self.filtro_responsavel)
+        if responsavel_id not in {item["id"] for item in self.tecnicos} and responsavel_id != self.responsavel_filtro_transitorio_id:
+            self.mensagem_fila = "Selecione um Responsável válido."
+            return None
+        return responsavel_id, False
+
     @staticmethod
     def _inicio_do_dia(data: str) -> int:
         return int(datetime.strptime(data, "%Y-%m-%d").replace(tzinfo=ZoneInfo("America/Sao_Paulo")).timestamp() * 1000)
 
-    def _filtros_solicitados(self) -> tuple[int | None, str, int | None, int | None, int | None, list[str]] | None:
+    @staticmethod
+    def _data_do_timestamp(instante: int | None) -> str:
+        if instante is None:
+            return ""
+        return datetime.fromtimestamp(
+            instante / 1000, tz=ZoneInfo("America/Sao_Paulo")
+        ).strftime("%Y-%m-%d")
+
+    def _filtros_solicitados(self) -> tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, list[str]] | None:
         numero = self.filtro_numero.strip()
         if numero and (not numero.isdigit() or int(numero) <= 0):
             self.mensagem_fila = "Informe um número de chamado válido."; return None
         if self.filtro_status and self.filtro_status not in self.status_filtros():
             self.mensagem_fila = "Informe um status válido."; return None
+        if self.filtro_prioridade and self.filtro_prioridade not in self.prioridades_tratativa():
+            self.mensagem_fila = "Informe uma prioridade válida."; return None
+        responsavel = self._responsavel_solicitado()
+        if responsavel is None:
+            return None
+        responsavel_id, somente_nao_atribuido = responsavel
         ativo_id = self._id_da_opcao(self.filtro_ativo)
         if self.filtro_ativo and ativo_id is None:
             self.mensagem_fila = "Selecione um Totem válido."; return None
@@ -396,15 +531,91 @@ class ChamadosTecnicoState(AuthState):
             self.mensagem_fila = "Informe um período de abertura válido."; return None
         if inicio is not None and fim is not None and inicio >= fim:
             self.mensagem_fila = "A data inicial deve ser anterior à data final."; return None
-        etiquetas = ([f"Número: {numero}"] if numero else []) + ([f"Status: {self.filtro_status}"] if self.filtro_status else []) + ([f"Totem: {self.filtro_ativo.split(' — ', 1)[-1]}"] if self.filtro_ativo else []) + ([f"Abertura a partir de: {self.filtro_data_inicio}"] if self.filtro_data_inicio else []) + ([f"Abertura até: {self.filtro_data_fim}"] if self.filtro_data_fim else [])
-        return (int(numero) if numero else None, self.filtro_status, ativo_id, inicio, fim, etiquetas)
+        etiquetas = ([f"Número: {numero}"] if numero else []) + ([f"Status: {self.filtro_status}"] if self.filtro_status else []) + ([f"Prioridade: {self.filtro_prioridade}"] if self.filtro_prioridade else []) + ([f"Responsável: {self.filtro_responsavel.split(' — ', 1)[-1]}"] if self.filtro_responsavel else []) + ([f"Totem: {self.filtro_ativo.split(' — ', 1)[-1]}"] if self.filtro_ativo else []) + ([f"Abertura a partir de: {self.filtro_data_inicio}"] if self.filtro_data_inicio else []) + ([f"Abertura até: {self.filtro_data_fim}"] if self.filtro_data_fim else [])
+        return (int(numero) if numero else None, self.filtro_status, ativo_id, inicio, fim, self.filtro_prioridade, responsavel_id, somente_nao_atribuido, etiquetas)
 
     def _restaurar_filtros_confirmados(self) -> None:
         self.filtro_numero = self.filtro_numero_confirmado
         self.filtro_status = self.filtro_status_confirmado
         self.filtro_ativo = self.filtro_ativo_confirmado
+        self.filtro_prioridade = self.filtro_prioridade_confirmada
+        self.filtro_responsavel = self.filtro_responsavel_confirmado
         self.filtro_data_inicio = self.filtro_data_inicio_confirmada
         self.filtro_data_fim = self.filtro_data_fim_confirmada
+
+    def _limpar_contexto_fila(self) -> None:
+        """Descarta dados protegidos e filtros associados a outra identidade."""
+        self.filtro_numero = ""
+        self.filtro_status = ""
+        self.filtro_ativo = ""
+        self.filtro_prioridade = ""
+        self.filtro_responsavel = ""
+        self.filtro_data_inicio = ""
+        self.filtro_data_fim = ""
+        self.filtro_numero_confirmado = ""
+        self.filtro_status_confirmado = ""
+        self.filtro_ativo_confirmado = ""
+        self.filtro_prioridade_confirmada = ""
+        self.filtro_responsavel_confirmado = ""
+        self.filtro_data_inicio_confirmada = ""
+        self.filtro_data_fim_confirmada = ""
+        self.numero_aplicado = None
+        self.status_aplicado = ""
+        self.ativo_id_aplicado = None
+        self.prioridade_aplicada = ""
+        self.responsavel_id_aplicado = None
+        self.somente_nao_atribuido_aplicado = False
+        self.responsavel_filtro_transitorio_id = None
+        self.data_inicio_aplicada = None
+        self.data_fim_aplicada = None
+        self.filtros_aplicados = []
+        self.escopo_rapido = "todos"
+        self.ordenar_por = "numero"
+        self.direcao_ordenacao = "DESC"
+        self.escopo_preferencia_carregada = ""
+        self.ativos = []
+        self.total_chamados = 0
+        self.chamados = []
+        self.chamado = {}
+        self.timeline = []
+        self.tecnicos = []
+        self.categorias_tratativa = []
+        self.detalhe_tecnico_carregado = False
+        self.responsavel_confirmado_id = None
+        self.status_confirmado = ""
+        self.prioridade_confirmada = ""
+        self.categoria_confirmada_id = None
+        self.ultima_atualizacao_confirmada = None
+        self._copiar_confirmado_para_pendente()
+
+    def _sincronizar_contexto_fila(self) -> bool:
+        """Isola a fila entre identidades e reinicia o escopo a cada sessão."""
+        if self.usuario_id is None:
+            self._limpar_contexto_fila()
+            self.usuario_id_contexto_fila = None
+            self._token_contexto_fila = ""
+            self.versao_sessao_contexto_fila = -1
+            return True
+        if self.usuario_id_contexto_fila is None:
+            self.usuario_id_contexto_fila = self.usuario_id
+            self._token_contexto_fila = self._auth_token
+            self.versao_sessao_contexto_fila = self._versao_sessao
+            return False
+        identidade_alterada = self.usuario_id_contexto_fila != self.usuario_id
+        if identidade_alterada:
+            self._limpar_contexto_fila()
+        elif (
+            self._token_contexto_fila != self._auth_token
+            or self.versao_sessao_contexto_fila != self._versao_sessao
+        ):
+            # Preferências duráveis serão relidas para a nova sessão; o escopo
+            # rápido nunca atravessa login/logout.
+            self.escopo_rapido = "todos"
+            self.escopo_preferencia_carregada = ""
+        self.usuario_id_contexto_fila = self.usuario_id
+        self._token_contexto_fila = self._auth_token
+        self.versao_sessao_contexto_fila = self._versao_sessao
+        return identidade_alterada
 
     @rx.event
     async def aplicar_filtros(self):
@@ -412,17 +623,17 @@ class ChamadosTecnicoState(AuthState):
         if filtros is None: return
         async for evento in self._carregar_fila(
             filtros=filtros,
-            confirmar_filtros=True,
+            persistir=True,
             escopo_rapido=self.escopo_rapido,
         ):
             yield evento
 
     @rx.event
     async def limpar_filtros(self):
-        filtros = (None, "", None, None, None, [])
+        filtros = (None, "", None, None, None, "", None, False, [])
         async for evento in self._carregar_fila(
             filtros=filtros,
-            confirmar_filtros=True,
+            persistir=True,
             escopo_rapido=self.escopo_rapido,
         ):
             yield evento
@@ -432,27 +643,45 @@ class ChamadosTecnicoState(AuthState):
         if self.role != "tecnico" or escopo not in {"todos", "atribuidos_a_mim"}:
             return
         async for evento in self._carregar_fila(
-            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados),
-            confirmar_filtros=False,
+            filtros=(None, "", None, None, None, "", None, False, []),
+            persistir=False,
             escopo_rapido=escopo,
+            alteracao_explicita=True,
+            carregar_preferencia=True,
         ):
             yield evento
 
     @rx.event
     async def carregar_fila(self):
         async for evento in self._carregar_fila(
-            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados),
-            confirmar_filtros=False,
+            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.filtros_aplicados),
+            persistir=False,
             escopo_rapido=self.escopo_rapido,
+            carregar_preferencia=self.escopo_preferencia_carregada != self.escopo_rapido,
+        ):
+            yield evento
+
+    @rx.event
+    async def ordenar_fila(self, coluna: str):
+        if coluna not in {"numero", "titulo", "status", "prioridade", "totem", "categoria", "responsavel", "criado_em", "ultima_atualizacao_em"}:
+            return
+        direcao_candidata = "ASC" if coluna != self.ordenar_por else ("DESC" if self.direcao_ordenacao == "ASC" else "ASC")
+        async for evento in self._carregar_fila(
+            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.filtros_aplicados),
+            persistir=True, escopo_rapido=self.escopo_rapido,
+            ordenacao_candidata=(coluna, direcao_candidata),
         ):
             yield evento
 
     async def _carregar_fila(
         self,
         *,
-        filtros: tuple[int | None, str, int | None, int | None, int | None, list[str]],
-        confirmar_filtros: bool,
+        filtros: tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, list[str]],
+        persistir: bool,
         escopo_rapido: str,
+        alteracao_explicita: bool = False,
+        carregar_preferencia: bool = False,
+        ordenacao_candidata: tuple[str, str] | None = None,
     ):
         if self.carregando_fila:
             return
@@ -466,43 +695,126 @@ class ChamadosTecnicoState(AuthState):
                 return
             if not self.sessao_confirmada:
                 return
+            identidade_alterada = self._sincronizar_contexto_fila()
+            if identidade_alterada:
+                filtros = (None, "", None, None, None, "", None, False, [])
+            escopo_solicitado = (
+                escopo_rapido if alteracao_explicita else self.escopo_rapido
+            )
+            escopo_efetivo = (
+                escopo_solicitado
+                if self.role == "tecnico"
+                and escopo_solicitado in {"todos", "atribuidos_a_mim"}
+                else "todos"
+            )
+            # Perfis globais nunca carregam nem exibem um escopo pessoal que
+            # tenha permanecido no State de um Técnico que saiu da sessão.
+            if self.role != "tecnico":
+                self.escopo_rapido = "todos"
             try:
-                numero, status, ativo_id, inicio, fim, etiquetas = filtros
                 cliente = criar_cliente_service_desk()
-                resultado = await cliente.listar_chamados_tecnico(self._auth_token, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, somente_atribuidos_a_mim=(escopo_rapido == "atribuidos_a_mim"))
+                deve_carregar_preferencia = carregar_preferencia or (not persistir and self.escopo_preferencia_carregada != escopo_efetivo)
+                if deve_carregar_preferencia:
+                    preferencia = await cliente.obter_preferencia_fila_tecnica(self._auth_token, escopo=escopo_efetivo)
+                    self.responsavel_filtro_transitorio_id = (
+                        preferencia.responsavel_id
+                        if preferencia.responsavel_id is not None
+                        else None
+                    )
+                    responsavel_preferencia = self._opcao_responsavel(
+                        preferencia.responsavel_id,
+                        preferencia.somente_nao_atribuido,
+                    )
+                    etiquetas_preferencia = ([f"Número: {preferencia.numero}"] if preferencia.numero is not None else []) + ([f"Status: {preferencia.status}"] if preferencia.status else []) + ([f"Prioridade: {preferencia.prioridade}"] if preferencia.prioridade else []) + ([f"Responsável: {responsavel_preferencia.split(' — ', 1)[-1]}"] if responsavel_preferencia else [])
+                    filtros = (preferencia.numero, preferencia.status or "", preferencia.ativo_id, preferencia.data_inicio, preferencia.data_fim, preferencia.prioridade or "", preferencia.responsavel_id, preferencia.somente_nao_atribuido, etiquetas_preferencia)
+                    ordenar_por, direcao = preferencia.ordenar_por, preferencia.direcao
+                elif ordenacao_candidata is not None:
+                    ordenar_por, direcao = ordenacao_candidata
+                else:
+                    ordenar_por, direcao = self.ordenar_por, self.direcao_ordenacao
+                numero, status, ativo_id, inicio, fim, prioridade, responsavel_id, somente_nao_atribuido, etiquetas = filtros
+                consulta = {"numero": numero, "status": status or None, "ativo_id": ativo_id, "data_inicio": inicio, "data_fim": fim, "somente_atribuidos_a_mim": escopo_efetivo == "atribuidos_a_mim"}
+                if prioridade:
+                    consulta["prioridade"] = prioridade
+                if responsavel_id is not None:
+                    consulta["responsavel_id"] = responsavel_id
+                elif somente_nao_atribuido:
+                    consulta["responsavel_id"] = 0
+                if ordenar_por != "numero":
+                    consulta["ordenar_por"] = ordenar_por
+                if direcao != "DESC":
+                    consulta["direcao"] = direcao
+                resultado = await cliente.listar_chamados_tecnico(self._auth_token, **consulta)
                 ativos_carregados: list[str] | None = None
                 if not self.ativos:
                     ativos = await cliente.listar_ativos_tecnico(self._auth_token)
                     ativos_carregados = [f"{item.id} — {item.nome_ativo}" for item in ativos]
-                # A consulta só substitui o resultado confirmado depois que os
-                # dados auxiliares necessários à mesma tela também chegaram.
+                # Consulta candidata antes do save; o State só confirma após ambos.
+                if persistir:
+                    await cliente.salvar_preferencia_fila_tecnica(self._auth_token, escopo=escopo_efetivo, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, prioridade=prioridade or None, responsavel_id=responsavel_id, somente_nao_atribuido=somente_nao_atribuido, ordenar_por=ordenar_por, direcao=direcao)
+                self._incorporar_responsaveis_da_fila(resultado.items)
+                responsavel_opcao = self._opcao_responsavel(
+                    responsavel_id, somente_nao_atribuido
+                )
+                if responsavel_opcao:
+                    etiqueta_responsavel = (
+                        f"Responsável: {responsavel_opcao.split(' — ', 1)[-1]}"
+                    )
+                    if any(
+                        etiqueta.startswith("Responsável:") for etiqueta in etiquetas
+                    ):
+                        etiquetas = [
+                            etiqueta_responsavel
+                            if etiqueta.startswith("Responsável:")
+                            else etiqueta
+                            for etiqueta in etiquetas
+                        ]
+                    else:
+                        etiquetas = [*etiquetas, etiqueta_responsavel]
+                    filtros = (
+                        numero,
+                        status,
+                        ativo_id,
+                        inicio,
+                        fim,
+                        prioridade,
+                        responsavel_id,
+                        somente_nao_atribuido,
+                        etiquetas,
+                    )
                 self.chamados = [_tecnico_para_dict(item) for item in resultado.items]
                 self.total_chamados = resultado.total
-                self.escopo_rapido = escopo_rapido
+                self.escopo_rapido = escopo_efetivo
+                self.ordenar_por, self.direcao_ordenacao = ordenar_por, direcao
+                self.escopo_preferencia_carregada = escopo_efetivo
                 if ativos_carregados is not None:
                     self.ativos = ativos_carregados
-                if confirmar_filtros:
-                    self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.filtros_aplicados = filtros
+                if persistir or deve_carregar_preferencia:
+                    self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.filtros_aplicados = filtros
                     self.filtro_numero = str(numero) if numero is not None else ""
                     self.filtro_status = status
                     self.filtro_ativo = next((item for item in self.ativos if item.startswith(f"{ativo_id} —")), "") if ativo_id else ""
-                    self.filtro_data_inicio = self.filtro_data_inicio if inicio is not None else ""
-                    self.filtro_data_fim = self.filtro_data_fim if fim is not None else ""
+                    self.filtro_prioridade = prioridade
+                    self.filtro_responsavel = responsavel_opcao
+                    self.filtro_data_inicio = self._data_do_timestamp(inicio)
+                    self.filtro_data_fim = self._data_do_timestamp(fim - 86_400_000) if fim is not None else ""
                     self.filtro_numero_confirmado = self.filtro_numero
                     self.filtro_status_confirmado = self.filtro_status
                     self.filtro_ativo_confirmado = self.filtro_ativo
+                    self.filtro_prioridade_confirmada = self.filtro_prioridade
+                    self.filtro_responsavel_confirmado = self.filtro_responsavel
                     self.filtro_data_inicio_confirmada = self.filtro_data_inicio
                     self.filtro_data_fim_confirmada = self.filtro_data_fim
             except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
                 destino = self._registrar_erro_fila(erro)
-                if confirmar_filtros:
+                if persistir:
                     self._restaurar_filtros_confirmados()
                 if destino is not None:
                     yield rx.redirect(destino)
                     return
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             self._registrar_erro_fila(erro)
-            if confirmar_filtros:
+            if persistir:
                 self._restaurar_filtros_confirmados()
         finally:
             self.carregando_fila = False

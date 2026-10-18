@@ -55,6 +55,18 @@ def _fila_tecnico() -> rx.Component:
                         placeholder="Status",
                     ),
                     rx.select(
+                        ChamadosTecnicoState.prioridades_tratativa(),
+                        value=ChamadosTecnicoState.filtro_prioridade,
+                        on_change=ChamadosTecnicoState.alterar_filtro_prioridade,
+                        placeholder="Prioridade",
+                    ),
+                    rx.select(
+                        ChamadosTecnicoState.responsaveis_filtro,
+                        value=ChamadosTecnicoState.filtro_responsavel,
+                        on_change=ChamadosTecnicoState.alterar_filtro_responsavel,
+                        placeholder="Responsável",
+                    ),
+                    rx.select(
                         ChamadosTecnicoState.ativos,
                         value=ChamadosTecnicoState.filtro_ativo,
                         on_change=ChamadosTecnicoState.alterar_filtro_ativo,
@@ -117,14 +129,15 @@ def _fila_tecnico() -> rx.Component:
                     rx.table.root(
                         rx.table.header(
                             rx.table.row(
-                                rx.table.column_header_cell("Número"),
-                                rx.table.column_header_cell("Título"),
-                                rx.table.column_header_cell("Status"),
-                                rx.table.column_header_cell("Prioridade"),
-                                rx.table.column_header_cell("Totem"),
-                                rx.table.column_header_cell("Categoria"),
-                                rx.table.column_header_cell("Responsável"),
-                                rx.table.column_header_cell("Atribuído em"),
+                                _cabecalho_ordenavel("Número", "numero"),
+                                _cabecalho_ordenavel("Título", "titulo"),
+                                _cabecalho_ordenavel("Status", "status"),
+                                _cabecalho_ordenavel("Prioridade", "prioridade"),
+                                _cabecalho_ordenavel("Totem", "totem"),
+                                _cabecalho_ordenavel("Categoria", "categoria"),
+                                _cabecalho_ordenavel("Responsável", "responsavel"),
+                                _cabecalho_ordenavel("Abertura", "criado_em"),
+                                _cabecalho_ordenavel("Última atualização", "ultima_atualizacao_em"),
                                 rx.table.column_header_cell("Ações"),
                             )
                         ),
@@ -135,7 +148,7 @@ def _fila_tecnico() -> rx.Component:
                                     rx.table.cell(
                                         rx.link(
                                             "#" + item["id"].to_string(),
-                                            href="/tecnico/chamados/" + item["id"].to_string(),
+                                            href="/chamados/" + item["id"].to_string(),
                                         )
                                     ),
                                     rx.table.cell(item["titulo"]),
@@ -144,12 +157,13 @@ def _fila_tecnico() -> rx.Component:
                                     rx.table.cell(item["ativo_nome"]),
                                     rx.table.cell(item["categoria_nome"]),
                                     rx.table.cell(item["tecnico_nome"]),
-                                    rx.table.cell(item["atribuido_em_texto"]),
+                                    rx.table.cell(item["criado_em_texto"]),
+                                    rx.table.cell(item["ultima_atualizacao_em_texto"]),
                                     rx.table.cell(
                                         rx.hstack(
                                             rx.link(
                                                 "Ver detalhe",
-                                                href="/tecnico/chamados/" + item["id"].to_string(),
+                                                href="/chamados/" + item["id"].to_string(),
                                             ),
                                             spacing="3",
                                         )
@@ -167,6 +181,17 @@ def _fila_tecnico() -> rx.Component:
         ),
         spacing="5",
         width="100%",
+    )
+
+
+def _cabecalho_ordenavel(rotulo: str, coluna: str) -> rx.Component:
+    return rx.table.column_header_cell(
+        rx.button(
+            rotulo,
+            variant="ghost",
+            on_click=ChamadosTecnicoState.ordenar_fila(coluna),
+            disabled=ChamadosTecnicoState.carregando_fila,
+        )
     )
 
 
@@ -468,7 +493,7 @@ def _detalhe_tecnico() -> rx.Component:
             ),
             rx.fragment(),
         ),
-        rx.link("Voltar à fila", href="/tecnico"),
+        rx.link("Voltar à fila", href="/chamados"),
         spacing="5",
         width="100%",
     )
@@ -485,7 +510,7 @@ def _protegida_fila_global(conteudo: rx.Component, evento) -> rx.Component:
                 | (AuthState.role == "diretoria")
                 | (AuthState.role == "administrador")
             ),
-            casca_conteudo(conteudo, "/tecnico"),
+            casca_conteudo(conteudo, "/inicio"),
             estado_revalidacao(evento),
         ),
     )

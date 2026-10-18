@@ -141,7 +141,7 @@ def _protegida() -> rx.Component:
             AuthState.sessao_confirmada,
             casca_conteudo(
                 _conteudo(),
-                "/monitoramento",
+                "/inicio",
             ),
             estado_revalidacao(MonitoramentoState.carregar),
         ),

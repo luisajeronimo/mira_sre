@@ -9,12 +9,16 @@ query "tecnico/chamados" verb=GET {
     text ativo_id? filters=trim
     timestamp data_inicio?
     timestamp data_fim?
+    text prioridade? filters=trim
+    text responsavel_id? filters=trim
+    text ordenar_por? filters=trim
+    text direcao? filters=trim
     bool somente_atribuidos_a_mim?
   }
 
   stack {
     function.run "service_desk/listar_chamados_tecnico" {
-      input = {usuarios_id: $auth.id, numero: $input.numero, status: $input.status, ativo_id: $input.ativo_id, data_inicio: $input.data_inicio, data_fim: $input.data_fim, somente_atribuidos_a_mim: $input.somente_atribuidos_a_mim}
+      input = {usuarios_id: $auth.id, numero: $input.numero, status: $input.status, ativo_id: $input.ativo_id, data_inicio: $input.data_inicio, data_fim: $input.data_fim, prioridade: $input.prioridade, responsavel_id: $input.responsavel_id, ordenar_por: $input.ordenar_por, direcao: $input.direcao, somente_atribuidos_a_mim: $input.somente_atribuidos_a_mim}
     } as $resultado
   }
 

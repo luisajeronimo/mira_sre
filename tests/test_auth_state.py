@@ -93,10 +93,10 @@ def test_token_e_backend_only_e_nao_usa_armazenamento_cliente():
 @pytest.mark.parametrize(
     ("perfil", "destino"),
     [
-        ("gerente", "/gerente"),
-        ("tecnico", "/tecnico"),
-        ("diretoria", "/diretoria"),
-        ("administrador", "/administracao"),
+        ("gerente", "/inicio"),
+        ("tecnico", "/inicio"),
+        ("diretoria", "/inicio"),
+        ("administrador", "/inicio"),
     ],
 )
 def test_login_confirma_me_e_redireciona_por_perfil(
@@ -289,7 +289,7 @@ def test_guard_permite_perfil_correto_e_redireciona_perfil_diferente(
 
     estado._auth_token = "token"
     eventos = executar_evento(AuthState.carregar_gerente, estado)
-    assert destino_redirect(eventos[-1]) == "/tecnico"
+    assert destino_redirect(eventos[-1]) == "/inicio"
 
 
 def test_raiz_e_login_redirecionam_sessao_valida(monkeypatch):
@@ -300,7 +300,7 @@ def test_raiz_e_login_redirecionam_sessao_valida(monkeypatch):
         estado = novo_estado()
         estado._auth_token = "token"
         eventos = executar_evento(handler, estado)
-        assert destino_redirect(eventos[-1]) == "/diretoria"
+        assert destino_redirect(eventos[-1]) == "/inicio"
 
 
 def test_logout_e_apenas_local_e_limpa_estado():
@@ -415,10 +415,10 @@ def test_primeiro_acesso_pendente_revalidacoes_repetidas_nao_criam_loop(
 @pytest.mark.parametrize(
     ("perfil", "destino"),
     [
-        ("gerente", "/gerente"),
-        ("tecnico", "/tecnico"),
-        ("diretoria", "/diretoria"),
-        ("administrador", "/administracao"),
+        ("gerente", "/inicio"),
+        ("tecnico", "/inicio"),
+        ("diretoria", "/inicio"),
+        ("administrador", "/inicio"),
     ],
 )
 def test_primeiro_acesso_concluido_redireciona_para_destino_do_perfil(

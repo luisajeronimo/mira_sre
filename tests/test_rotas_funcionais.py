@@ -138,9 +138,8 @@ def test_registro_contem_mapa_completo_de_rotas_canonicas_e_aliases():
         ("administrador", ChamadosTecnicoState),
     ],
 )
-@pytest.mark.parametrize("handler", [AuthState.carregar_inicio, AuthState.carregar_chamados])
 def test_dispatcher_de_lista_aguarda_revalidacao_e_escolhe_jornada_por_perfil(
-    monkeypatch, role, esperado, handler
+    monkeypatch, role, esperado
 ):
     estado = _estado(AuthState)
     estados_solicitados = []
@@ -159,7 +158,7 @@ def test_dispatcher_de_lista_aguarda_revalidacao_e_escolhe_jornada_por_perfil(
     monkeypatch.setattr(AuthState, "get_state", get_state)
 
     async def executar():
-        gerador = handler.fn(estado)
+        gerador = AuthState.carregar_inicio.fn(estado)
         assert await gerador.__anext__() is None
         assert estados_solicitados == []
         return await gerador.__anext__()
@@ -207,13 +206,12 @@ def test_dispatcher_de_detalhe_escolhe_o_handler_contextual(monkeypatch, role, e
     assert evento is None
 
 
-@pytest.mark.parametrize("handler", [AuthState.carregar_inicio, AuthState.carregar_chamados])
 @pytest.mark.parametrize(
     "perfil,usuario_id",
     [("tecnico", 9), ("diretoria", 18), ("administrador", 19), ("gerente", 20)],
 )
 def test_troca_real_de_sessao_nao_reutiliza_contexto_tecnico_nas_rotas_canonicas(
-    monkeypatch, handler, perfil, usuario_id
+    monkeypatch, perfil, usuario_id
 ):
     cliente = _ClienteFilaRastreado()
     monkeypatch.setattr(
@@ -255,7 +253,7 @@ def test_troca_real_de_sessao_nao_reutiliza_contexto_tecnico_nas_rotas_canonicas
     monkeypatch.setattr(AuthState, "get_state", get_state)
     if perfil == "gerente":
         async def iniciar_apenas():
-            gerador = handler.fn(sessao)
+            gerador = AuthState.carregar_inicio.fn(sessao)
             primeiro = await gerador.__anext__()
             segundo = await gerador.__anext__()
             await gerador.aclose()
@@ -264,7 +262,7 @@ def test_troca_real_de_sessao_nao_reutiliza_contexto_tecnico_nas_rotas_canonicas
         assert asyncio.run(iniciar_apenas()) == (None, None)
         assert cliente.consultas == []
     else:
-        eventos = _coletar(handler, sessao)
+        eventos = _coletar(AuthState.carregar_inicio, sessao)
         # O novo ciclo consulta a preferência durável do escopo Todos; o
         # marcador rápido e filtros em memória do login anterior não vazam.
         numero_esperado = None
@@ -347,7 +345,7 @@ def test_alias_sem_sessao_exibe_estado_neutro_antes_do_login(monkeypatch):
     "handler",
     [
         AuthState.carregar_inicio,
-        AuthState.carregar_chamados,
+        AuthState.redirecionar_chamados_para_inicio,
         AuthState.carregar_detalhe_chamado,
     ],
 )
@@ -468,7 +466,39 @@ def test_alias_403_preserva_sessao_e_redireciona_sem_conceder_acesso(monkeypatch
     eventos = _coletar(ChamadosGerenteState.redirecionar_alias_lista, estado)
 
     assert estado.sessao_confirmada is True
-    assert _destino(eventos[-1]) == "/chamados"
+    assert _destino(eventos[-1]) == "/inicio"
+
+
+def test_rota_legada_de_chamados_redireciona_sem_carregar_ou_limpar_a_lista(
+    monkeypatch,
+):
+    estado = _estado(
+        ChamadosGerenteState, role="gerente", token="token", confirmado=True
+    )
+    object.__setattr__(estado, "filtro_numero", "31")
+
+    async def guard_confirmado(self, *_args):
+        yield None
+
+    monkeypatch.setattr(AuthState, "_executar_guard", guard_confirmado)
+
+    eventos = _coletar(AuthState.redirecionar_chamados_para_inicio, estado)
+
+    assert eventos[0] is None
+    assert _destino(eventos[-1]) == "/inicio"
+    assert estado.filtro_numero == "31"
+
+
+def test_rota_legada_nao_redireciona_apos_falha_de_revalidacao(monkeypatch):
+    estado = _estado(AuthState, role="gerente", token="token", confirmado=True)
+
+    async def guard_indisponivel(self, *_args):
+        self.mensagem_erro = "O serviço está indisponível no momento."
+        yield None
+
+    monkeypatch.setattr(AuthState, "_executar_guard", guard_indisponivel)
+
+    assert _coletar(AuthState.redirecionar_chamados_para_inicio, estado) == [None]
 
 
 def test_alias_administrativo_e_diretoria_redirecionam_somente_perfis_autorizados(

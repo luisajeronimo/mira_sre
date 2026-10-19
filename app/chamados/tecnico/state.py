@@ -339,7 +339,7 @@ class ChamadosTecnicoState(AuthState):
         destino = await self._validar_acesso_fila()
         if revalidar:
             self._finalizar_carregamento()
-        yield rx.redirect(destino or "/chamados")
+        yield rx.redirect(destino or "/inicio")
 
     @rx.event
     async def redirecionar_alias_detalhe(self):

@@ -20,6 +20,15 @@ ilustrativos e nunca definem requisitos funcionais. Eles servem somente para
 composição, hierarquia, densidade, identidade, navegação, aparência de
 componentes, espaçamento e linguagem visual.
 
+## Logotipo e identidade visual
+
+[`docs/design/references/logo.svg`](docs/design/references/logo.svg) é a
+referência oficial do logotipo da marca MIRA. Nas interfaces em que a marca
+deve aparecer, reutilize esse arquivo preservando suas proporções, cores e
+integridade visual. Não redesenhe o logotipo nem o substitua por texto ou
+ícones genéricos. Esta referência visual não altera a precedência de requisitos
+funcionais autorizados.
+
 ## Princípios
 
 - Clareza operacional: informação e ação relevantes devem ser reconhecíveis sem
@@ -47,10 +56,10 @@ fortes e texto de leitura confortável.
 
 ## Layout, forma e elevação
 
-Use grid de 12 colunas em desktop, 8 em tablet e 4 em mobile, com conteúdo
-fluido e margens proporcionais. Adote escala de espaçamento baseada em 4 px,
-priorizando 8, 12, 16, 24 e 32 px. Agrupe elementos por proximidade e mantenha
-respiro entre seções.
+O MIRA é uma interface Web desktop. Use grid de 12 colunas, conteúdo fluido e
+margens proporcionais no espaço de trabalho desktop. Adote escala de espaçamento
+baseada em 4 px, priorizando 8, 12, 16, 24 e 32 px. Agrupe elementos por
+proximidade e mantenha respiro entre seções.
 
 Controles usam cantos suavemente arredondados; cards, painéis e modais podem
 usar raio um pouco maior. Bordas finas e sombras discretas devem separar planos.
@@ -60,8 +69,8 @@ gradientes decorativos e efeitos chamativos.
 
 ## Estrutura e navegação
 
-A sidebar organiza áreas principais com item ativo claro, ícone opcional e
-colapso previsível em telas menores. A topbar concentra contexto de página,
+a sidebar desktop organiza áreas principais com item ativo claro e ícone
+opcional. A topbar concentra contexto de página,
 ações globais e elementos de sessão quando existentes. Não deduza itens de
 navegação, perfis ou permissões dos PNGs.
 
@@ -79,8 +88,8 @@ para carregamento ou atualização.
   focus e loading devem ser distinguíveis.
 - **Cards:** superfície clara, borda sutil, título e conteúdo organizados; não
   os use para simular uma ação que não exista no contrato.
-- **Tabelas:** cabeçalho legível, alinhamento coerente, densidade adequada,
-  hover/foco discretos e alternativa responsiva para telas estreitas.
+- **Tabelas:** cabeçalho legível, alinhamento coerente, densidade adequada e
+  hover/foco discretos.
 - **Badges:** pequenos e semânticos, com texto além da cor; não introduzem
   status, prioridade ou SLA novos.
 - **Dashboards:** destaque poucas métricas por vez, mantenha hierarquia visual
@@ -97,10 +106,9 @@ alvos interativos confortáveis, semântica acessível, mensagens de erro claras
 layout que suporte zoom e redução de movimento. Não use cor, posição ou ícone
 como único portador de significado.
 
-## Responsividade, reutilização e evolução
+## Desktop, reutilização e evolução
 
-Em telas estreitas, preserve a tarefa principal, empilhe grupos quando necessário
-e torne tabelas e filtros utilizáveis sem depender de largura fixa. Reutilize
+Não introduza drawer, controles ou lógica específica para mobile. Reutilize
 tokens, componentes e composições existentes antes de criar novos padrões.
 
 Evolua este guia por mudanças focadas e revisáveis. Uma referência PNG pode

@@ -336,7 +336,7 @@ def _detalhe_tecnico() -> rx.Component:
                                 ),
                                 rx.fragment(),
                             ),
-                            columns=rx.breakpoints(initial="1", sm="2", lg="3"),
+                            columns="3",
                             spacing="4",
                             width="100%",
                         ),
@@ -493,7 +493,7 @@ def _detalhe_tecnico() -> rx.Component:
             ),
             rx.fragment(),
         ),
-        rx.link("Voltar à fila", href="/chamados"),
+        rx.link("Voltar à fila", href="/inicio"),
         spacing="5",
         width="100%",
     )

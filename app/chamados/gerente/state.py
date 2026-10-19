@@ -167,7 +167,7 @@ class ChamadosGerenteState(AuthState):
         destino = await self._garantir_gerente()
         if revalidar:
             self._finalizar_carregamento()
-        yield rx.redirect(destino or "/chamados")
+        yield rx.redirect(destino or "/inicio")
 
     @rx.event
     async def redirecionar_alias_novo(self):
@@ -653,9 +653,9 @@ class ChamadosGerenteState(AuthState):
         """Abandona o rascunho sem executar mutação no backend."""
         self._limpar_formulario_local()
         self.mensagem_formulario = ""
-        return rx.redirect("/chamados")
+        return rx.redirect("/inicio")
 
     @rx.event
     def voltar_para_lista(self):
         """Navega sem alterar nem descartar explicitamente o rascunho."""
-        return rx.redirect("/chamados")
+        return rx.redirect("/inicio")

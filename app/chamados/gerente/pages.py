@@ -378,7 +378,7 @@ def _detalhe() -> rx.Component:
                 spacing="3",
             ),
         ),
-        rx.link("Voltar aos chamados", href="/chamados"),
+        rx.link("Voltar aos chamados", href="/inicio"),
         spacing="5",
         width="100%",
     )

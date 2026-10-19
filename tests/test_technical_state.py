@@ -1279,7 +1279,7 @@ def test_detalhe_tecnico_usa_um_unico_grid_sem_acao_separada_de_comentario():
         assert acao not in fonte
     assert '"adicionar comentário"' not in fonte
     assert 'rx.text("tratativa"' not in fonte
-    assert 'columns=rx.breakpoints(initial="1", sm="2", lg="3")' in fonte
+    assert 'columns="3"' in fonte
     for controle in (
         'rx.text("responsável"',
         'rx.text("status"',

@@ -17,4 +17,5 @@
 
 - [x] 3.1 Executar os testes Python focados de sessão, rotas, layout e monitoramento e a suíte completa, verificando a matriz desktop, rota canônica e compatibilidade, logout, revalidação, logo e autorização.
 - [x] 3.2 Compilar o Reflex e verificar manualmente a sidebar desktop após sessão confirmada, incluindo item ativo, ausência da sidebar em fluxos públicos/revalidação e logout.
+  - Validação visual no Reflex aprovada por decisão humana em 19/10/2026.
 - [x] 3.3 Executar validação XanoScript, `openspec validate sidebar-global-por-perfil --strict --no-interactive` e `git diff --check`; não publicar alterações Xano sem autorização humana explícita.

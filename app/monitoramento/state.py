@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import reflex as rx
 
 from app.services.service_desk import criar_cliente_service_desk
@@ -26,6 +28,10 @@ class MonitoramentoState(AuthState):
     ativos: list[dict[str, str | int]] = []
     carregando: bool = False
     mensagem_erro: str = ""
+
+    PERFIS_AUTORIZADOS: ClassVar[frozenset[str]] = frozenset(
+        {"tecnico", "diretoria", "administrador"}
+    )
 
     @rx.var
     def total_totens(self) -> int:
@@ -73,6 +79,15 @@ class MonitoramentoState(AuthState):
             self.mensagem_erro = MENSAGEM_INDISPONIVEL
         return None
 
+    async def _validar_acesso_monitoramento(self) -> str | None:
+        """Revalida a sessão antes de permitir qualquer consulta global."""
+        destino = await self._revalidar()
+        if destino is not None:
+            return destino
+        if not self.sessao_confirmada or self.role not in self.PERFIS_AUTORIZADOS:
+            return "/inicio"
+        return None
+
     @rx.event
     async def carregar(self):
         if self.carregando:
@@ -82,15 +97,11 @@ class MonitoramentoState(AuthState):
         self.mensagem_erro = ""
         yield
 
-        destino = await self._revalidar(self.role)
+        destino = await self._validar_acesso_monitoramento()
 
         if destino is not None:
             self.carregando = False
             yield rx.redirect(destino)
-            return
-
-        if not self.sessao_confirmada:
-            self.carregando = False
             return
 
         destino = await self._carregar()

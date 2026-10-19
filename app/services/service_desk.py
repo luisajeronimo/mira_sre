@@ -581,7 +581,7 @@ class XanoServiceDeskCliente(XanoCliente):
     ) -> list[AtivoServiceDesk]:
         dados = await self._requisitar(
             "GET",
-            "/ativos_referencia",
+            "/monitoramento/ativos",
             token=token,
         )
         return [

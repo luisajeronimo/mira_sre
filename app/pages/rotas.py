@@ -34,7 +34,8 @@ def inicio() -> rx.Component:
 
 
 def chamados() -> rx.Component:
-    return _protegida(_jornada_lista(), AuthState.carregar_chamados)
+    """Rota legada que preserva links para a listagem canônica em `/inicio`."""
+    return alias(AuthState.redirecionar_chamados_para_inicio)
 
 
 def detalhe_chamado_canonico() -> rx.Component:

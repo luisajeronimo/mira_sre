@@ -7,13 +7,13 @@ from app.pages.administracao import AdministracaoState
 from app.states.auth import AuthState
 
 
-def test_rotas_canonicas_usam_dispatcher_apos_revalidacao():
+def test_rotas_canonicas_e_compatibilidade_usam_handlers_corretos():
     inicio = app._unevaluated_pages["inicio"]
     chamados = app._unevaluated_pages["chamados"]
     detalhe = app._unevaluated_pages["chamados/[chamado_id]"]
 
     assert inicio.on_load.fn is AuthState.carregar_inicio.fn
-    assert chamados.on_load.fn is AuthState.carregar_chamados.fn
+    assert chamados.on_load.fn is AuthState.redirecionar_chamados_para_inicio.fn
     assert detalhe.on_load.fn is AuthState.carregar_detalhe_chamado.fn
 
 

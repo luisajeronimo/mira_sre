@@ -24,6 +24,11 @@ e nunca requisitos funcionais.
 
 ## Arquivos
 
+- `references/logo.svg` — logotipo oficial da marca MIRA; arquivo SVG de
+  identidade visual, distinto das referências PNG ilustrativas.
+
+### PNGs ilustrativos
+
 - `references/abrir-chamado.png` — composição de abertura de chamado.
 - `references/login.png` — composição de autenticação.
 - `references/fila-tecnica.png` — composição de fila técnica.

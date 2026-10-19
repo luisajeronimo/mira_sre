@@ -287,9 +287,16 @@ class AuthState(rx.State):
             yield evento
 
     @rx.event
-    async def carregar_chamados(self) -> AsyncIterator[Any]:
-        async for evento in self._carregar_jornada_chamados():
+    async def redirecionar_chamados_para_inicio(self) -> AsyncIterator[Any]:
+        """Mantém o link legado de lista sem duplicar a jornada de `/inicio`."""
+        async for evento in self._executar_guard(None, False):
             yield evento
+        if (
+            self.sessao_confirmada
+            and not self.deve_trocar_senha
+            and not self.mensagem_erro
+        ):
+            yield rx.redirect("/inicio")
 
     @rx.event
     async def carregar_detalhe_chamado(self) -> AsyncIterator[Any]:

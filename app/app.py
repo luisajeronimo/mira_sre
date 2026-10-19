@@ -21,7 +21,8 @@ from app.pages.administracao import AdministracaoState
 from app.states.auth import AuthState
 
 
-app = rx.App(theme=rx.theme(appearance="light", accent_color="blue"))
+# `ruby` é o token Radix disponível mais próximo do rose definido no DESIGN.md.
+app = rx.App(theme=rx.theme(appearance="light", accent_color="ruby"))
 
 app.add_page(index, route="/", title="MIRA", on_load=AuthState.carregar_raiz)
 app.add_page(
@@ -47,7 +48,7 @@ app.add_page(
     chamados,
     route="/chamados",
     title="Chamados | MIRA",
-    on_load=AuthState.carregar_chamados,
+    on_load=AuthState.redirecionar_chamados_para_inicio,
 )
 app.add_page(
     novo_chamado,

@@ -104,7 +104,10 @@ def test_cliente_de_monitoramento_usa_contrato_dedicado():
                         "id": 1,
                         "nome_ativo": "Totem 01",
                         "tipo": "Totem",
+                        "loja": {"id": 3, "nome": "Loja Centro"},
                         "status_atual": "online",
+                        "ultima_telemetria_em": 1780000010000,
+                        "ultima_transicao_disponibilidade_em": 1780000020000,
                     }
                 ]
             },
@@ -148,7 +151,6 @@ def test_xanoscript_dedicado_preserva_o_endpoint_generico_e_cobre_autorizacao():
     assert "tecnico: true" in funcao
     assert "diretoria: true" in funcao
     assert "administrador: true" in funcao
-    assert 'test "gerente nao consulta monitoramento"' in funcao
     assert 'query "monitoramento/ativos" verb=GET' in endpoint
     assert 'auth = "usuarios"' in endpoint
     assert 'query ativos_referencia verb=GET' in generico

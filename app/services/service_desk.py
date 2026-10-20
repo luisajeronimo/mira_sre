@@ -39,6 +39,57 @@ class AtivoServiceDesk:
 
 
 @dataclass(frozen=True, slots=True)
+class AtivoMonitoramento:
+    """Resumo operacional persistido de um Totem."""
+
+    id: int
+    nome_ativo: str
+    tipo: str
+    loja: ReferenciaLoja | None
+    status_atual: str
+    ultima_telemetria_em: int | None
+    ultima_transicao_disponibilidade_em: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class TelemetriaMonitoramento:
+    id: int
+    evento_timestamp: int
+    uso_cpu: float
+    uso_memoria: float
+    temperatura: float
+    status_rede: str
+
+
+@dataclass(frozen=True, slots=True)
+class TransicaoDisponibilidade:
+    id: int
+    status: str
+    detectado_em: int
+    heartbeat_limite_minutos: int
+
+
+@dataclass(frozen=True, slots=True)
+class IncidenteAutomaticoHeartbeat:
+    id: int
+    titulo: str
+    status: str
+    prioridade: str
+    criado_em: int
+    ultima_atualizacao_em: int
+    categoria: ReferenciaCategoria
+
+
+@dataclass(frozen=True, slots=True)
+class DetalheMonitoramento:
+    totem: AtivoMonitoramento
+    ultima_telemetria: TelemetriaMonitoramento | None
+    telemetrias: list[TelemetriaMonitoramento]
+    transicoes_disponibilidade: list[TransicaoDisponibilidade]
+    incidentes_automaticos: list[IncidenteAutomaticoHeartbeat]
+
+
+@dataclass(frozen=True, slots=True)
 class CategoriaServiceDesk:
     id: int
     nome: str
@@ -276,6 +327,121 @@ def _referencia_loja(valor: Any) -> ReferenciaLoja | None:
     return ReferenciaLoja(
         id=_inteiro(dados.get("id"), "loja.id"),
         nome=_texto(dados.get("nome"), "loja.nome"),
+    )
+
+
+def _ativo_monitoramento(dados: Any, campo: str = "totem") -> AtivoMonitoramento:
+    ativo = _objeto(dados, campo)
+    return AtivoMonitoramento(
+        id=_inteiro(ativo.get("id"), f"{campo}.id"),
+        nome_ativo=_texto(ativo.get("nome_ativo"), f"{campo}.nome_ativo"),
+        tipo=_texto(ativo.get("tipo"), f"{campo}.tipo"),
+        loja=_referencia_loja(ativo.get("loja")),
+        status_atual=_texto(ativo.get("status_atual"), f"{campo}.status_atual"),
+        ultima_telemetria_em=_timestamp_opcional(
+            ativo.get("ultima_telemetria_em"),
+            f"{campo}.ultima_telemetria_em",
+        ),
+        ultima_transicao_disponibilidade_em=_timestamp_opcional(
+            ativo.get("ultima_transicao_disponibilidade_em"),
+            f"{campo}.ultima_transicao_disponibilidade_em",
+        ),
+    )
+
+
+def _telemetria_monitoramento(dados: Any, campo: str = "telemetria") -> TelemetriaMonitoramento:
+    telemetria = _objeto(dados, campo)
+    return TelemetriaMonitoramento(
+        id=_inteiro(telemetria.get("id"), f"{campo}.id"),
+        evento_timestamp=_inteiro(
+            telemetria.get("evento_timestamp"),
+            f"{campo}.evento_timestamp",
+        ),
+        uso_cpu=_numero(telemetria.get("uso_cpu"), f"{campo}.uso_cpu"),
+        uso_memoria=_numero(
+            telemetria.get("uso_memoria"),
+            f"{campo}.uso_memoria",
+        ),
+        temperatura=_numero(
+            telemetria.get("temperatura"), f"{campo}.temperatura"),
+        status_rede=_texto(telemetria.get("status_rede"), f"{campo}.status_rede"),
+    )
+
+
+def _transicao_disponibilidade(dados: Any) -> TransicaoDisponibilidade:
+    transicao = _objeto(dados, "transicao_disponibilidade")
+    status = _texto(transicao.get("status"), "transicao_disponibilidade.status")
+    if status not in {"online", "offline"}:
+        raise XanoContratoInvalido(
+            "Campo inválido na resposta: transicao_disponibilidade.status."
+        )
+    return TransicaoDisponibilidade(
+        id=_inteiro(transicao.get("id"), "transicao_disponibilidade.id"),
+        status=status,
+        detectado_em=_inteiro(
+            transicao.get("detectado_em"),
+            "transicao_disponibilidade.detectado_em",
+        ),
+        heartbeat_limite_minutos=_inteiro(
+            transicao.get("heartbeat_limite_minutos"),
+            "transicao_disponibilidade.heartbeat_limite_minutos",
+        ),
+    )
+
+
+def _incidente_automatico_heartbeat(dados: Any) -> IncidenteAutomaticoHeartbeat:
+    incidente = _objeto(dados, "incidente_automatico")
+    return IncidenteAutomaticoHeartbeat(
+        id=_inteiro(incidente.get("id"), "incidente_automatico.id"),
+        titulo=_texto(incidente.get("titulo"), "incidente_automatico.titulo"),
+        status=_texto(incidente.get("status"), "incidente_automatico.status"),
+        prioridade=_texto(
+            incidente.get("prioridade"), "incidente_automatico.prioridade"
+        ),
+        criado_em=_inteiro(incidente.get("criado_em"), "incidente_automatico.criado_em"),
+        ultima_atualizacao_em=_inteiro(
+            incidente.get("ultima_atualizacao_em"),
+            "incidente_automatico.ultima_atualizacao_em",
+        ),
+        categoria=_referencia_categoria(incidente.get("categoria")),
+    )
+
+
+def _detalhe_monitoramento(dados: dict[str, Any]) -> DetalheMonitoramento:
+    campos = {
+        "totem",
+        "ultima_telemetria",
+        "telemetrias",
+        "transicoes_disponibilidade",
+        "incidentes_automaticos",
+    }
+    dados = _objeto_exato(dados, "detalhe_monitoramento", campos)
+    telemetrias = dados["telemetrias"]
+    transicoes = dados["transicoes_disponibilidade"]
+    incidentes = dados["incidentes_automaticos"]
+    if not all(isinstance(colecao, list) for colecao in (telemetrias, transicoes, incidentes)):
+        raise XanoContratoInvalido(
+            "O Xano retornou históricos de monitoramento incompatíveis."
+        )
+    if any(len(colecao) > 10 for colecao in (telemetrias, transicoes, incidentes)):
+        raise XanoContratoInvalido(
+            "O Xano retornou mais registros de monitoramento que o limite aprovado."
+        )
+    ultima = dados["ultima_telemetria"]
+    return DetalheMonitoramento(
+        totem=_ativo_monitoramento(dados["totem"]),
+        ultima_telemetria=(
+            _telemetria_monitoramento(ultima, "ultima_telemetria")
+            if ultima is not None
+            else None
+        ),
+        telemetrias=[_telemetria_monitoramento(item) for item in telemetrias],
+        transicoes_disponibilidade=[
+            _transicao_disponibilidade(item) for item in transicoes
+        ],
+        incidentes_automaticos=[
+            _incidente_automatico_heartbeat(item) for item in incidentes
+        ],
     )
 
 
@@ -578,24 +744,28 @@ class XanoServiceDeskCliente(XanoCliente):
 
     async def listar_ativos_monitoramento(
         self, token: str
-    ) -> list[AtivoServiceDesk]:
+    ) -> list[AtivoMonitoramento]:
         dados = await self._requisitar(
             "GET",
             "/monitoramento/ativos",
             token=token,
         )
         return [
-            AtivoServiceDesk(
-                id=_inteiro(item.get("id"), "id"),
-                nome_ativo=_texto(item.get("nome_ativo"), "nome_ativo"),
-                tipo=_texto(item.get("tipo"), "tipo"),
-                status_atual=_texto(
-                    item.get("status_atual"),
-                    "status_atual",
-                ),
-            )
+            _ativo_monitoramento(item, "item")
             for item in _colecao(dados)
         ]
+
+    async def obter_detalhe_ativo_monitoramento(
+        self,
+        token: str,
+        ativos_referencia_id: int,
+    ) -> DetalheMonitoramento:
+        dados = await self._requisitar(
+            "GET",
+            f"/monitoramento/ativos/{ativos_referencia_id}",
+            token=token,
+        )
+        return _detalhe_monitoramento(dados)
 
     async def listar_ativos_tecnico(
         self, token: str

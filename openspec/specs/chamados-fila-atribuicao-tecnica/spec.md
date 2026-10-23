@@ -157,9 +157,10 @@ ordenação. Limpar filtros NÃO DEVE (MUST NOT) alterar a ordenação persistid
 
 #### Scenario: Ordenação por responsável
 - **WHEN** usuário ordena por Responsável em ASC ou DESC
-- **THEN** o Xano ordena alfabeticamente pelo nome do Técnico sem diferenciar
-  caixa, mantém os chamados sem responsável após qualquer nome nas duas
-  direções e desempata por `id` na direção solicitada
+- **THEN** o Xano ordena pelo mesmo texto exibido na coluna, usando o nome do
+  Técnico ou `Não atribuído`, sem diferenciar caixa e nunca pelo identificador;
+  esse rótulo participa da ordem alfabética nas duas direções e empates usam
+  `id` na direção solicitada
 
 #### Scenario: Ordenação por quem abriu o chamado
 - **WHEN** usuário ordena por Aberto por em ASC ou DESC
@@ -175,6 +176,23 @@ ordenação. Limpar filtros NÃO DEVE (MUST NOT) alterar a ordenação persistid
 - **WHEN** usuário consulta a tabela da fila global
 - **THEN** a tabela não exibe a coluna `Atribuído em`, sem remover o dado dos
   detalhes, APIs ou histórico
+
+### Requirement: Fila global comunica a direção da ordenação
+A fila global de Técnico, Diretoria e Administrador DEVE (MUST) exibir, junto
+ao título ordenável ativo, somente a seta da direção confirmada: subida para
+`ASC` e descida para `DESC`. Títulos inativos NÃO DEVEM (MUST NOT) exibir seta,
+e a interface NÃO DEVE (MUST NOT) exibir os literais `ASC` ou `DESC`.
+
+#### Scenario: Direção ativa na fila global
+- **WHEN** a fila é exibida com uma coluna e direção confirmadas
+- **THEN** somente o ícone correspondente à direção ativa aparece no respectivo
+  cabeçalho, e os demais cabeçalhos não exibem ícone
+
+#### Scenario: Alternância conserva a ordenação existente
+- **WHEN** usuário clica um título ordenável da fila global
+- **THEN** o mecanismo atual solicita a ordenação correspondente e atualiza o
+  destaque para a direção confirmada, sem alterar filtros, preferências ou
+  demais colunas
 
 ### Requirement: Preferências da fila pertencem ao usuário autenticado
 O Xano DEVE (MUST) persistir uma preferência canônica por usuário autenticado e

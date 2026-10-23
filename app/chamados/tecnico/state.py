@@ -663,7 +663,7 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.event
     async def ordenar_fila(self, coluna: str):
-        if coluna not in {"numero", "titulo", "status", "prioridade", "totem", "categoria", "responsavel", "criado_em", "ultima_atualizacao_em"}:
+        if coluna not in {"numero", "titulo", "status", "prioridade", "totem", "categoria", "aberto_por", "responsavel", "criado_em", "ultima_atualizacao_em"}:
             return
         direcao_candidata = "ASC" if coluna != self.ordenar_por else ("DESC" if self.direcao_ordenacao == "ASC" else "ASC")
         async for evento in self._carregar_fila(

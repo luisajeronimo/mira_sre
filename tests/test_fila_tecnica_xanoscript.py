@@ -122,6 +122,7 @@ def test_preferencias_autorizam_sessao_validam_escopo_e_normalizam_status():
     assert 'value = "Em Atendimento"' in PREFERENCIA_SALVAR
     assert 'value = "Solução Rejeitada"' in PREFERENCIA_SALVAR
     assert '($input.status == null || $input.status == "" || $status != null)' in PREFERENCIA_SALVAR
+    assert '$input.ordenar_por == "aberto_por"' in PREFERENCIA_SALVAR
 
 
 def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
@@ -132,6 +133,7 @@ def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
         "prioridade",
         "totem",
         "categoria",
+        "aberto_por",
         "responsavel",
         "criado_em",
         "ultima_atualizacao_em",
@@ -153,32 +155,36 @@ def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
     assert 'sort = {chamados.id: "desc"}' in LISTAGEM
     assert "titulo_ordenavel: $db.chamados.titulo|to_lower" in LISTAGEM
     assert "ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em" in LISTAGEM
-    assert "tecnico_ordenavel: $db.tecnico.nome|to_lower" in LISTAGEM
-    assert 'sort = {tecnico_ordenavel: "asc", chamados.id: "asc"}' in LISTAGEM
-    assert 'sort = {tecnico_ordenavel: "desc", chamados.id: "desc"}' in LISTAGEM
+    inicio_responsavel = LISTAGEM.index('elseif ($ordenar_por == "responsavel" && $direcao == "ASC")')
+    fim_responsavel = LISTAGEM.index('elseif ($ordenar_por == "aberto_por")', inicio_responsavel)
+    bloco_responsavel = LISTAGEM[inicio_responsavel:fim_responsavel]
+    assert 'sort = {chamados.id: "asc"}' in bloco_responsavel
+    assert 'sort = {chamados.id: "desc"}' in bloco_responsavel
+    assert 'elseif ($ordenar_por == "aberto_por")' in LISTAGEM
+    assert 'value = $chaves_aberto_por|sort:"chave":"natural":true' in LISTAGEM
+    assert 'if ($direcao == "DESC")' in LISTAGEM
     assert '$input.responsavel_id' in LISTAGEM
     assert '$responsavel.role == "tecnico"' in LISTAGEM
 
 
-def test_listagem_particiona_responsavel_sem_expressao_invalida_no_eval():
-    """Nulos são deslocados após a query, pois o ``eval`` não aceita booleano.
-
-    Em runtime, tanto ``!$db.tecnico.id`` quanto a comparação de nulidade no
-    campo ``eval`` falham. A partição conserva a ordem da query dentro de cada
-    grupo e junta responsáveis antes de não atribuídos.
-    """
+def test_listagem_ordena_responsavel_pelo_texto_exibido_inclusive_nao_atribuido():
+    """A ordem usa o mesmo texto exibido na coluna, sem grupo especial."""
     assert "tecnico_sem_responsavel:" not in LISTAGEM
     assert "!$db.tecnico.id" not in LISTAGEM
     assert "$db.chamados.tecnico_id == null" not in LISTAGEM
-    assert (
-        "array.filter ($chamados) if ($this.tecnico_id != null && "
-        "$this.tecnico_id != 0) as $chamados_com_responsavel"
-    ) in LISTAGEM
-    assert (
-        "array.filter ($chamados) if ($this.tecnico_id == null || "
-        "$this.tecnico_id == 0) as $chamados_sem_responsavel"
-    ) in LISTAGEM
-    assert "value = $chamados_com_responsavel|merge:$chamados_sem_responsavel" in LISTAGEM
+    assert ' ? $$.tecnico_nome : "Não atribuído")|to_lower)' in LISTAGEM
+    assert 'var $chamados_ordenados { value = $chaves_responsavel|sort:"chave":"natural":true }' in LISTAGEM
+    assert 'var.update $chamados_ordenados { value = $chamados_ordenados|reverse }' in LISTAGEM
+    assert 'value = $chamados_ordenados|map:$$.chamado' in LISTAGEM
+    assert "$chamados_com_responsavel" not in LISTAGEM
+    assert "$chamados_sem_responsavel" not in LISTAGEM
+    inicio_asc = LISTAGEM.index('test "ordena responsável pelo texto exibido ascendente"')
+    inicio_desc = LISTAGEM.index('test "ordena responsável pelo texto exibido descendente"')
+    fim_desc = LISTAGEM.index('test "filtra responsável sem predicado search dinâmico"')
+    teste_asc = LISTAGEM[inicio_asc:inicio_desc]
+    teste_desc = LISTAGEM[inicio_desc:fim_desc]
+    assert teste_asc.index("{id: 301") < teste_asc.index("{id: 302") < teste_asc.index("{id: 100") < teste_asc.index("{id: 101") < teste_asc.index("{id: 400")
+    assert teste_desc.index("{id: 400") < teste_desc.index("{id: 101") < teste_desc.index("{id: 100") < teste_desc.index("{id: 302") < teste_desc.index("{id: 301")
 
 
 def test_listagem_restaura_where_da_consulta_base_e_filtra_apos_ordenar():
@@ -200,7 +206,7 @@ def test_listagem_restaura_where_da_consulta_base_e_filtra_apos_ordenar():
         "($db.chamados.tecnico_id ==? $tecnico_id_normalizado)"
     )
 
-    assert len(wheres) == 18
+    assert len(wheres) == 19
     assert all(where == where_base for where in wheres)
     assert all("$aplicar_responsavel" not in where for where in wheres)
     assert all("$filtrar_sem_responsavel" not in where for where in wheres)

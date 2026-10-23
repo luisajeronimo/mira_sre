@@ -135,6 +135,7 @@ def _fila_tecnico() -> rx.Component:
                                 _cabecalho_ordenavel("Prioridade", "prioridade"),
                                 _cabecalho_ordenavel("Totem", "totem"),
                                 _cabecalho_ordenavel("Categoria", "categoria"),
+                                _cabecalho_ordenavel("Aberto por", "aberto_por"),
                                 _cabecalho_ordenavel("Responsável", "responsavel"),
                                 _cabecalho_ordenavel("Abertura", "criado_em"),
                                 _cabecalho_ordenavel("Última atualização", "ultima_atualizacao_em"),
@@ -156,6 +157,7 @@ def _fila_tecnico() -> rx.Component:
                                     rx.table.cell(item["prioridade"]),
                                     rx.table.cell(item["ativo_nome"]),
                                     rx.table.cell(item["categoria_nome"]),
+                                    rx.table.cell(item["aberto_por"]),
                                     rx.table.cell(item["tecnico_nome"]),
                                     rx.table.cell(item["criado_em_texto"]),
                                     rx.table.cell(item["ultima_atualizacao_em_texto"]),
@@ -187,7 +189,19 @@ def _fila_tecnico() -> rx.Component:
 def _cabecalho_ordenavel(rotulo: str, coluna: str) -> rx.Component:
     return rx.table.column_header_cell(
         rx.button(
-            rotulo,
+            rx.hstack(
+                rx.text(rotulo),
+                rx.cond(
+                    ChamadosTecnicoState.ordenar_por == coluna,
+                    rx.cond(
+                        ChamadosTecnicoState.direcao_ordenacao == "ASC",
+                        rx.icon("arrow_up", size=17, color="var(--accent-11)"),
+                        rx.icon("arrow_down", size=17, color="var(--accent-11)"),
+                    ),
+                ),
+                spacing="1",
+                align="center",
+            ),
             variant="ghost",
             on_click=ChamadosTecnicoState.ordenar_fila(coluna),
             disabled=ChamadosTecnicoState.carregando_fila,

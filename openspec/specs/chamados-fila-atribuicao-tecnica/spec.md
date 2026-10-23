@@ -119,7 +119,7 @@ inicia em `Todos`.
 
 ### Requirement: Ordenação global é autorizada e estável no Xano
 O Xano DEVE (MUST) ordenar a fila global antes de responder. Aceita somente
-`numero`, `titulo`, `status`, `prioridade`, `totem`, `categoria`, `responsavel`, `criado_em` e
+`numero`, `titulo`, `status`, `prioridade`, `totem`, `categoria`, `aberto_por`, `responsavel`, `criado_em` e
 `ultima_atualizacao_em`, com `ASC` ou `DESC`; `numero` e os timestamps
 funcionais são numéricos e os demais campos são textuais sem distinção de
 caixa. `criado_em` e `ultima_atualizacao_em` DEVEM (MUST) ordenar
@@ -160,6 +160,11 @@ ordenação. Limpar filtros NÃO DEVE (MUST NOT) alterar a ordenação persistid
 - **THEN** o Xano ordena alfabeticamente pelo nome do Técnico sem diferenciar
   caixa, mantém os chamados sem responsável após qualquer nome nas duas
   direções e desempata por `id` na direção solicitada
+
+#### Scenario: Ordenação por quem abriu o chamado
+- **WHEN** usuário ordena por Aberto por em ASC ou DESC
+- **THEN** o Xano ordena pelo mesmo texto apresentado na coluna sem diferenciar
+  caixa e desempata por `id` na direção solicitada
 
 #### Scenario: Responsável persiste por escopo
 - **WHEN** Técnico confirma o filtro ou a ordenação por Responsável em um escopo
@@ -220,9 +225,8 @@ O detalhe global somente leitura de um chamado para Técnico DEVE (MUST) expor
 responsável. Quando um chamado novo de heartbeat tiver
 `criador_sistema = "bot_fiscalizacao"`, o contrato DEVE (MUST) preservar
 origem automática, solicitante humano ausente e essa autoria de sistema. Esta
-capacidade NÃO DEVE (MUST NOT) introduzir criador humano fictício, alterar as
-visões da fila, incluir coluna de autoria na lista, mudar atribuição ou ampliar
-tratativa.
+capacidade NÃO DEVE (MUST NOT) introduzir criador humano fictício, mudar
+atribuição ou ampliar tratativa.
 
 #### Scenario: Técnico consulta chamado automático atual
 - **WHEN** um Técnico autenticado consulta o detalhe de chamado criado pelo
@@ -248,18 +252,26 @@ A autoria exposta no detalhe global DEVE (MUST) representar apenas o ator lógic
 - **WHEN** um consumidor tenta informar ou substituir autoria de sistema por payload, parâmetro ou credencial técnica em uma rota de leitura
 - **THEN** o contrato não usa esse valor como autoridade e não modifica o chamado
 
-### Requirement: Detalhe técnico apresenta o Bot sem ampliar a fila
+### Requirement: Detalhe técnico e fila apresentam autoria persistida
 O Reflex DEVE (MUST) mostrar no detalhe técnico existente `Criado por: Bot de
 Fiscalização` quando `criador_sistema` for `bot_fiscalizacao`, mantendo
 `Origem: Automático` como informação distinta. Quando `criador_sistema` for
-nulo, a interface NÃO DEVE (MUST NOT) inventar o Bot. A fila técnica e suas
-colunas permanecem inalteradas.
+nulo, a interface NÃO DEVE (MUST NOT) inventar o Bot no detalhe. A fila técnica
+DEVE (MUST) mostrar a coluna não ordenável `Aberto por` imediatamente antes de
+`Responsável`: chamados automáticos mostram `Bot de Fiscalização`, chamados
+manuais mostram o nome do solicitante e registros sem identificação mostram
+`Não informado`, sem criar filtro ou alterar a ordenação existente.
 
 #### Scenario: Detalhe técnico de incidente de heartbeat
 - **WHEN** o detalhe técnico recebe um chamado automático atual com
   `criador_sistema = "bot_fiscalizacao"`
 - **THEN** a interface apresenta o Bot como criador e a origem automática em
-  campos separados, sem adicionar coluna à fila
+  campos separados
+
+#### Scenario: Fila técnica mostra quem abriu o chamado
+- **WHEN** a fila recebe chamados automáticos, manuais e sem identificação
+- **THEN** a coluna `Aberto por`, antes de `Responsável`, mostra respectivamente
+  `Bot de Fiscalização`, o nome persistido do solicitante ou `Não informado`
 
 #### Scenario: Detalhe técnico de registro sem autoria
 - **WHEN** o detalhe técnico recebe `criador_sistema = null`

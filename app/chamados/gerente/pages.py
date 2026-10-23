@@ -15,8 +15,11 @@ def _cabecalho_ordenavel(texto: str, coluna: str) -> rx.Component:
                 rx.text(texto),
                 rx.cond(
                     ChamadosGerenteState.ordenar_por == coluna,
-                    rx.text(ChamadosGerenteState.direcao),
-                    rx.text("Ordenar"),
+                    rx.cond(
+                        ChamadosGerenteState.direcao == "ASC",
+                        rx.icon("arrow_up", size=17, color="var(--accent-11)"),
+                        rx.icon("arrow_down", size=17, color="var(--accent-11)"),
+                    ),
                 ),
                 spacing="1",
                 align="center",

@@ -196,6 +196,11 @@ def evento_timeline_para_dict(
 
 def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
     tecnico = chamado.tecnico
+    aberto_por = "Não informado"
+    if chamado.origem == "automatico":
+        aberto_por = "Bot de Fiscalização"
+    elif chamado.solicitante is not None:
+        aberto_por = chamado.solicitante.nome
     return {
         "id": chamado.id,
         "titulo": chamado.titulo,
@@ -211,6 +216,7 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
         "atribuido_em_texto": _timestamp_para_texto(chamado.atribuido_em),
         "ativo_nome": chamado.ativo.nome_ativo,
         "categoria_nome": chamado.categoria.nome,
+        "aberto_por": aberto_por,
         "tecnico_nome": tecnico.nome if tecnico is not None else "Não atribuído",
         "pode_assumir": (
             _status_permite_atribuicao(chamado.status) and tecnico is None
@@ -297,6 +303,7 @@ class TecnicoView(TypedDict, total=False):
     atribuido_em_texto: str
     ativo_nome: str
     categoria_nome: str
+    aberto_por: str
     tecnico_nome: str
     pode_assumir: bool
 

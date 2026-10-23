@@ -85,7 +85,7 @@ function "service_desk/salvar_preferencia_fila_tecnica" {
         var.update $responsavel { value = $responsavel_encontrado }
       }
     }
-    var $ordem_valida { value = ($input.ordenar_por == "numero" || $input.ordenar_por == "titulo" || $input.ordenar_por == "status" || $input.ordenar_por == "prioridade" || $input.ordenar_por == "totem" || $input.ordenar_por == "categoria" || $input.ordenar_por == "responsavel" || $input.ordenar_por == "criado_em" || $input.ordenar_por == "ultima_atualizacao_em") && ($input.direcao == "ASC" || $input.direcao == "DESC") }
+    var $ordem_valida { value = ($input.ordenar_por == "numero" || $input.ordenar_por == "titulo" || $input.ordenar_por == "status" || $input.ordenar_por == "prioridade" || $input.ordenar_por == "totem" || $input.ordenar_por == "categoria" || $input.ordenar_por == "aberto_por" || $input.ordenar_por == "responsavel" || $input.ordenar_por == "criado_em" || $input.ordenar_por == "ultima_atualizacao_em") && ($input.direcao == "ASC" || $input.direcao == "DESC") }
     precondition (($input.numero == null || $input.numero > 0) && ($input.status == null || $input.status == "" || $status != null) && ($input.prioridade == null || $input.prioridade == "" || $input.prioridade == "Baixa" || $input.prioridade == "Média" || $input.prioridade == "Alta" || $input.prioridade == "Urgente") && ($input.responsavel_id == null || ($responsavel != null && $responsavel.role == "tecnico")) && !($input.responsavel_id != null && $input.somente_nao_atribuido == true) && $ordem_valida && ($input.data_inicio == null || $input.data_fim == null || $input.data_inicio < $input.data_fim)) {
       error_type = "inputerror"
       error = "Preferência inválida."

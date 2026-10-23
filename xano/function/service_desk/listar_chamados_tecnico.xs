@@ -33,10 +33,10 @@ function "service_desk/listar_chamados_tecnico" {
         "filtra não atribuído sem predicado search dinâmico": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
-        "ordena responsável com não atribuído ao final": ```
+        "ordena responsável pelo texto exibido ascendente": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
-        "ordena responsável descendente com não atribuído ao final": ```
+        "ordena responsável pelo texto exibido descendente": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
       }
@@ -152,7 +152,7 @@ function "service_desk/listar_chamados_tecnico" {
     var $aplicar_data_fim { value = $input.data_fim != null && $input.data_fim != "" }
     var $status_valido { value = !$aplicar_status || $status_normalizado != null }
     var $prioridade_valida { value = !$aplicar_prioridade || $prioridade_normalizada == "Baixa" || $prioridade_normalizada == "Média" || $prioridade_normalizada == "Alta" || $prioridade_normalizada == "Urgente" }
-    var $ordenacao_valida { value = ($ordenar_por == "numero" || $ordenar_por == "titulo" || $ordenar_por == "status" || $ordenar_por == "prioridade" || $ordenar_por == "totem" || $ordenar_por == "categoria" || $ordenar_por == "responsavel" || $ordenar_por == "criado_em" || $ordenar_por == "ultima_atualizacao_em") && ($direcao == "ASC" || $direcao == "DESC") }
+    var $ordenacao_valida { value = ($ordenar_por == "numero" || $ordenar_por == "titulo" || $ordenar_por == "status" || $ordenar_por == "prioridade" || $ordenar_por == "totem" || $ordenar_por == "categoria" || $ordenar_por == "aberto_por" || $ordenar_por == "responsavel" || $ordenar_por == "criado_em" || $ordenar_por == "ultima_atualizacao_em") && ($direcao == "ASC" || $direcao == "DESC") }
 
     conditional {
       if (!$numero_valido || !$ativo_valido || !$status_valido || !$prioridade_valida || !$responsavel_valido || !$ordenacao_valida || ($aplicar_data_inicio && $aplicar_data_fim && $input.data_inicio >= $input.data_fim)) {
@@ -865,13 +865,16 @@ function "service_desk/listar_chamados_tecnico" {
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
           where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
-          sort = {tecnico_ordenavel: "asc", chamados.id: "asc"}
+          sort = {chamados.id: "asc"}
           return = {type: "list"}
           mock = {
             "ordena responsável com não atribuído ao final": ```
               [
-                {id: 102, titulo: "Responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000001000, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: 10, tecnico_nome: "Ana Técnica"},
-                {id: 101, titulo: "Sem responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+                {id: 400, tecnico_usuario_id: 10, tecnico_nome: "Zeca"},
+                {id: 302, tecnico_usuario_id: 20, tecnico_nome: "ana"},
+                {id: 301, tecnico_usuario_id: 21, tecnico_nome: "Ana"},
+                {id: 101, tecnico_usuario_id: null, tecnico_nome: null},
+                {id: 100, tecnico_usuario_id: 0, tecnico_nome: null}
               ]
               ```
           }
@@ -904,16 +907,50 @@ function "service_desk/listar_chamados_tecnico" {
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
           where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
-          sort = {tecnico_ordenavel: "desc", chamados.id: "desc"}
+          sort = {chamados.id: "desc"}
           return = {type: "list"}
           mock = {
             "ordena responsável descendente com não atribuído ao final": ```
               [
-                {id: 103, titulo: "Responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000001000, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: 11, tecnico_nome: "Zeca Técnico"},
-                {id: 101, titulo: "Sem responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+                {id: 100, tecnico_usuario_id: 0, tecnico_nome: null},
+                {id: 101, tecnico_usuario_id: null, tecnico_nome: null},
+                {id: 301, tecnico_usuario_id: 21, tecnico_nome: "Ana"},
+                {id: 302, tecnico_usuario_id: 20, tecnico_nome: "ana"},
+                {id: 400, tecnico_usuario_id: 10, tecnico_nome: "Zeca"}
               ]
               ```
           }
+        } as $resultado
+        var.update $chamados { value = $resultado }
+      }
+      elseif ($ordenar_por == "aberto_por") {
+        db.query chamados {
+          join = {
+            ativo: {table: "ativos_referencia", type: "left", where: $db.chamados.ativos_referencia_id == $db.ativo.id}
+            loja: {table: "lojas", type: "left", where: $db.ativo.lojas_id == $db.loja.id}
+            categoria: {table: "categorias_servico", type: "left", where: $db.chamados.categorias_servico_id == $db.categoria.id}
+            solicitante: {table: "usuarios", type: "left", where: $db.chamados.solicitante_id == $db.solicitante.id}
+            tecnico: {table: "usuarios", type: "left", where: $db.chamados.tecnico_id == $db.tecnico.id}
+          }
+          eval = {
+            ativo_id: $db.ativo.id, ativo_nome: $db.ativo.nome_ativo,
+            loja_id: $db.loja.id, loja_nome: $db.loja.nome,
+            categoria_id: $db.categoria.id, categoria_nome: $db.categoria.nome,
+            solicitante_usuario_id: $db.solicitante.id, solicitante_nome: $db.solicitante.nome,
+            tecnico_usuario_id: $db.tecnico.id, tecnico_nome: $db.tecnico.nome,
+            numero: $db.chamados.id,
+            titulo_ordenavel: $db.chamados.titulo|to_lower,
+            status_ordenavel: $db.chamados.status|to_lower,
+            prioridade_ordenavel: $db.chamados.prioridade|to_lower,
+            totem_ordenavel: $db.ativo.nome_ativo|to_lower,
+            categoria_ordenavel: $db.categoria.nome|to_lower,
+            tecnico_ordenavel: $db.tecnico.nome|to_lower,
+            criado_em: $db.chamados.criado_em,
+            ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
+          }
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          sort = {chamados.id: "asc"}
+          return = {type: "list"}
         } as $resultado
         var.update $chamados { value = $resultado }
       }
@@ -1136,16 +1173,42 @@ function "service_desk/listar_chamados_tecnico" {
     }
 
     // O Query all Records mantém a composição comprovadamente funcional de
-    // filtros `where`. Para responsável, o Xano ordena primeiro os nomes e o
-    // id; a partição estável abaixo só desloca os nulos para o fim nos dois
-    // sentidos, sem reordenar os grupos já ordenados pela query.
+    // filtros `where`. Para responsável, a ordem é composta após a query pelo
+    // mesmo texto exibido na fila, inclusive "Não atribuído".
     conditional {
       if ($ordenar_por == "responsavel") {
-        array.filter ($chamados) if ($this.tecnico_id != null && $this.tecnico_id != 0) as $chamados_com_responsavel
-        array.filter ($chamados) if ($this.tecnico_id == null || $this.tecnico_id == 0) as $chamados_sem_responsavel
-        var.update $chamados {
-          value = $chamados_com_responsavel|merge:$chamados_sem_responsavel
+        var $chaves_responsavel {
+          value = $chamados|map:{
+            chave: ((($$.tecnico_usuario_id != null && $$.tecnico_usuario_id != 0) ? $$.tecnico_nome : "Não atribuído")|to_lower) ~ "|" ~ ($$.id|to_text),
+            chamado: $$
+          }
         }
+        var $chamados_ordenados { value = $chaves_responsavel|sort:"chave":"natural":true }
+        conditional {
+          if ($direcao == "DESC") {
+            var.update $chamados_ordenados { value = $chamados_ordenados|reverse }
+          }
+        }
+        var.update $chamados {
+          value = $chamados_ordenados|map:$$.chamado
+        }
+      }
+    }
+    conditional {
+      if ($ordenar_por == "aberto_por") {
+        var $chaves_aberto_por {
+          value = $chamados|map:{
+            chave: ((($$.origem == "automatico") ? "bot de fiscalização" : (($$.solicitante_nome != null && $$.solicitante_nome != "") ? ($$.solicitante_nome|to_lower) : "não informado")) ~ "|" ~ ($$.id|to_text)),
+            chamado: $$
+          }
+        }
+        var $chamados_ordenados { value = $chaves_aberto_por|sort:"chave":"natural":true }
+        conditional {
+          if ($direcao == "DESC") {
+            var.update $chamados_ordenados { value = $chamados_ordenados|reverse }
+          }
+        }
+        var.update $chamados { value = $chamados_ordenados|map:$$.chamado }
       }
     }
 
@@ -1216,22 +1279,28 @@ function "service_desk/listar_chamados_tecnico" {
     }
   }
 
-  test "ordena responsável com não atribuído ao final" {
+  test "ordena responsável pelo texto exibido ascendente" {
     input = {usuarios_id: 12, ordenar_por: "responsavel", direcao: "ASC"}
     expect.to_equal ($response.items) {
       value = [
-        {id: 102, titulo: "Responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000001000, ativo: {id: 1, nome_ativo: "Totem 01"}, loja: null, categoria: {id: 2, nome: "Falha de Rede"}, solicitante: null, tecnico: {id: 10, nome: "Ana Técnica"}},
-        {id: 101, titulo: "Sem responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo: {id: 1, nome_ativo: "Totem 01"}, loja: null, categoria: {id: 2, nome: "Falha de Rede"}, solicitante: null, tecnico: null}
+        {id: 301, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: {id: 21, nome: "Ana"}},
+        {id: 302, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: {id: 20, nome: "ana"}},
+        {id: 100, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: null},
+        {id: 101, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: null},
+        {id: 400, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: {id: 10, nome: "Zeca"}}
       ]
     }
   }
 
-  test "ordena responsável descendente com não atribuído ao final" {
+  test "ordena responsável pelo texto exibido descendente" {
     input = {usuarios_id: 12, ordenar_por: "responsavel", direcao: "DESC"}
     expect.to_equal ($response.items) {
       value = [
-        {id: 103, titulo: "Responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000001000, ativo: {id: 1, nome_ativo: "Totem 01"}, loja: null, categoria: {id: 2, nome: "Falha de Rede"}, solicitante: null, tecnico: {id: 11, nome: "Zeca Técnico"}},
-        {id: 101, titulo: "Sem responsável", descricao: null, status: "Novo", prioridade: "Média", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo: {id: 1, nome_ativo: "Totem 01"}, loja: null, categoria: {id: 2, nome: "Falha de Rede"}, solicitante: null, tecnico: null}
+        {id: 400, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: {id: 10, nome: "Zeca"}},
+        {id: 101, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: null},
+        {id: 100, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: null},
+        {id: 302, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: {id: 20, nome: "ana"}},
+        {id: 301, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: null, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: null, nome_ativo: null}, loja: null, categoria: {id: null, nome: null}, solicitante: null, tecnico: {id: 21, nome: "Ana"}}
       ]
     }
   }

@@ -475,6 +475,20 @@ def test_formulario_exibe_nome_e_transporta_id_nos_selects():
     assert 'categoria["id"].to_string()' in formulario
 
 
+def test_cabecalho_ordenavel_do_gerente_exibe_apenas_a_seta_ativa():
+    fonte = inspect.getsource(paginas._cabecalho_ordenavel)
+
+    assert fonte.count('rx.icon("arrow_up"') == 1
+    assert fonte.count('rx.icon("arrow_down"') == 1
+    assert "ChamadosGerenteState.ordenar_por == coluna" in fonte
+    assert 'ChamadosGerenteState.direcao == "ASC"' in fonte
+    assert "size=17" in fonte
+    assert "size=13" not in fonte
+    assert "rx.text(ChamadosGerenteState.direcao)" not in fonte
+    assert 'rx.text("Ordenar")' not in fonte
+    assert "ChamadosGerenteState.alternar_ordenacao(coluna)" in fonte
+
+
 def test_tabela_e_formulario_implementam_somente_as_acoes_aprovadas():
     lista = inspect.getsource(paginas._lista)
     formulario = inspect.getsource(paginas._formulario)

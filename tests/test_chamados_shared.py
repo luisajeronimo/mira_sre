@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from app.chamados.shared import _tecnico_para_dict, evento_timeline_para_dict
 from app.services.service_desk import (
     ChamadoResumo,
@@ -61,3 +63,8 @@ def test_resumo_tecnico_expoe_ultima_atualizacao_formatada():
 
     assert visual["ultima_atualizacao_em_texto"] != "Não informado"
     assert visual["ultima_atualizacao_em_texto"] != visual["criado_em_texto"]
+    assert visual["aberto_por"] == "Gerente"
+    assert _tecnico_para_dict(
+        replace(chamado, origem="automatico", solicitante=None, criador_sistema="bot_fiscalizacao")
+    )["aberto_por"] == "Bot de Fiscalização"
+    assert _tecnico_para_dict(replace(chamado, solicitante=None))["aberto_por"] == "Não informado"

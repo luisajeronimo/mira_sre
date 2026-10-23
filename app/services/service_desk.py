@@ -151,6 +151,7 @@ class ChamadoResumo:
     atribuido_em: int | None = None
     solicitante: ReferenciaUsuario | None = None
     tecnico: ReferenciaUsuario | None = None
+    criador_sistema: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -504,6 +505,7 @@ def _resumo(
             "solicitante",
         ),
         tecnico=_referencia_usuario(dados.get("tecnico"), "tecnico"),
+        criador_sistema=_criador_sistema(dados.get("criador_sistema")),
     )
 
 
@@ -554,7 +556,7 @@ def _preferencia_fila_tecnica(dados: dict[str, Any]) -> PreferenciaFilaTecnica:
     if escopo not in {"todos", "atribuidos_a_mim"}:
         raise XanoContratoInvalido("Campo inválido na resposta: preferencia.escopo.")
     if ordenar_por not in {
-        "numero", "titulo", "status", "prioridade", "totem", "categoria", "responsavel",
+        "numero", "titulo", "status", "prioridade", "totem", "categoria", "aberto_por", "responsavel",
         "criado_em", "ultima_atualizacao_em",
     } or direcao not in {"ASC", "DESC"}:
         raise XanoContratoInvalido("Campo inválido na resposta: preferencia.ordenacao.")

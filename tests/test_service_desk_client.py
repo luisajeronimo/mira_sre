@@ -454,6 +454,11 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
     fila = executar(cliente.listar_chamados_tecnico("token"))
     busca = executar(cliente.listar_chamados_tecnico("token", numero=102, status="Novo", ativo_id=1, data_inicio=1780000000000, data_fim=1780100000000))
     meus = executar(cliente.listar_chamados_tecnico("token", somente_atribuidos_a_mim=True))
+    por_aberto = executar(
+        cliente.listar_chamados_tecnico(
+            "token", ordenar_por="aberto_por", direcao="ASC"
+        )
+    )
     detalhe = executar(cliente.obter_chamado_tecnico("token", 101))
     assumido = executar(cliente.assumir_chamado_tecnico("token", 101))
 
@@ -461,6 +466,7 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
     assert fila.items[0].atribuido_em is None
     assert fila.items[0].status == "Novo"
     assert busca.items[0].id == 101
+    assert por_aberto.items[0].id == 101
     assert detalhe.chamado.atribuido_em == 1780000001000
     assert [evento.tipo for evento in detalhe.timeline] == [
         "atribuicao",
@@ -474,8 +480,11 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
     assert dict(requisicoes[0].url.params) == {}
     assert dict(requisicoes[1].url.params) == {"numero": "102", "status": "Novo", "ativo_id": "1", "data_inicio": "1780000000000", "data_fim": "1780100000000"}
     assert dict(requisicoes[2].url.params) == {"somente_atribuidos_a_mim": "true"}
-    assert requisicoes[4].method == "POST"
-    assert json.loads(requisicoes[4].read()) == {"acao": "assumir"}
+    assert dict(requisicoes[3].url.params) == {
+        "ordenar_por": "aberto_por", "direcao": "ASC"
+    }
+    assert requisicoes[5].method == "POST"
+    assert json.loads(requisicoes[5].read()) == {"acao": "assumir"}
 
 
 def test_timeline_rejeita_comentario_vazio_mas_aceita_evento_operacional_vazio():
@@ -512,7 +521,7 @@ def test_preferencia_fila_tecnica_nao_envia_usuario_e_valida_retorno_canonico():
         "escopo": "todos", "numero": None, "status": "Novo", "ativo_id": None,
         "data_inicio": None, "data_fim": None, "prioridade": "Alta",
         "responsavel_id": None, "somente_nao_atribuido": False,
-        "ordenar_por": "ultima_atualizacao_em", "direcao": "ASC",
+        "ordenar_por": "aberto_por", "direcao": "ASC",
     }
 
     def responder(requisicao):
@@ -525,7 +534,7 @@ def test_preferencia_fila_tecnica_nao_envia_usuario_e_valida_retorno_canonico():
         "token", escopo="todos", numero=None, status="Novo", ativo_id=None,
         data_inicio=None, data_fim=None, prioridade="Alta",
         responsavel_id=None, somente_nao_atribuido=False,
-        ordenar_por="ultima_atualizacao_em", direcao="ASC",
+        ordenar_por="aberto_por", direcao="ASC",
     ))
 
     assert lida == salva
@@ -533,7 +542,7 @@ def test_preferencia_fila_tecnica_nao_envia_usuario_e_valida_retorno_canonico():
     assert requisicoes[1].method == "PUT"
     payload = json.loads(requisicoes[1].read())
     assert "usuarios_id" not in payload
-    assert payload["ordenar_por"] == "ultima_atualizacao_em"
+    assert payload["ordenar_por"] == "aberto_por"
 
 
 @pytest.mark.parametrize(

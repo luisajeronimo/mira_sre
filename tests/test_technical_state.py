@@ -242,11 +242,28 @@ def test_filtro_de_responsavel_usa_id_e_nao_atribuido_sem_comparar_nomes():
     assert filtros[6:8] == (None, True)
 
 
-def test_fila_global_exibe_responsavel_ordenavel_sem_coluna_atribuido_em():
+def test_fila_global_exibe_aberto_por_antes_do_responsavel_sem_coluna_atribuido_em():
     fonte = inspect.getsource(paginas_chamados._fila_tecnico)
+    assert fonte.index('_cabecalho_ordenavel("Aberto por", "aberto_por")') < fonte.index(
+        '_cabecalho_ordenavel("Responsável", "responsavel")'
+    )
+    assert 'rx.table.cell(item["aberto_por"])' in fonte
     assert '_cabecalho_ordenavel("Responsável", "responsavel")' in fonte
     assert 'rx.table.column_header_cell("Atribuído em")' not in fonte
     assert 'rx.table.cell(item["atribuido_em_texto"])' not in fonte
+    assert '"aberto_por"' in inspect.getsource(ChamadosTecnicoState.ordenar_fila.fn)
+
+
+def test_cabecalho_ordenavel_da_fila_global_exibe_apenas_a_seta_ativa():
+    fonte = inspect.getsource(paginas_chamados._cabecalho_ordenavel)
+
+    assert fonte.count('rx.icon("arrow_up"') == 1
+    assert fonte.count('rx.icon("arrow_down"') == 1
+    assert "ChamadosTecnicoState.ordenar_por == coluna" in fonte
+    assert 'ChamadosTecnicoState.direcao_ordenacao == "ASC"' in fonte
+    assert "size=17" in fonte
+    assert "size=13" not in fonte
+    assert "ChamadosTecnicoState.ordenar_fila(coluna)" in fonte
 
 
 def liberar_validacao_de_sessao(monkeypatch):

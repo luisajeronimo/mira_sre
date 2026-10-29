@@ -48,6 +48,9 @@ class ChamadosTecnicoState(AuthState):
     filtro_responsavel: str = ""
     filtro_data_inicio: str = ""
     filtro_data_fim: str = ""
+    filtro_ultima_atualizacao_inicio: str = ""
+    filtro_ultima_atualizacao_fim: str = ""
+    filtro_loja: str = ""
     filtro_numero_confirmado: str = ""
     filtro_status_confirmado: str = ""
     filtro_ativo_confirmado: str = ""
@@ -55,6 +58,9 @@ class ChamadosTecnicoState(AuthState):
     filtro_responsavel_confirmado: str = ""
     filtro_data_inicio_confirmada: str = ""
     filtro_data_fim_confirmada: str = ""
+    filtro_ultima_atualizacao_inicio_confirmada: str = ""
+    filtro_ultima_atualizacao_fim_confirmada: str = ""
+    filtro_loja_confirmada: str = ""
     numero_aplicado: int | None = None
     status_aplicado: str = ""
     ativo_id_aplicado: int | None = None
@@ -64,6 +70,9 @@ class ChamadosTecnicoState(AuthState):
     responsavel_filtro_transitorio_id: int | None = None
     data_inicio_aplicada: int | None = None
     data_fim_aplicada: int | None = None
+    ultima_atualizacao_inicio_aplicada: int | None = None
+    ultima_atualizacao_fim_aplicada: int | None = None
+    loja_id_aplicada: int | None = None
     filtros_aplicados: list[str] = []
     escopo_rapido: str = "todos"
     ordenar_por: str = "numero"
@@ -73,6 +82,7 @@ class ChamadosTecnicoState(AuthState):
     _token_contexto_fila: str = ""
     versao_sessao_contexto_fila: int = -1
     ativos: list[str] = []
+    lojas: list[str] = []
     total_chamados: int = 0
     chamados: list[TecnicoView] = []
     chamado: DetalheView = {}
@@ -360,6 +370,13 @@ class ChamadosTecnicoState(AuthState):
         chamado_id = self.router.page.params.get("chamado_id", "")
         yield rx.redirect(f"/chamados/{chamado_id}")
 
+    @rx.event
+    def abrir_monitoramento_totem(self):
+        ativo = self.chamado.get("ativo") or {}
+        totem_id = ativo.get("id")
+        if isinstance(totem_id, int) and totem_id > 0:
+            return rx.redirect(f"/monitoramento?totem={totem_id}")
+
     def _registrar_erro_fila(self, erro: Exception) -> str | None:
         if isinstance(erro, XanoNaoAutenticado):
             self._limpar_sessao(MENSAGEM_EXPIRADA)
@@ -429,6 +446,12 @@ class ChamadosTecnicoState(AuthState):
     def alterar_filtro_data_inicio(self, valor: str) -> None: self.filtro_data_inicio = valor
     @rx.event
     def alterar_filtro_data_fim(self, valor: str) -> None: self.filtro_data_fim = valor
+    @rx.event
+    def alterar_filtro_ultima_atualizacao_inicio(self, valor: str) -> None: self.filtro_ultima_atualizacao_inicio = valor
+    @rx.event
+    def alterar_filtro_ultima_atualizacao_fim(self, valor: str) -> None: self.filtro_ultima_atualizacao_fim = valor
+    @rx.event
+    def alterar_filtro_loja(self, valor: str) -> None: self.filtro_loja = valor
 
     @rx.event
     def alterar_responsavel_pendente(self, valor: str) -> None:
@@ -509,7 +532,7 @@ class ChamadosTecnicoState(AuthState):
             instante / 1000, tz=ZoneInfo("America/Sao_Paulo")
         ).strftime("%Y-%m-%d")
 
-    def _filtros_solicitados(self) -> tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, list[str]] | None:
+    def _filtros_solicitados(self) -> tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, int | None, int | None, int | None, list[str]] | None:
         numero = self.filtro_numero.strip()
         if numero and (not numero.isdigit() or int(numero) <= 0):
             self.mensagem_fila = "Informe um número de chamado válido."; return None
@@ -531,8 +554,18 @@ class ChamadosTecnicoState(AuthState):
             self.mensagem_fila = "Informe um período de abertura válido."; return None
         if inicio is not None and fim is not None and inicio >= fim:
             self.mensagem_fila = "A data inicial deve ser anterior à data final."; return None
-        etiquetas = ([f"Número: {numero}"] if numero else []) + ([f"Status: {self.filtro_status}"] if self.filtro_status else []) + ([f"Prioridade: {self.filtro_prioridade}"] if self.filtro_prioridade else []) + ([f"Responsável: {self.filtro_responsavel.split(' — ', 1)[-1]}"] if self.filtro_responsavel else []) + ([f"Totem: {self.filtro_ativo.split(' — ', 1)[-1]}"] if self.filtro_ativo else []) + ([f"Abertura a partir de: {self.filtro_data_inicio}"] if self.filtro_data_inicio else []) + ([f"Abertura até: {self.filtro_data_fim}"] if self.filtro_data_fim else [])
-        return (int(numero) if numero else None, self.filtro_status, ativo_id, inicio, fim, self.filtro_prioridade, responsavel_id, somente_nao_atribuido, etiquetas)
+        try:
+            ultima_inicio = self._inicio_do_dia(self.filtro_ultima_atualizacao_inicio) if self.filtro_ultima_atualizacao_inicio else None
+            ultima_fim = self._inicio_do_dia(self.filtro_ultima_atualizacao_fim) + 86_400_000 if self.filtro_ultima_atualizacao_fim else None
+        except ValueError:
+            self.mensagem_fila = "Informe um período de última atualização válido."; return None
+        if ultima_inicio is not None and ultima_fim is not None and ultima_inicio >= ultima_fim:
+            self.mensagem_fila = "A data inicial deve ser anterior à data final."; return None
+        loja_id = self._id_da_opcao(self.filtro_loja)
+        if self.filtro_loja and loja_id is None:
+            self.mensagem_fila = "Selecione uma Loja válida."; return None
+        etiquetas = ([f"Número: {numero}"] if numero else []) + ([f"Status: {self.filtro_status}"] if self.filtro_status else []) + ([f"Prioridade: {self.filtro_prioridade}"] if self.filtro_prioridade else []) + ([f"Responsável: {self.filtro_responsavel.split(' — ', 1)[-1]}"] if self.filtro_responsavel else []) + ([f"Totem: {self.filtro_ativo.split(' — ', 1)[-1]}"] if self.filtro_ativo else []) + ([f"Loja: {self.filtro_loja.split(' — ', 1)[-1]}"] if self.filtro_loja else []) + ([f"Abertura a partir de: {self.filtro_data_inicio}"] if self.filtro_data_inicio else []) + ([f"Abertura até: {self.filtro_data_fim}"] if self.filtro_data_fim else []) + ([f"Atualização a partir de: {self.filtro_ultima_atualizacao_inicio}"] if self.filtro_ultima_atualizacao_inicio else []) + ([f"Atualização até: {self.filtro_ultima_atualizacao_fim}"] if self.filtro_ultima_atualizacao_fim else [])
+        return (int(numero) if numero else None, self.filtro_status, ativo_id, inicio, fim, self.filtro_prioridade, responsavel_id, somente_nao_atribuido, ultima_inicio, ultima_fim, loja_id, etiquetas)
 
     def _restaurar_filtros_confirmados(self) -> None:
         self.filtro_numero = self.filtro_numero_confirmado
@@ -542,6 +575,9 @@ class ChamadosTecnicoState(AuthState):
         self.filtro_responsavel = self.filtro_responsavel_confirmado
         self.filtro_data_inicio = self.filtro_data_inicio_confirmada
         self.filtro_data_fim = self.filtro_data_fim_confirmada
+        self.filtro_ultima_atualizacao_inicio = self.filtro_ultima_atualizacao_inicio_confirmada
+        self.filtro_ultima_atualizacao_fim = self.filtro_ultima_atualizacao_fim_confirmada
+        self.filtro_loja = self.filtro_loja_confirmada
 
     def _limpar_contexto_fila(self) -> None:
         """Descarta dados protegidos e filtros associados a outra identidade."""
@@ -552,6 +588,9 @@ class ChamadosTecnicoState(AuthState):
         self.filtro_responsavel = ""
         self.filtro_data_inicio = ""
         self.filtro_data_fim = ""
+        self.filtro_ultima_atualizacao_inicio = ""
+        self.filtro_ultima_atualizacao_fim = ""
+        self.filtro_loja = ""
         self.filtro_numero_confirmado = ""
         self.filtro_status_confirmado = ""
         self.filtro_ativo_confirmado = ""
@@ -559,6 +598,9 @@ class ChamadosTecnicoState(AuthState):
         self.filtro_responsavel_confirmado = ""
         self.filtro_data_inicio_confirmada = ""
         self.filtro_data_fim_confirmada = ""
+        self.filtro_ultima_atualizacao_inicio_confirmada = ""
+        self.filtro_ultima_atualizacao_fim_confirmada = ""
+        self.filtro_loja_confirmada = ""
         self.numero_aplicado = None
         self.status_aplicado = ""
         self.ativo_id_aplicado = None
@@ -568,12 +610,16 @@ class ChamadosTecnicoState(AuthState):
         self.responsavel_filtro_transitorio_id = None
         self.data_inicio_aplicada = None
         self.data_fim_aplicada = None
+        self.ultima_atualizacao_inicio_aplicada = None
+        self.ultima_atualizacao_fim_aplicada = None
+        self.loja_id_aplicada = None
         self.filtros_aplicados = []
         self.escopo_rapido = "todos"
         self.ordenar_por = "numero"
         self.direcao_ordenacao = "DESC"
         self.escopo_preferencia_carregada = ""
         self.ativos = []
+        self.lojas = []
         self.total_chamados = 0
         self.chamados = []
         self.chamado = {}
@@ -630,7 +676,7 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.event
     async def limpar_filtros(self):
-        filtros = (None, "", None, None, None, "", None, False, [])
+        filtros = (None, "", None, None, None, "", None, False, None, None, None, [])
         async for evento in self._carregar_fila(
             filtros=filtros,
             persistir=True,
@@ -643,7 +689,7 @@ class ChamadosTecnicoState(AuthState):
         if self.role != "tecnico" or escopo not in {"todos", "atribuidos_a_mim"}:
             return
         async for evento in self._carregar_fila(
-            filtros=(None, "", None, None, None, "", None, False, []),
+            filtros=(None, "", None, None, None, "", None, False, None, None, None, []),
             persistir=False,
             escopo_rapido=escopo,
             alteracao_explicita=True,
@@ -654,7 +700,7 @@ class ChamadosTecnicoState(AuthState):
     @rx.event
     async def carregar_fila(self):
         async for evento in self._carregar_fila(
-            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.filtros_aplicados),
+            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.ultima_atualizacao_inicio_aplicada, self.ultima_atualizacao_fim_aplicada, self.loja_id_aplicada, self.filtros_aplicados),
             persistir=False,
             escopo_rapido=self.escopo_rapido,
             carregar_preferencia=self.escopo_preferencia_carregada != self.escopo_rapido,
@@ -663,11 +709,11 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.event
     async def ordenar_fila(self, coluna: str):
-        if coluna not in {"numero", "titulo", "status", "prioridade", "totem", "categoria", "aberto_por", "responsavel", "criado_em", "ultima_atualizacao_em"}:
+        if coluna not in {"numero", "titulo", "status", "prioridade", "totem", "loja", "categoria", "aberto_por", "responsavel", "criado_em", "ultima_atualizacao_em"}:
             return
         direcao_candidata = "ASC" if coluna != self.ordenar_por else ("DESC" if self.direcao_ordenacao == "ASC" else "ASC")
         async for evento in self._carregar_fila(
-            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.filtros_aplicados),
+            filtros=(self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.ultima_atualizacao_inicio_aplicada, self.ultima_atualizacao_fim_aplicada, self.loja_id_aplicada, self.filtros_aplicados),
             persistir=True, escopo_rapido=self.escopo_rapido,
             ordenacao_candidata=(coluna, direcao_candidata),
         ):
@@ -676,7 +722,7 @@ class ChamadosTecnicoState(AuthState):
     async def _carregar_fila(
         self,
         *,
-        filtros: tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, list[str]],
+        filtros: tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, int | None, int | None, int | None, list[str]],
         persistir: bool,
         escopo_rapido: str,
         alteracao_explicita: bool = False,
@@ -697,7 +743,7 @@ class ChamadosTecnicoState(AuthState):
                 return
             identidade_alterada = self._sincronizar_contexto_fila()
             if identidade_alterada:
-                filtros = (None, "", None, None, None, "", None, False, [])
+                filtros = (None, "", None, None, None, "", None, False, None, None, None, [])
             escopo_solicitado = (
                 escopo_rapido if alteracao_explicita else self.escopo_rapido
             )
@@ -726,14 +772,20 @@ class ChamadosTecnicoState(AuthState):
                         preferencia.somente_nao_atribuido,
                     )
                     etiquetas_preferencia = ([f"Número: {preferencia.numero}"] if preferencia.numero is not None else []) + ([f"Status: {preferencia.status}"] if preferencia.status else []) + ([f"Prioridade: {preferencia.prioridade}"] if preferencia.prioridade else []) + ([f"Responsável: {responsavel_preferencia.split(' — ', 1)[-1]}"] if responsavel_preferencia else [])
-                    filtros = (preferencia.numero, preferencia.status or "", preferencia.ativo_id, preferencia.data_inicio, preferencia.data_fim, preferencia.prioridade or "", preferencia.responsavel_id, preferencia.somente_nao_atribuido, etiquetas_preferencia)
+                    filtros = (preferencia.numero, preferencia.status or "", preferencia.ativo_id, preferencia.data_inicio, preferencia.data_fim, preferencia.prioridade or "", preferencia.responsavel_id, preferencia.somente_nao_atribuido, preferencia.ultima_atualizacao_inicio, preferencia.ultima_atualizacao_fim, preferencia.loja_id, etiquetas_preferencia)
                     ordenar_por, direcao = preferencia.ordenar_por, preferencia.direcao
                 elif ordenacao_candidata is not None:
                     ordenar_por, direcao = ordenacao_candidata
                 else:
                     ordenar_por, direcao = self.ordenar_por, self.direcao_ordenacao
-                numero, status, ativo_id, inicio, fim, prioridade, responsavel_id, somente_nao_atribuido, etiquetas = filtros
+                numero, status, ativo_id, inicio, fim, prioridade, responsavel_id, somente_nao_atribuido, ultima_inicio, ultima_fim, loja_id, etiquetas = filtros
                 consulta = {"numero": numero, "status": status or None, "ativo_id": ativo_id, "data_inicio": inicio, "data_fim": fim, "somente_atribuidos_a_mim": escopo_efetivo == "atribuidos_a_mim"}
+                if ultima_inicio is not None:
+                    consulta["ultima_atualizacao_inicio"] = ultima_inicio
+                if ultima_fim is not None:
+                    consulta["ultima_atualizacao_fim"] = ultima_fim
+                if loja_id is not None:
+                    consulta["loja_id"] = loja_id
                 if prioridade:
                     consulta["prioridade"] = prioridade
                 if responsavel_id is not None:
@@ -749,9 +801,10 @@ class ChamadosTecnicoState(AuthState):
                 if not self.ativos:
                     ativos = await cliente.listar_ativos_tecnico(self._auth_token)
                     ativos_carregados = [f"{item.id} — {item.nome_ativo}" for item in ativos]
+                    self.lojas = sorted({f"{item.loja.id} — {item.loja.nome}" for item in ativos if item.loja is not None})
                 # Consulta candidata antes do save; o State só confirma após ambos.
                 if persistir:
-                    await cliente.salvar_preferencia_fila_tecnica(self._auth_token, escopo=escopo_efetivo, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, prioridade=prioridade or None, responsavel_id=responsavel_id, somente_nao_atribuido=somente_nao_atribuido, ordenar_por=ordenar_por, direcao=direcao)
+                    await cliente.salvar_preferencia_fila_tecnica(self._auth_token, escopo=escopo_efetivo, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, ultima_atualizacao_inicio=ultima_inicio, ultima_atualizacao_fim=ultima_fim, loja_id=loja_id, prioridade=prioridade or None, responsavel_id=responsavel_id, somente_nao_atribuido=somente_nao_atribuido, ordenar_por=ordenar_por, direcao=direcao)
                 self._incorporar_responsaveis_da_fila(resultado.items)
                 responsavel_opcao = self._opcao_responsavel(
                     responsavel_id, somente_nao_atribuido
@@ -780,6 +833,9 @@ class ChamadosTecnicoState(AuthState):
                         prioridade,
                         responsavel_id,
                         somente_nao_atribuido,
+                        ultima_inicio,
+                        ultima_fim,
+                        loja_id,
                         etiquetas,
                     )
                 self.chamados = [_tecnico_para_dict(item) for item in resultado.items]
@@ -790,7 +846,7 @@ class ChamadosTecnicoState(AuthState):
                 if ativos_carregados is not None:
                     self.ativos = ativos_carregados
                 if persistir or deve_carregar_preferencia:
-                    self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.filtros_aplicados = filtros
+                    self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.ultima_atualizacao_inicio_aplicada, self.ultima_atualizacao_fim_aplicada, self.loja_id_aplicada, self.filtros_aplicados = filtros
                     self.filtro_numero = str(numero) if numero is not None else ""
                     self.filtro_status = status
                     self.filtro_ativo = next((item for item in self.ativos if item.startswith(f"{ativo_id} —")), "") if ativo_id else ""
@@ -798,6 +854,9 @@ class ChamadosTecnicoState(AuthState):
                     self.filtro_responsavel = responsavel_opcao
                     self.filtro_data_inicio = self._data_do_timestamp(inicio)
                     self.filtro_data_fim = self._data_do_timestamp(fim - 86_400_000) if fim is not None else ""
+                    self.filtro_ultima_atualizacao_inicio = self._data_do_timestamp(ultima_inicio)
+                    self.filtro_ultima_atualizacao_fim = self._data_do_timestamp(ultima_fim - 86_400_000) if ultima_fim is not None else ""
+                    self.filtro_loja = next((item for item in self.lojas if item.startswith(f"{loja_id} —")), "") if loja_id else ""
                     self.filtro_numero_confirmado = self.filtro_numero
                     self.filtro_status_confirmado = self.filtro_status
                     self.filtro_ativo_confirmado = self.filtro_ativo
@@ -805,6 +864,9 @@ class ChamadosTecnicoState(AuthState):
                     self.filtro_responsavel_confirmado = self.filtro_responsavel
                     self.filtro_data_inicio_confirmada = self.filtro_data_inicio
                     self.filtro_data_fim_confirmada = self.filtro_data_fim
+                    self.filtro_ultima_atualizacao_inicio_confirmada = self.filtro_ultima_atualizacao_inicio
+                    self.filtro_ultima_atualizacao_fim_confirmada = self.filtro_ultima_atualizacao_fim
+                    self.filtro_loja_confirmada = self.filtro_loja
             except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
                 destino = self._registrar_erro_fila(erro)
                 if persistir:

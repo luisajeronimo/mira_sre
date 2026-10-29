@@ -132,6 +132,7 @@ def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
         "status",
         "prioridade",
         "totem",
+        "loja",
         "categoria",
         "aberto_por",
         "responsavel",
@@ -145,6 +146,7 @@ def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
         "status_ordenavel",
         "prioridade_ordenavel",
         "totem_ordenavel",
+        "loja_ordenavel",
         "categoria_ordenavel",
         "chamados.criado_em",
         "chamados.ultima_atualizacao_em",
@@ -154,6 +156,7 @@ def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
     assert 'sort = {chamados.id: "asc"}' in LISTAGEM
     assert 'sort = {chamados.id: "desc"}' in LISTAGEM
     assert "titulo_ordenavel: $db.chamados.titulo|to_lower" in LISTAGEM
+    assert "loja_ordenavel: $db.loja.nome|to_lower" in LISTAGEM
     assert "ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em" in LISTAGEM
     inicio_responsavel = LISTAGEM.index('elseif ($ordenar_por == "responsavel" && $direcao == "ASC")')
     fim_responsavel = LISTAGEM.index('elseif ($ordenar_por == "aberto_por")', inicio_responsavel)
@@ -206,7 +209,7 @@ def test_listagem_restaura_where_da_consulta_base_e_filtra_apos_ordenar():
         "($db.chamados.tecnico_id ==? $tecnico_id_normalizado)"
     )
 
-    assert len(wheres) == 19
+    assert len(wheres) == 21
     assert all(where == where_base for where in wheres)
     assert all("$aplicar_responsavel" not in where for where in wheres)
     assert all("$filtrar_sem_responsavel" not in where for where in wheres)

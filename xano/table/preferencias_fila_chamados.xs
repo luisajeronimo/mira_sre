@@ -15,6 +15,9 @@ table preferencias_fila_chamados {
     int? ativos_referencia_id? { table = "ativos_referencia" }
     timestamp? data_inicio?
     timestamp? data_fim?
+    timestamp? ultima_atualizacao_inicio?
+    timestamp? ultima_atualizacao_fim?
+    int? lojas_id? { table = "lojas" }
     text? prioridade? filters=trim
     int? responsavel_id? { table = "usuarios" }
     bool somente_nao_atribuido?=false

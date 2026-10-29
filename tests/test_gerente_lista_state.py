@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from types import SimpleNamespace
 
 import pytest
 
@@ -124,6 +125,7 @@ def test_lista_aplica_consulta_server_side_e_mantem_total(monkeypatch):
     estado = novo_estado()
     estado.filtro_numero = "7"
     estado.filtro_status = "Novo"
+    estado.filtro_status_confirmado = "Novo"
     estado.filtro_ativo = "1 — Totem 01"
     estado.filtro_data_inicio = "2026-10-01"
     estado.filtro_data_fim = "2026-10-02"
@@ -157,6 +159,7 @@ def test_limpar_preserva_ordenacao_e_reconsulta(monkeypatch):
     estado.direcao = "ASC"
     estado.filtro_status = "Novo"
     estado.status_aplicado = "Novo"
+    estado.filtro_status_confirmado = "Novo"
     estado.filtros_aplicados = ["Status: Novo"]
 
     executar_evento(ChamadosGerenteState.limpar_filtros_lista, estado)
@@ -166,6 +169,42 @@ def test_limpar_preserva_ordenacao_e_reconsulta(monkeypatch):
     assert estado.ordenar_por == "prioridade"
     assert estado.direcao == "ASC"
     assert cliente.consultas[-1][1]["status"] is None
+
+
+def test_preferencia_gerente_restaura_totem_e_criterios_confirmados():
+    estado = novo_estado()
+    estado.ativos = ["1 — Totem 01"]
+    estado._aplicar_preferencia(SimpleNamespace(
+        numero=7, status="Novo", ativo_id=1,
+        data_inicio=1790823600000, data_fim=1790910000000,
+        ultima_atualizacao_inicio=None, ultima_atualizacao_fim=None,
+    ))
+
+    assert estado.filtro_ativo == "1 — Totem 01"
+    assert "Totem: Totem 01" in estado.filtros_aplicados
+
+
+def test_falha_ao_salvar_preferencia_gerente_restaura_confirmados(monkeypatch):
+    liberar_validacao(monkeypatch)
+
+    class ClienteComFalhaSave(ClienteListaFalso):
+        async def salvar_preferencia_filtros_gerente(self, _token, **_payload):
+            raise XanoIndisponivel("falha")
+
+    cliente = ClienteComFalhaSave()
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado()
+    estado.filtro_status = "Novo"
+    estado.status_aplicado = "Novo"
+    estado.filtro_status_confirmado = "Novo"
+    estado.filtros_aplicados = ["Status: Novo"]
+    estado.filtro_status = "Encerrado"
+
+    executar_evento(ChamadosGerenteState.aplicar_filtros, estado)
+
+    assert estado.filtro_status == "Novo"
+    assert estado.status_aplicado == "Novo"
+    assert estado.filtros_aplicados == ["Status: Novo"]
 
 
 def test_ordenacao_nao_reordena_items_localmente(monkeypatch):
@@ -487,6 +526,19 @@ def test_cabecalho_ordenavel_do_gerente_exibe_apenas_a_seta_ativa():
     assert "rx.text(ChamadosGerenteState.direcao)" not in fonte
     assert 'rx.text("Ordenar")' not in fonte
     assert "ChamadosGerenteState.alternar_ordenacao(coluna)" in fonte
+
+
+def test_drawer_do_totem_usa_painel_nativo_a_direita_e_timestamp():
+    fonte = inspect.getsource(paginas._detalhe)
+
+    assert "rx.drawer.portal(" in fonte
+    assert "rx.drawer.overlay()" in fonte
+    assert 'direction="right"' in fonte
+    assert "on_open_change=ChamadosGerenteState.definir_drawer_totem_aberto" in fonte
+    assert 'aria_label="Fechar detalhe do Totem"' in fonte
+    assert 'overflow_y="auto"' in fonte
+    assert 'evento_timestamp_texto' in fonte
+    assert 'side="right"' not in fonte
 
 
 def test_tabela_e_formulario_implementam_somente_as_acoes_aprovadas():

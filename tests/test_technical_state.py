@@ -248,10 +248,12 @@ def test_fila_global_exibe_aberto_por_antes_do_responsavel_sem_coluna_atribuido_
         '_cabecalho_ordenavel("Responsável", "responsavel")'
     )
     assert 'rx.table.cell(item["aberto_por"])' in fonte
+    assert '_cabecalho_ordenavel("Loja", "loja")' in fonte
     assert '_cabecalho_ordenavel("Responsável", "responsavel")' in fonte
     assert 'rx.table.column_header_cell("Atribuído em")' not in fonte
     assert 'rx.table.cell(item["atribuido_em_texto"])' not in fonte
     assert '"aberto_por"' in inspect.getsource(ChamadosTecnicoState.ordenar_fila.fn)
+    assert '"loja"' in inspect.getsource(ChamadosTecnicoState.ordenar_fila.fn)
 
 
 def test_cabecalho_ordenavel_da_fila_global_exibe_apenas_a_seta_ativa():
@@ -455,6 +457,21 @@ def test_prioridade_e_ordenacao_sao_persistidas_apos_consulta(monkeypatch):
     assert cliente.consultas[-1][1]["ordenar_por"] == "titulo"
     assert cliente.consultas[-1][1]["direcao"] == "ASC"
     assert cliente.preferencias_salvas[-1][1]["ordenar_por"] == "titulo"
+
+
+def test_ordenacao_por_loja_alterna_e_persiste_por_escopo(monkeypatch):
+    liberar_validacao_de_sessao(monkeypatch)
+    cliente = ClienteTecnicoFalso()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico()
+
+    executar_evento(ChamadosTecnicoState.ordenar_fila, estado, "loja")
+    executar_evento(ChamadosTecnicoState.ordenar_fila, estado, "loja")
+
+    assert cliente.consultas[-2][1]["ordenar_por"] == "loja"
+    assert cliente.consultas[-2][1]["direcao"] == "ASC"
+    assert cliente.preferencias_salvas[-1][1]["ordenar_por"] == "loja"
+    assert cliente.preferencias_salvas[-1][1]["direcao"] == "DESC"
 
 
 @pytest.mark.parametrize("falha", ["consulta", "save"])

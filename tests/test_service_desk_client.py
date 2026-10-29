@@ -545,6 +545,32 @@ def test_preferencia_fila_tecnica_nao_envia_usuario_e_valida_retorno_canonico():
     assert payload["ordenar_por"] == "aberto_por"
 
 
+@pytest.mark.parametrize("direcao", ["ASC", "DESC"])
+def test_preferencia_fila_tecnica_aceita_ordenacao_persistida_por_loja(direcao):
+    preferencia = {
+        "escopo": "todos", "numero": None, "status": None, "ativo_id": None,
+        "data_inicio": None, "data_fim": None, "prioridade": None,
+        "responsavel_id": None, "somente_nao_atribuido": False,
+        "ordenar_por": "loja", "direcao": direcao,
+    }
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"preferencia": preferencia})
+        ),
+    )
+
+    resultado = executar(cliente.obter_preferencia_fila_tecnica("token", escopo="todos"))
+    salva = executar(cliente.salvar_preferencia_fila_tecnica(
+        "token", escopo="todos", numero=None, status=None, ativo_id=None,
+        data_inicio=None, data_fim=None, prioridade=None, responsavel_id=None,
+        somente_nao_atribuido=False, ordenar_por="loja", direcao=direcao,
+    ))
+
+    assert (resultado.ordenar_por, resultado.direcao) == ("loja", direcao)
+    assert (salva.ordenar_por, salva.direcao) == ("loja", direcao)
+
+
 @pytest.mark.parametrize(
     ("status", "erro"),
     [

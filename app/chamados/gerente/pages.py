@@ -77,6 +77,18 @@ def _lista() -> rx.Component:
                         type="date",
                         aria_label="Abertura até",
                     ),
+                    rx.input(
+                        value=ChamadosGerenteState.filtro_ultima_atualizacao_inicio,
+                        on_change=ChamadosGerenteState.alterar_filtro_ultima_atualizacao_inicio,
+                        type="date",
+                        aria_label="Última atualização a partir de",
+                    ),
+                    rx.input(
+                        value=ChamadosGerenteState.filtro_ultima_atualizacao_fim,
+                        on_change=ChamadosGerenteState.alterar_filtro_ultima_atualizacao_fim,
+                        type="date",
+                        aria_label="Última atualização até",
+                    ),
                     rx.button("Aplicar", on_click=ChamadosGerenteState.aplicar_filtros),
                     rx.button(
                         "Limpar filtros",
@@ -289,6 +301,10 @@ def _detalhe() -> rx.Component:
                         rx.text("Prioridade: " + ChamadosGerenteState.chamado["prioridade"]),
                         rx.text("Origem: " + ChamadosGerenteState.chamado["origem"]),
                         rx.text("Totem: " + ChamadosGerenteState.chamado["ativo_nome"]),
+                        rx.button(
+                            "Detalhe do Totem",
+                            on_click=ChamadosGerenteState.abrir_drawer_totem,
+                        ),
                         rx.text("Categoria: " + ChamadosGerenteState.chamado["categoria_nome"]),
                         rx.text("Solicitante: " + ChamadosGerenteState.chamado["solicitante_nome"]),
                         rx.text("Técnico: " + ChamadosGerenteState.chamado["tecnico_nome"]),
@@ -313,6 +329,64 @@ def _detalhe() -> rx.Component:
                 ),
                 rx.fragment(),
             ),
+        ),
+        rx.drawer.root(
+            rx.drawer.portal(
+                rx.drawer.overlay(),
+                rx.drawer.content(
+                    rx.vstack(
+                        rx.flex(
+                            rx.drawer.title("Detalhe do Totem"),
+                            rx.drawer.close(
+                                rx.icon_button(
+                                    rx.icon("x"),
+                                    variant="ghost",
+                                    aria_label="Fechar detalhe do Totem",
+                                )
+                            ),
+                            justify="between",
+                            align="center",
+                            width="100%",
+                        ),
+                        rx.cond(
+                            ChamadosGerenteState.chamado["resumo_totem"] != None,
+                            rx.vstack(
+                                rx.text("Totem: " + ChamadosGerenteState.chamado["resumo_totem"]["nome_ativo"]),
+                                rx.text("Loja: " + ChamadosGerenteState.chamado["resumo_totem"]["loja"]["nome"]),
+                                rx.text("Estado: " + ChamadosGerenteState.chamado["resumo_totem"]["status_atual"]),
+                                rx.cond(
+                                    ChamadosGerenteState.chamado["resumo_totem"]["ultima_telemetria"] != None,
+                                    rx.vstack(
+                                        rx.text("Última telemetria", weight="medium"),
+                                        rx.text("Recebida em: " + ChamadosGerenteState.chamado["resumo_totem"]["ultima_telemetria"]["evento_timestamp_texto"]),
+                                        rx.text("CPU: " + ChamadosGerenteState.chamado["resumo_totem"]["ultima_telemetria"]["uso_cpu"].to_string() + "%"),
+                                        rx.text("Memória: " + ChamadosGerenteState.chamado["resumo_totem"]["ultima_telemetria"]["uso_memoria"].to_string() + "%"),
+                                        rx.text("Temperatura: " + ChamadosGerenteState.chamado["resumo_totem"]["ultima_telemetria"]["temperatura"].to_string() + "°C"),
+                                        rx.text("Rede: " + ChamadosGerenteState.chamado["resumo_totem"]["ultima_telemetria"]["status_rede"]),
+                                        align="start",
+                                    ),
+                                    rx.callout("Nenhuma telemetria registrada.", icon="info"),
+                                ),
+                                align="start",
+                                width="100%",
+                            ),
+                        ),
+                        align="start",
+                        spacing="4",
+                        width="100%",
+                    ),
+                    background="var(--color-panel)",
+                    box_shadow="-8px 0 24px rgba(0, 0, 0, 0.12)",
+                    height="100vh",
+                    margin_left="auto",
+                    overflow_y="auto",
+                    padding="24px",
+                    width="min(28rem, 100vw)",
+                ),
+            ),
+            direction="right",
+            on_open_change=ChamadosGerenteState.definir_drawer_totem_aberto,
+            open=ChamadosGerenteState.drawer_totem_aberto,
         ),
         rx.cond(
             ChamadosGerenteState.detalhe_carregado,

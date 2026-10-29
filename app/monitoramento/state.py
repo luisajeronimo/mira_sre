@@ -269,6 +269,21 @@ class MonitoramentoState(AuthState):
 
         destino = await self._carregar()
 
+        parametro_totem = self.router.page.params.get("totem", "")
+        if destino is None and parametro_totem:
+            try:
+                totem_id = int(str(parametro_totem))
+                if totem_id <= 0 or not any(item["id"] == totem_id for item in self.ativos):
+                    raise ValueError
+                resultado = await criar_cliente_service_desk().obter_detalhe_ativo_monitoramento(
+                    self._auth_token, totem_id
+                )
+                self._atualizar_detalhe(resultado)
+            except (TypeError, ValueError):
+                self.mensagem_erro_detalhe = "Totem não encontrado."
+            except Exception as erro:  # noqa: BLE001 - mensagem sanitizada
+                destino = self._registrar_erro_detalhe(erro)
+
         self.carregando = False
 
         if destino is not None:

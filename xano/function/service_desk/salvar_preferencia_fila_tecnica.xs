@@ -7,6 +7,9 @@ function "service_desk/salvar_preferencia_fila_tecnica" {
     int? ativo_id? { table = "ativos_referencia" }
     timestamp? data_inicio?
     timestamp? data_fim?
+    timestamp? ultima_atualizacao_inicio?
+    timestamp? ultima_atualizacao_fim?
+    int? loja_id? { table = "lojas" }
     text? prioridade? filters=trim
     int? responsavel_id? { table = "usuarios" }
     bool somente_nao_atribuido?
@@ -85,8 +88,8 @@ function "service_desk/salvar_preferencia_fila_tecnica" {
         var.update $responsavel { value = $responsavel_encontrado }
       }
     }
-    var $ordem_valida { value = ($input.ordenar_por == "numero" || $input.ordenar_por == "titulo" || $input.ordenar_por == "status" || $input.ordenar_por == "prioridade" || $input.ordenar_por == "totem" || $input.ordenar_por == "categoria" || $input.ordenar_por == "aberto_por" || $input.ordenar_por == "responsavel" || $input.ordenar_por == "criado_em" || $input.ordenar_por == "ultima_atualizacao_em") && ($input.direcao == "ASC" || $input.direcao == "DESC") }
-    precondition (($input.numero == null || $input.numero > 0) && ($input.status == null || $input.status == "" || $status != null) && ($input.prioridade == null || $input.prioridade == "" || $input.prioridade == "Baixa" || $input.prioridade == "Média" || $input.prioridade == "Alta" || $input.prioridade == "Urgente") && ($input.responsavel_id == null || ($responsavel != null && $responsavel.role == "tecnico")) && !($input.responsavel_id != null && $input.somente_nao_atribuido == true) && $ordem_valida && ($input.data_inicio == null || $input.data_fim == null || $input.data_inicio < $input.data_fim)) {
+    var $ordem_valida { value = ($input.ordenar_por == "numero" || $input.ordenar_por == "titulo" || $input.ordenar_por == "status" || $input.ordenar_por == "prioridade" || $input.ordenar_por == "totem" || $input.ordenar_por == "loja" || $input.ordenar_por == "categoria" || $input.ordenar_por == "aberto_por" || $input.ordenar_por == "responsavel" || $input.ordenar_por == "criado_em" || $input.ordenar_por == "ultima_atualizacao_em") && ($input.direcao == "ASC" || $input.direcao == "DESC") }
+    precondition (($input.numero == null || $input.numero > 0) && ($input.status == null || $input.status == "" || $status != null) && ($input.prioridade == null || $input.prioridade == "" || $input.prioridade == "Baixa" || $input.prioridade == "Média" || $input.prioridade == "Alta" || $input.prioridade == "Urgente") && ($input.responsavel_id == null || ($responsavel != null && $responsavel.role == "tecnico")) && !($input.responsavel_id != null && $input.somente_nao_atribuido == true) && $ordem_valida && ($input.data_inicio == null || $input.data_fim == null || $input.data_inicio < $input.data_fim) && ($input.ultima_atualizacao_inicio == null || $input.ultima_atualizacao_fim == null || $input.ultima_atualizacao_inicio < $input.ultima_atualizacao_fim)) {
       error_type = "inputerror"
       error = "Preferência inválida."
     }
@@ -99,13 +102,13 @@ function "service_desk/salvar_preferencia_fila_tecnica" {
     db.add_or_edit preferencias_fila_chamados {
       field_name = "chave_logica"
       field_value = $chave_logica
-      data = {usuarios_id: $usuario.id, escopo: $input.escopo, chave_logica: $chave_logica, numero: $input.numero, status: $status, ativos_referencia_id: $input.ativo_id, data_inicio: $input.data_inicio, data_fim: $input.data_fim, prioridade: $input.prioridade, responsavel_id: $input.responsavel_id, somente_nao_atribuido: $input.somente_nao_atribuido == true, ordenar_por: $input.ordenar_por, direcao: $input.direcao, atualizado_em: $agora}
+      data = {usuarios_id: $usuario.id, escopo: $input.escopo, chave_logica: $chave_logica, numero: $input.numero, status: $status, ativos_referencia_id: $input.ativo_id, data_inicio: $input.data_inicio, data_fim: $input.data_fim, ultima_atualizacao_inicio: $input.ultima_atualizacao_inicio, ultima_atualizacao_fim: $input.ultima_atualizacao_fim, lojas_id: $input.loja_id, prioridade: $input.prioridade, responsavel_id: $input.responsavel_id, somente_nao_atribuido: $input.somente_nao_atribuido == true, ordenar_por: $input.ordenar_por, direcao: $input.direcao, atualizado_em: $agora}
     } as $salva
     precondition ($salva != null && $salva.usuarios_id == $usuario.id && $salva.escopo == $input.escopo) {
       error_type = "standard"
       error = "Não foi possível salvar a preferência."
     }
-    var $preferencia { value = {escopo: $salva.escopo, numero: $salva.numero, status: $salva.status, ativo_id: $salva.ativos_referencia_id, data_inicio: $salva.data_inicio, data_fim: $salva.data_fim, prioridade: $salva.prioridade, responsavel_id: $salva.responsavel_id, somente_nao_atribuido: $salva.somente_nao_atribuido == true, ordenar_por: $salva.ordenar_por, direcao: $salva.direcao} }
+    var $preferencia { value = {escopo: $salva.escopo, numero: $salva.numero, status: $salva.status, ativo_id: $salva.ativos_referencia_id, data_inicio: $salva.data_inicio, data_fim: $salva.data_fim, ultima_atualizacao_inicio: $salva.ultima_atualizacao_inicio, ultima_atualizacao_fim: $salva.ultima_atualizacao_fim, loja_id: $salva.lojas_id, prioridade: $salva.prioridade, responsavel_id: $salva.responsavel_id, somente_nao_atribuido: $salva.somente_nao_atribuido == true, ordenar_por: $salva.ordenar_por, direcao: $salva.direcao} }
   }
   response = {preferencia: $preferencia}
   guid = "miraSalvarPrefFila01"

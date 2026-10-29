@@ -17,6 +17,17 @@ function "service_desk/listar_ativos_tecnico" {
     } as $usuario
 
     db.query ativos_referencia {
+      join = {
+        loja: {
+          table: "lojas"
+          type: "left"
+          where: $db.ativos_referencia.lojas_id == $db.loja.id
+        }
+      }
+      eval = {
+        loja_id: $db.loja.id
+        loja_nome: $db.loja.nome
+      }
       sort = {ativos_referencia.id: "asc"}
       return = {type: "list"}
       mock = {
@@ -35,6 +46,7 @@ function "service_desk/listar_ativos_tecnico" {
         nome_ativo: $$.nome_ativo,
         tipo: $$.tipo,
         status_atual: $$.status_atual
+        loja: ($$.loja_id != null) ? {id: $$.loja_id, nome: $$.loja_nome} : null
       }
     }
   }
@@ -45,8 +57,8 @@ function "service_desk/listar_ativos_tecnico" {
     input = {usuarios_id: 12}
     expect.to_equal ($response.items) {
       value = [
-        {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online"},
-        {id: 2, nome_ativo: "Totem 02", tipo: "Totem", status_atual: "offline"}
+        {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", loja: null},
+        {id: 2, nome_ativo: "Totem 02", tipo: "Totem", status_atual: "offline", loja: null}
       ]
     }
   }

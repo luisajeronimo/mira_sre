@@ -9,6 +9,8 @@ function "service_desk/listar_chamados_gerente" {
     text ativo_id? filters=trim
     timestamp data_inicio?
     timestamp data_fim?
+    timestamp ultima_atualizacao_inicio?
+    timestamp ultima_atualizacao_fim?
     text ordenar_por? filters=trim
     text direcao? filters=trim
   }
@@ -102,6 +104,8 @@ function "service_desk/listar_chamados_gerente" {
     var $aplicar_data_fim {
       value = false
     }
+    var $aplicar_ultima_atualizacao_inicio { value = $input.ultima_atualizacao_inicio != null && $input.ultima_atualizacao_inicio != "" }
+    var $aplicar_ultima_atualizacao_fim { value = $input.ultima_atualizacao_fim != null && $input.ultima_atualizacao_fim != "" }
     var $data_fim_normalizada {
       value = null
     }
@@ -157,7 +161,7 @@ function "service_desk/listar_chamados_gerente" {
     }
 
     var $entrada_valida {
-      value = $numero_texto_valido && $ativo_texto_valido && $status_valido && $ordenacao_valida && (!$aplicar_data_inicio || !$aplicar_data_fim || $data_inicio_normalizada < $data_fim_normalizada)
+      value = $numero_texto_valido && $ativo_texto_valido && $status_valido && $ordenacao_valida && (!$aplicar_data_inicio || !$aplicar_data_fim || $data_inicio_normalizada < $data_fim_normalizada) && (!$aplicar_ultima_atualizacao_inicio || !$aplicar_ultima_atualizacao_fim || $input.ultima_atualizacao_inicio < $input.ultima_atualizacao_fim)
     }
 
     conditional {
@@ -714,8 +718,21 @@ function "service_desk/listar_chamados_gerente" {
         }
       }
     }
+    var $chamados_filtrados { value = $chamados }
+    conditional {
+      if ($aplicar_ultima_atualizacao_inicio) {
+        array.filter ($chamados_filtrados) if ($this.ultima_atualizacao_em >= $input.ultima_atualizacao_inicio) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
+      }
+    }
+    conditional {
+      if ($aplicar_ultima_atualizacao_fim) {
+        array.filter ($chamados_filtrados) if ($this.ultima_atualizacao_em < $input.ultima_atualizacao_fim) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
+      }
+    }
     var $items {
-      value = $chamados|map:{
+      value = $chamados_filtrados|map:{
         id: $$.id,
         titulo: $$.titulo,
         descricao: $$.descricao,
@@ -734,7 +751,7 @@ function "service_desk/listar_chamados_gerente" {
 
   test "lista padrão da loja" {
     input = {usuarios_id: 8}
-    expect.to_equal ($response.total) { value = 2 }
+    expect.to_equal ($response.total) { value = 1 }
     expect.to_not_equal ($response.items) { value = [] }
   }
 

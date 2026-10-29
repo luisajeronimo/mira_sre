@@ -72,6 +72,12 @@ def _fila_tecnico() -> rx.Component:
                         on_change=ChamadosTecnicoState.alterar_filtro_ativo,
                         placeholder="Totem",
                     ),
+                    rx.select(
+                        ChamadosTecnicoState.lojas,
+                        value=ChamadosTecnicoState.filtro_loja,
+                        on_change=ChamadosTecnicoState.alterar_filtro_loja,
+                        placeholder="Loja",
+                    ),
                     rx.input(
                         value=ChamadosTecnicoState.filtro_data_inicio,
                         on_change=ChamadosTecnicoState.alterar_filtro_data_inicio,
@@ -83,6 +89,18 @@ def _fila_tecnico() -> rx.Component:
                         on_change=ChamadosTecnicoState.alterar_filtro_data_fim,
                         type="date",
                         aria_label="Abertura até",
+                    ),
+                    rx.input(
+                        value=ChamadosTecnicoState.filtro_ultima_atualizacao_inicio,
+                        on_change=ChamadosTecnicoState.alterar_filtro_ultima_atualizacao_inicio,
+                        type="date",
+                        aria_label="Última atualização a partir de",
+                    ),
+                    rx.input(
+                        value=ChamadosTecnicoState.filtro_ultima_atualizacao_fim,
+                        on_change=ChamadosTecnicoState.alterar_filtro_ultima_atualizacao_fim,
+                        type="date",
+                        aria_label="Última atualização até",
                     ),
                     rx.button(
                         "Aplicar",
@@ -134,6 +152,7 @@ def _fila_tecnico() -> rx.Component:
                                 _cabecalho_ordenavel("Status", "status"),
                                 _cabecalho_ordenavel("Prioridade", "prioridade"),
                                 _cabecalho_ordenavel("Totem", "totem"),
+                                _cabecalho_ordenavel("Loja", "loja"),
                                 _cabecalho_ordenavel("Categoria", "categoria"),
                                 _cabecalho_ordenavel("Aberto por", "aberto_por"),
                                 _cabecalho_ordenavel("Responsável", "responsavel"),
@@ -156,6 +175,7 @@ def _fila_tecnico() -> rx.Component:
                                     rx.table.cell(rx.badge(item["status"])),
                                     rx.table.cell(item["prioridade"]),
                                     rx.table.cell(item["ativo_nome"]),
+                                    rx.table.cell(item["loja_nome"]),
                                     rx.table.cell(item["categoria_nome"]),
                                     rx.table.cell(item["aberto_por"]),
                                     rx.table.cell(item["tecnico_nome"]),
@@ -326,6 +346,11 @@ def _detalhe_tecnico() -> rx.Component:
                                 align="start", width="100%",
                             ),
                             rx.vstack(rx.text("Totem", size="2"), rx.text(ChamadosTecnicoState.chamado["ativo_nome"]), align="start", width="100%"),
+                            rx.button(
+                                "Detalhe do Totem",
+                                variant="outline",
+                                on_click=ChamadosTecnicoState.abrir_monitoramento_totem,
+                            ),
                             rx.vstack(rx.text("Loja", size="2"), rx.text(ChamadosTecnicoState.chamado["loja_nome"]), align="start", width="100%"),
                             rx.vstack(rx.text("Solicitante", size="2"), rx.text(ChamadosTecnicoState.chamado["solicitante_nome"]), align="start", width="100%"),
                             rx.vstack(

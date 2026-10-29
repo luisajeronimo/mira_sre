@@ -36,6 +36,7 @@ class AtivoServiceDesk:
     nome_ativo: str
     tipo: str
     status_atual: str
+    loja: ReferenciaLoja | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +153,7 @@ class ChamadoResumo:
     solicitante: ReferenciaUsuario | None = None
     tecnico: ReferenciaUsuario | None = None
     criador_sistema: str | None = None
+    loja: ReferenciaLoja | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +179,29 @@ class PreferenciaFilaTecnica:
     direcao: str
     responsavel_id: int | None = None
     somente_nao_atribuido: bool = False
+    ultima_atualizacao_inicio: int | None = None
+    ultima_atualizacao_fim: int | None = None
+    loja_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PreferenciaFiltrosGerente:
+    numero: int | None
+    status: str | None
+    ativo_id: int | None
+    data_inicio: int | None
+    data_fim: int | None
+    ultima_atualizacao_inicio: int | None
+    ultima_atualizacao_fim: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class ResumoTotemGerente:
+    id: int
+    nome_ativo: str
+    loja: ReferenciaLoja
+    status_atual: str
+    ultima_telemetria: TelemetriaMonitoramento | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +222,7 @@ class ChamadoDetalhe:
     atribuido_em: int | None = None
     criador_sistema: str | None = None
     loja: ReferenciaLoja | None = None
+    resumo_totem: ResumoTotemGerente | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -506,6 +532,7 @@ def _resumo(
         ),
         tecnico=_referencia_usuario(dados.get("tecnico"), "tecnico"),
         criador_sistema=_criador_sistema(dados.get("criador_sistema")),
+        loja=_referencia_loja(dados.get("loja")),
     )
 
 
@@ -548,15 +575,18 @@ def _preferencia_fila_tecnica(dados: dict[str, Any]) -> PreferenciaFilaTecnica:
     campos = {
         "escopo", "numero", "status", "ativo_id", "data_inicio", "data_fim",
         "prioridade", "responsavel_id", "somente_nao_atribuido", "ordenar_por", "direcao",
+        "ultima_atualizacao_inicio", "ultima_atualizacao_fim", "loja_id",
     }
-    dados = _objeto_exato(dados, "preferencia", campos)
+    dados = _objeto(dados, "preferencia")
+    if not set(dados).issubset(campos) or not {"escopo", "numero", "status", "ativo_id", "data_inicio", "data_fim", "prioridade", "responsavel_id", "somente_nao_atribuido", "ordenar_por", "direcao"}.issubset(dados):
+        raise XanoContratoInvalido("Campo inválido na resposta: preferencia.")
     escopo = dados.get("escopo")
     ordenar_por = dados.get("ordenar_por")
     direcao = dados.get("direcao")
     if escopo not in {"todos", "atribuidos_a_mim"}:
         raise XanoContratoInvalido("Campo inválido na resposta: preferencia.escopo.")
     if ordenar_por not in {
-        "numero", "titulo", "status", "prioridade", "totem", "categoria", "aberto_por", "responsavel",
+        "numero", "titulo", "status", "prioridade", "totem", "loja", "categoria", "aberto_por", "responsavel",
         "criado_em", "ultima_atualizacao_em",
     } or direcao not in {"ASC", "DESC"}:
         raise XanoContratoInvalido("Campo inválido na resposta: preferencia.ordenacao.")
@@ -567,11 +597,54 @@ def _preferencia_fila_tecnica(dados: dict[str, Any]) -> PreferenciaFilaTecnica:
         ativo_id=_inteiro(dados["ativo_id"], "preferencia.ativo_id") if dados["ativo_id"] is not None else None,
         data_inicio=_inteiro(dados["data_inicio"], "preferencia.data_inicio") if dados["data_inicio"] is not None else None,
         data_fim=_inteiro(dados["data_fim"], "preferencia.data_fim") if dados["data_fim"] is not None else None,
+        ultima_atualizacao_inicio=_inteiro(dados["ultima_atualizacao_inicio"], "preferencia.ultima_atualizacao_inicio") if dados.get("ultima_atualizacao_inicio") is not None else None,
+        ultima_atualizacao_fim=_inteiro(dados["ultima_atualizacao_fim"], "preferencia.ultima_atualizacao_fim") if dados.get("ultima_atualizacao_fim") is not None else None,
+        loja_id=_inteiro(dados["loja_id"], "preferencia.loja_id") if dados.get("loja_id") is not None else None,
         prioridade=_texto(dados["prioridade"], "preferencia.prioridade") if dados["prioridade"] is not None else None,
         responsavel_id=_inteiro(dados["responsavel_id"], "preferencia.responsavel_id") if dados["responsavel_id"] is not None else None,
         somente_nao_atribuido=dados["somente_nao_atribuido"] is True,
         ordenar_por=ordenar_por,
         direcao=direcao,
+    )
+
+
+def _preferencia_filtros_gerente(dados: dict[str, Any]) -> PreferenciaFiltrosGerente:
+    dados = _objeto_exato(
+        dados,
+        "preferencia",
+        {"numero", "status", "ativo_id", "data_inicio", "data_fim", "ultima_atualizacao_inicio", "ultima_atualizacao_fim"},
+    )
+    return PreferenciaFiltrosGerente(
+        numero=_inteiro(dados["numero"], "preferencia.numero") if dados["numero"] is not None else None,
+        status=_texto(dados["status"], "preferencia.status") if dados["status"] is not None else None,
+        ativo_id=_inteiro(dados["ativo_id"], "preferencia.ativo_id") if dados["ativo_id"] is not None else None,
+        data_inicio=_inteiro(dados["data_inicio"], "preferencia.data_inicio") if dados["data_inicio"] is not None else None,
+        data_fim=_inteiro(dados["data_fim"], "preferencia.data_fim") if dados["data_fim"] is not None else None,
+        ultima_atualizacao_inicio=_inteiro(dados["ultima_atualizacao_inicio"], "preferencia.ultima_atualizacao_inicio") if dados["ultima_atualizacao_inicio"] is not None else None,
+        ultima_atualizacao_fim=_inteiro(dados["ultima_atualizacao_fim"], "preferencia.ultima_atualizacao_fim") if dados["ultima_atualizacao_fim"] is not None else None,
+    )
+
+
+def _resumo_totem_gerente(valor: Any) -> ResumoTotemGerente | None:
+    if valor is None:
+        return None
+    dados = _objeto_exato(
+        valor,
+        "resumo_totem",
+        {"id", "nome_ativo", "loja", "status_atual", "ultima_telemetria"},
+    )
+    loja = _referencia_loja(dados["loja"])
+    if loja is None:
+        raise XanoContratoInvalido("Campo inválido na resposta: resumo_totem.loja.")
+    return ResumoTotemGerente(
+        id=_inteiro(dados["id"], "resumo_totem.id"),
+        nome_ativo=_texto(dados["nome_ativo"], "resumo_totem.nome_ativo"),
+        loja=loja,
+        status_atual=_texto(dados["status_atual"], "resumo_totem.status_atual"),
+        ultima_telemetria=(
+            _telemetria_monitoramento(dados["ultima_telemetria"], "resumo_totem.ultima_telemetria")
+            if dados["ultima_telemetria"] is not None else None
+        ),
     )
 
 
@@ -613,6 +686,7 @@ def _detalhe(
         ),
         criador_sistema=_criador_sistema(dados.get("criador_sistema")),
         loja=_referencia_loja(dados.get("loja")),
+        resumo_totem=_resumo_totem_gerente(dados.get("resumo_totem")),
     )
 
 
@@ -740,6 +814,7 @@ class XanoServiceDeskCliente(XanoCliente):
                     item.get("status_atual"),
                     "status_atual",
                 ),
+                loja=_referencia_loja(item.get("loja")),
             )
             for item in _colecao(dados)
         ]
@@ -786,6 +861,7 @@ class XanoServiceDeskCliente(XanoCliente):
                     item.get("status_atual"),
                     "status_atual",
                 ),
+                loja=_referencia_loja(item.get("loja")),
             )
             for item in _colecao(dados)
         ]
@@ -869,6 +945,8 @@ class XanoServiceDeskCliente(XanoCliente):
         ativo_id: int | None = None,
         data_inicio: int | None = None,
         data_fim: int | None = None,
+        ultima_atualizacao_inicio: int | None = None,
+        ultima_atualizacao_fim: int | None = None,
         ordenar_por: str = "criado_em",
         direcao: str = "DESC",
     ) -> ListaChamadosGerente:
@@ -882,6 +960,8 @@ class XanoServiceDeskCliente(XanoCliente):
             ("ativo_id", ativo_id),
             ("data_inicio", data_inicio),
             ("data_fim", data_fim),
+            ("ultima_atualizacao_inicio", ultima_atualizacao_inicio),
+            ("ultima_atualizacao_fim", ultima_atualizacao_fim),
         ):
             if valor is not None and valor != "":
                 params[campo] = valor
@@ -892,6 +972,21 @@ class XanoServiceDeskCliente(XanoCliente):
             params=params,
         )
         return _lista_chamados_gerente(dados)
+
+    async def obter_preferencia_filtros_gerente(
+        self, token: str
+    ) -> PreferenciaFiltrosGerente:
+        dados = await self._requisitar("GET", "/gerente/preferencias-fila", token=token)
+        return _preferencia_filtros_gerente(dados.get("preferencia"))
+
+    async def salvar_preferencia_filtros_gerente(
+        self, token: str, **filtros: int | str | None
+    ) -> PreferenciaFiltrosGerente:
+        dados = await self._requisitar(
+            "PUT", "/gerente/preferencias-fila", token=token, json=filtros,
+            erro_400_como_entrada=True,
+        )
+        return _preferencia_filtros_gerente(dados.get("preferencia"))
 
     async def obter_chamado(
         self,
@@ -942,6 +1037,9 @@ class XanoServiceDeskCliente(XanoCliente):
         ativo_id: int | None = None,
         data_inicio: int | None = None,
         data_fim: int | None = None,
+        ultima_atualizacao_inicio: int | None = None,
+        ultima_atualizacao_fim: int | None = None,
+        loja_id: int | None = None,
         prioridade: str | None = None,
         responsavel_id: int | None = None,
         ordenar_por: str = "numero",
@@ -957,6 +1055,9 @@ class XanoServiceDeskCliente(XanoCliente):
             ("ativo_id", ativo_id),
             ("data_inicio", data_inicio),
             ("data_fim", data_fim),
+            ("ultima_atualizacao_inicio", ultima_atualizacao_inicio),
+            ("ultima_atualizacao_fim", ultima_atualizacao_fim),
+            ("loja_id", loja_id),
             ("prioridade", prioridade),
             ("responsavel_id", responsavel_id),
         ):
@@ -1002,6 +1103,9 @@ class XanoServiceDeskCliente(XanoCliente):
         somente_nao_atribuido: bool,
         ordenar_por: str,
         direcao: str,
+        ultima_atualizacao_inicio: int | None = None,
+        ultima_atualizacao_fim: int | None = None,
+        loja_id: int | None = None,
     ) -> PreferenciaFilaTecnica:
         dados = await self._requisitar(
             "PUT", "/tecnico/preferencias-fila", token=token,
@@ -1009,6 +1113,9 @@ class XanoServiceDeskCliente(XanoCliente):
                 "escopo": escopo, "numero": numero, "status": status,
                 "ativo_id": ativo_id, "data_inicio": data_inicio,
                 "data_fim": data_fim, "prioridade": prioridade,
+                "ultima_atualizacao_inicio": ultima_atualizacao_inicio,
+                "ultima_atualizacao_fim": ultima_atualizacao_fim,
+                "loja_id": loja_id,
                 "responsavel_id": responsavel_id,
                 "somente_nao_atribuido": somente_nao_atribuido,
                 "ordenar_por": ordenar_por, "direcao": direcao,

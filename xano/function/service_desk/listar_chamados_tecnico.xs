@@ -7,6 +7,9 @@ function "service_desk/listar_chamados_tecnico" {
     text ativo_id? filters=trim
     timestamp data_inicio?
     timestamp data_fim?
+    timestamp ultima_atualizacao_inicio?
+    timestamp ultima_atualizacao_fim?
+    text loja_id? filters=trim
     text prioridade? filters=trim
     text responsavel_id? filters=trim
     text ordenar_por? filters=trim
@@ -138,6 +141,10 @@ function "service_desk/listar_chamados_tecnico" {
         db.get usuarios {
           field_name = "id"
           field_value = $responsavel_convertido
+          mock = {
+            "combina prioridade e responsável após query ordenada": {id: 10, role: "tecnico"}
+            "filtra responsável sem predicado search dinâmico": {id: 10, role: "tecnico"}
+          }
         } as $responsavel
         conditional {
           if ($responsavel != null && $responsavel.role == "tecnico") {
@@ -150,12 +157,33 @@ function "service_desk/listar_chamados_tecnico" {
     var $direcao { value = ($input.direcao != null && $input.direcao != "") ? $input.direcao : "DESC" }
     var $aplicar_data_inicio { value = $input.data_inicio != null && $input.data_inicio != "" }
     var $aplicar_data_fim { value = $input.data_fim != null && $input.data_fim != "" }
+    var $aplicar_ultima_atualizacao_inicio { value = $input.ultima_atualizacao_inicio != null && $input.ultima_atualizacao_inicio != "" }
+    var $aplicar_ultima_atualizacao_fim { value = $input.ultima_atualizacao_fim != null && $input.ultima_atualizacao_fim != "" }
+    var $aplicar_loja { value = $input.loja_id != null && $input.loja_id != "" }
+    var $loja_convertida { value = $input.loja_id|to_int }
+    var $loja_valida { value = !$aplicar_loja || ($loja_convertida > 0 && ($loja_convertida|to_text) == $input.loja_id) }
+    var $loja_id_normalizada { value = $aplicar_loja && $loja_valida ? $loja_convertida : null }
+    conditional {
+      if ($aplicar_loja && $loja_valida) {
+        db.get lojas {
+          field_name = "id"
+          field_value = $loja_id_normalizada
+        } as $loja
+        conditional {
+          if ($loja == null) {
+            var.update $loja_valida {
+              value = false
+            }
+          }
+        }
+      }
+    }
     var $status_valido { value = !$aplicar_status || $status_normalizado != null }
     var $prioridade_valida { value = !$aplicar_prioridade || $prioridade_normalizada == "Baixa" || $prioridade_normalizada == "Média" || $prioridade_normalizada == "Alta" || $prioridade_normalizada == "Urgente" }
-    var $ordenacao_valida { value = ($ordenar_por == "numero" || $ordenar_por == "titulo" || $ordenar_por == "status" || $ordenar_por == "prioridade" || $ordenar_por == "totem" || $ordenar_por == "categoria" || $ordenar_por == "aberto_por" || $ordenar_por == "responsavel" || $ordenar_por == "criado_em" || $ordenar_por == "ultima_atualizacao_em") && ($direcao == "ASC" || $direcao == "DESC") }
+    var $ordenacao_valida { value = ($ordenar_por == "numero" || $ordenar_por == "titulo" || $ordenar_por == "status" || $ordenar_por == "prioridade" || $ordenar_por == "totem" || $ordenar_por == "loja" || $ordenar_por == "categoria" || $ordenar_por == "aberto_por" || $ordenar_por == "responsavel" || $ordenar_por == "criado_em" || $ordenar_por == "ultima_atualizacao_em") && ($direcao == "ASC" || $direcao == "DESC") }
 
     conditional {
-      if (!$numero_valido || !$ativo_valido || !$status_valido || !$prioridade_valida || !$responsavel_valido || !$ordenacao_valida || ($aplicar_data_inicio && $aplicar_data_fim && $input.data_inicio >= $input.data_fim)) {
+      if (!$numero_valido || !$ativo_valido || !$loja_valida || !$status_valido || !$prioridade_valida || !$responsavel_valido || !$ordenacao_valida || ($aplicar_data_inicio && $aplicar_data_fim && $input.data_inicio >= $input.data_fim) || ($aplicar_ultima_atualizacao_inicio && $aplicar_ultima_atualizacao_fim && $input.ultima_atualizacao_inicio >= $input.ultima_atualizacao_fim)) {
         util.set_header {
           value = "HTTP/1.1 422 Unprocessable Entity"
           duplicates = "replace"
@@ -731,6 +759,60 @@ function "service_desk/listar_chamados_tecnico" {
           value = $resultado
         }
       }
+      elseif ($ordenar_por == "loja" && $direcao == "ASC") {
+        db.query chamados {
+          join = {
+            ativo: {table: "ativos_referencia", type: "left", where: $db.chamados.ativos_referencia_id == $db.ativo.id}
+            loja: {table: "lojas", type: "left", where: $db.ativo.lojas_id == $db.loja.id}
+            categoria: {table: "categorias_servico", type: "left", where: $db.chamados.categorias_servico_id == $db.categoria.id}
+            solicitante: {table: "usuarios", type: "left", where: $db.chamados.solicitante_id == $db.solicitante.id}
+            tecnico: {table: "usuarios", type: "left", where: $db.chamados.tecnico_id == $db.tecnico.id}
+          }
+          eval = {
+            ativo_id: $db.ativo.id, ativo_nome: $db.ativo.nome_ativo,
+            loja_id: $db.loja.id, loja_nome: $db.loja.nome, loja_ordenavel: $db.loja.nome|to_lower,
+            categoria_id: $db.categoria.id, categoria_nome: $db.categoria.nome,
+            solicitante_usuario_id: $db.solicitante.id, solicitante_nome: $db.solicitante.nome,
+            tecnico_usuario_id: $db.tecnico.id, tecnico_nome: $db.tecnico.nome,
+            numero: $db.chamados.id, titulo_ordenavel: $db.chamados.titulo|to_lower,
+            status_ordenavel: $db.chamados.status|to_lower, prioridade_ordenavel: $db.chamados.prioridade|to_lower,
+            totem_ordenavel: $db.ativo.nome_ativo|to_lower, categoria_ordenavel: $db.categoria.nome|to_lower,
+            tecnico_ordenavel: $db.tecnico.nome|to_lower, criado_em: $db.chamados.criado_em,
+            ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
+          }
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          sort = {loja_ordenavel: "asc", chamados.id: "asc"}
+          return = {type: "list"}
+        } as $resultado
+        var.update $chamados { value = $resultado }
+      }
+      elseif ($ordenar_por == "loja" && $direcao == "DESC") {
+        db.query chamados {
+          join = {
+            ativo: {table: "ativos_referencia", type: "left", where: $db.chamados.ativos_referencia_id == $db.ativo.id}
+            loja: {table: "lojas", type: "left", where: $db.ativo.lojas_id == $db.loja.id}
+            categoria: {table: "categorias_servico", type: "left", where: $db.chamados.categorias_servico_id == $db.categoria.id}
+            solicitante: {table: "usuarios", type: "left", where: $db.chamados.solicitante_id == $db.solicitante.id}
+            tecnico: {table: "usuarios", type: "left", where: $db.chamados.tecnico_id == $db.tecnico.id}
+          }
+          eval = {
+            ativo_id: $db.ativo.id, ativo_nome: $db.ativo.nome_ativo,
+            loja_id: $db.loja.id, loja_nome: $db.loja.nome, loja_ordenavel: $db.loja.nome|to_lower,
+            categoria_id: $db.categoria.id, categoria_nome: $db.categoria.nome,
+            solicitante_usuario_id: $db.solicitante.id, solicitante_nome: $db.solicitante.nome,
+            tecnico_usuario_id: $db.tecnico.id, tecnico_nome: $db.tecnico.nome,
+            numero: $db.chamados.id, titulo_ordenavel: $db.chamados.titulo|to_lower,
+            status_ordenavel: $db.chamados.status|to_lower, prioridade_ordenavel: $db.chamados.prioridade|to_lower,
+            totem_ordenavel: $db.ativo.nome_ativo|to_lower, categoria_ordenavel: $db.categoria.nome|to_lower,
+            tecnico_ordenavel: $db.tecnico.nome|to_lower, criado_em: $db.chamados.criado_em,
+            ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
+          }
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          sort = {loja_ordenavel: "desc", chamados.id: "desc"}
+          return = {type: "list"}
+        } as $resultado
+        var.update $chamados { value = $resultado }
+      }
       elseif ($ordenar_por == "categoria" && $direcao == "ASC") {
         db.query chamados {
           join = {
@@ -868,7 +950,7 @@ function "service_desk/listar_chamados_tecnico" {
           sort = {chamados.id: "asc"}
           return = {type: "list"}
           mock = {
-            "ordena responsável com não atribuído ao final": ```
+            "ordena responsável pelo texto exibido ascendente": ```
               [
                 {id: 400, tecnico_usuario_id: 10, tecnico_nome: "Zeca"},
                 {id: 302, tecnico_usuario_id: 20, tecnico_nome: "ana"},
@@ -910,7 +992,7 @@ function "service_desk/listar_chamados_tecnico" {
           sort = {chamados.id: "desc"}
           return = {type: "list"}
           mock = {
-            "ordena responsável descendente com não atribuído ao final": ```
+            "ordena responsável pelo texto exibido descendente": ```
               [
                 {id: 100, tecnico_usuario_id: 0, tecnico_nome: null},
                 {id: 101, tecnico_usuario_id: null, tecnico_nome: null},
@@ -1171,7 +1253,6 @@ function "service_desk/listar_chamados_tecnico" {
         }
       }
     }
-
     // O Query all Records mantém a composição comprovadamente funcional de
     // filtros `where`. Para responsável, a ordem é composta após a query pelo
     // mesmo texto exibido na fila, inclusive "Não atribuído".
@@ -1237,6 +1318,24 @@ function "service_desk/listar_chamados_tecnico" {
         var.update $chamados_filtrados {
           value = $resultado_filtrado
         }
+      }
+    }
+    conditional {
+      if ($aplicar_ultima_atualizacao_inicio) {
+        array.filter ($chamados_filtrados) if ($this.ultima_atualizacao_em >= $input.ultima_atualizacao_inicio) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
+      }
+    }
+    conditional {
+      if ($aplicar_ultima_atualizacao_fim) {
+        array.filter ($chamados_filtrados) if ($this.ultima_atualizacao_em < $input.ultima_atualizacao_fim) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
+      }
+    }
+    conditional {
+      if ($aplicar_loja) {
+        array.filter ($chamados_filtrados) if ($this.loja_id == $loja_id_normalizada) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
       }
     }
 

@@ -52,15 +52,28 @@ class ChamadosGerenteState(AuthState):
     filtro_ativo: str = ""
     filtro_data_inicio: str = ""
     filtro_data_fim: str = ""
+    filtro_ultima_atualizacao_inicio: str = ""
+    filtro_ultima_atualizacao_fim: str = ""
+    filtro_numero_confirmado: str = ""
+    filtro_status_confirmado: str = ""
+    filtro_ativo_confirmado: str = ""
+    filtro_data_inicio_confirmada: str = ""
+    filtro_data_fim_confirmada: str = ""
+    filtro_ultima_atualizacao_inicio_confirmada: str = ""
+    filtro_ultima_atualizacao_fim_confirmada: str = ""
     numero_aplicado: int | None = None
     status_aplicado: str = ""
     ativo_id_aplicado: int | None = None
     data_inicio_aplicada: int | None = None
     data_fim_aplicada: int | None = None
+    ultima_atualizacao_inicio_aplicada: int | None = None
+    ultima_atualizacao_fim_aplicada: int | None = None
     filtros_aplicados: list[str] = []
     ordenar_por: str = "criado_em"
     direcao: str = "DESC"
     total_chamados: int = 0
+    preferencia_filtros_carregada: bool = False
+    drawer_totem_aberto: bool = False
 
     ativo_formulario: str = ""
     categoria_formulario: str = ""
@@ -262,11 +275,23 @@ class ChamadosGerenteState(AuthState):
             self.mensagem_chamados = "A data inicial deve ser anterior à data final."
             return False
 
+        try:
+            ultima_inicio = self._inicio_do_dia(self.filtro_ultima_atualizacao_inicio) if self.filtro_ultima_atualizacao_inicio else None
+            ultima_fim = self._inicio_do_dia(self.filtro_ultima_atualizacao_fim) + 86_400_000 if self.filtro_ultima_atualizacao_fim else None
+        except ValueError:
+            self.mensagem_chamados = "Informe um período de última atualização válido."
+            return False
+        if ultima_inicio is not None and ultima_fim is not None and ultima_inicio >= ultima_fim:
+            self.mensagem_chamados = "A data inicial deve ser anterior à data final."
+            return False
+
         self.numero_aplicado = numero
         self.status_aplicado = self.filtro_status
         self.ativo_id_aplicado = ativo_id
         self.data_inicio_aplicada = inicio
         self.data_fim_aplicada = fim
+        self.ultima_atualizacao_inicio_aplicada = ultima_inicio
+        self.ultima_atualizacao_fim_aplicada = ultima_fim
 
         filtros: list[str] = []
         if numero is not None:
@@ -279,6 +304,10 @@ class ChamadosGerenteState(AuthState):
             filtros.append(f"Abertura a partir de: {self.filtro_data_inicio}")
         if self.filtro_data_fim:
             filtros.append(f"Abertura até: {self.filtro_data_fim}")
+        if self.filtro_ultima_atualizacao_inicio:
+            filtros.append(f"Atualização a partir de: {self.filtro_ultima_atualizacao_inicio}")
+        if self.filtro_ultima_atualizacao_fim:
+            filtros.append(f"Atualização até: {self.filtro_ultima_atualizacao_fim}")
         self.filtros_aplicados = filtros
         return True
 
@@ -288,11 +317,15 @@ class ChamadosGerenteState(AuthState):
         self.filtro_ativo = ""
         self.filtro_data_inicio = ""
         self.filtro_data_fim = ""
+        self.filtro_ultima_atualizacao_inicio = ""
+        self.filtro_ultima_atualizacao_fim = ""
         self.numero_aplicado = None
         self.status_aplicado = ""
         self.ativo_id_aplicado = None
         self.data_inicio_aplicada = None
         self.data_fim_aplicada = None
+        self.ultima_atualizacao_inicio_aplicada = None
+        self.ultima_atualizacao_fim_aplicada = None
         self.filtros_aplicados = []
 
     def _limpar_formulario_local(self) -> None:
@@ -321,6 +354,118 @@ class ChamadosGerenteState(AuthState):
     @rx.event
     def alterar_filtro_data_fim(self, valor: str):
         self.filtro_data_fim = valor
+
+    @rx.event
+    def alterar_filtro_ultima_atualizacao_inicio(self, valor: str):
+        self.filtro_ultima_atualizacao_inicio = valor
+
+    @rx.event
+    def alterar_filtro_ultima_atualizacao_fim(self, valor: str):
+        self.filtro_ultima_atualizacao_fim = valor
+
+    def _aplicar_preferencia(self, preferencia) -> None:
+        self.numero_aplicado = preferencia.numero
+        self.status_aplicado = preferencia.status or ""
+        self.ativo_id_aplicado = preferencia.ativo_id
+        self.data_inicio_aplicada = preferencia.data_inicio
+        self.data_fim_aplicada = preferencia.data_fim
+        self.ultima_atualizacao_inicio_aplicada = preferencia.ultima_atualizacao_inicio
+        self.ultima_atualizacao_fim_aplicada = preferencia.ultima_atualizacao_fim
+        self.filtro_numero = str(preferencia.numero) if preferencia.numero else ""
+        self.filtro_status = self.status_aplicado
+        self.filtro_data_inicio = self._data_do_timestamp(preferencia.data_inicio)
+        self.filtro_data_fim = self._data_do_timestamp(preferencia.data_fim - 86_400_000) if preferencia.data_fim else ""
+        self.filtro_ultima_atualizacao_inicio = self._data_do_timestamp(preferencia.ultima_atualizacao_inicio)
+        self.filtro_ultima_atualizacao_fim = self._data_do_timestamp(preferencia.ultima_atualizacao_fim - 86_400_000) if preferencia.ultima_atualizacao_fim else ""
+        self._sincronizar_totem_e_etiquetas()
+        self._confirmar_filtros()
+
+    def _sincronizar_totem_e_etiquetas(self) -> None:
+        self.filtro_ativo = next(
+            (item for item in self.ativos if item.startswith(f"{self.ativo_id_aplicado} —")),
+            "",
+        ) if self.ativo_id_aplicado is not None else ""
+        filtros: list[str] = []
+        if self.numero_aplicado is not None:
+            filtros.append(f"Número: {self.numero_aplicado}")
+        if self.status_aplicado:
+            filtros.append(f"Status: {self.status_aplicado}")
+        if self.filtro_ativo:
+            filtros.append(f"Totem: {self.filtro_ativo.split(' — ', 1)[-1]}")
+        if self.filtro_data_inicio:
+            filtros.append(f"Abertura a partir de: {self.filtro_data_inicio}")
+        if self.filtro_data_fim:
+            filtros.append(f"Abertura até: {self.filtro_data_fim}")
+        if self.filtro_ultima_atualizacao_inicio:
+            filtros.append(f"Atualização a partir de: {self.filtro_ultima_atualizacao_inicio}")
+        if self.filtro_ultima_atualizacao_fim:
+            filtros.append(f"Atualização até: {self.filtro_ultima_atualizacao_fim}")
+        self.filtros_aplicados = filtros
+
+    def _confirmar_filtros(self) -> None:
+        self.filtro_numero_confirmado = self.filtro_numero
+        self.filtro_status_confirmado = self.filtro_status
+        self.filtro_ativo_confirmado = self.filtro_ativo
+        self.filtro_data_inicio_confirmada = self.filtro_data_inicio
+        self.filtro_data_fim_confirmada = self.filtro_data_fim
+        self.filtro_ultima_atualizacao_inicio_confirmada = (
+            self.filtro_ultima_atualizacao_inicio
+        )
+        self.filtro_ultima_atualizacao_fim_confirmada = (
+            self.filtro_ultima_atualizacao_fim
+        )
+
+    def _snapshot_filtros_confirmados(self):
+        return (
+            self.filtro_numero_confirmado, self.filtro_status_confirmado,
+            self.filtro_ativo_confirmado, self.filtro_data_inicio_confirmada,
+            self.filtro_data_fim_confirmada,
+            self.filtro_ultima_atualizacao_inicio_confirmada,
+            self.filtro_ultima_atualizacao_fim_confirmada, self.numero_aplicado,
+            self.status_aplicado, self.ativo_id_aplicado,
+            self.data_inicio_aplicada, self.data_fim_aplicada,
+            self.ultima_atualizacao_inicio_aplicada,
+            self.ultima_atualizacao_fim_aplicada, list(self.filtros_aplicados),
+        )
+
+    def _restaurar_filtros_confirmados(self, snapshot) -> None:
+        (
+            self.filtro_numero_confirmado, self.filtro_status_confirmado,
+            self.filtro_ativo_confirmado, self.filtro_data_inicio_confirmada,
+            self.filtro_data_fim_confirmada,
+            self.filtro_ultima_atualizacao_inicio_confirmada,
+            self.filtro_ultima_atualizacao_fim_confirmada, self.numero_aplicado,
+            self.status_aplicado, self.ativo_id_aplicado,
+            self.data_inicio_aplicada, self.data_fim_aplicada,
+            self.ultima_atualizacao_inicio_aplicada,
+            self.ultima_atualizacao_fim_aplicada, self.filtros_aplicados,
+        ) = snapshot
+        self.filtro_numero = self.filtro_numero_confirmado
+        self.filtro_status = self.filtro_status_confirmado
+        self.filtro_ativo = self.filtro_ativo_confirmado
+        self.filtro_data_inicio = self.filtro_data_inicio_confirmada
+        self.filtro_data_fim = self.filtro_data_fim_confirmada
+        self.filtro_ultima_atualizacao_inicio = self.filtro_ultima_atualizacao_inicio_confirmada
+        self.filtro_ultima_atualizacao_fim = self.filtro_ultima_atualizacao_fim_confirmada
+
+    @staticmethod
+    def _data_do_timestamp(instante: int | None) -> str:
+        if instante is None:
+            return ""
+        return datetime.fromtimestamp(instante / 1000, tz=ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d")
+
+    async def _salvar_preferencia(self) -> None:
+        cliente = criar_cliente_service_desk()
+        if not hasattr(cliente, "salvar_preferencia_filtros_gerente"):
+            return
+        await cliente.salvar_preferencia_filtros_gerente(
+            self._auth_token, numero=self.numero_aplicado, status=self.status_aplicado or None,
+            ativo_id=self.ativo_id_aplicado, data_inicio=self.data_inicio_aplicada,
+            data_fim=self.data_fim_aplicada,
+            ultima_atualizacao_inicio=self.ultima_atualizacao_inicio_aplicada,
+            ultima_atualizacao_fim=self.ultima_atualizacao_fim_aplicada,
+        )
+        self._confirmar_filtros()
 
     @rx.event
     def alterar_ativo_formulario(self, valor: str):
@@ -364,16 +509,25 @@ class ChamadosGerenteState(AuthState):
                     return
 
                 cliente = criar_cliente_service_desk()
-                chamada = cliente.listar_chamados(
-                    self._auth_token,
-                    numero=self.numero_aplicado,
-                    status=self.status_aplicado or None,
-                    ativo_id=self.ativo_id_aplicado,
-                    data_inicio=self.data_inicio_aplicada,
-                    data_fim=self.data_fim_aplicada,
-                    ordenar_por=self.ordenar_por,
-                    direcao=self.direcao,
-                )
+                if not self.preferencia_filtros_carregada and hasattr(cliente, "obter_preferencia_filtros_gerente"):
+                    self._aplicar_preferencia(
+                        await cliente.obter_preferencia_filtros_gerente(self._auth_token)
+                    )
+                    self.preferencia_filtros_carregada = True
+                filtros_consulta = {
+                    "numero": self.numero_aplicado,
+                    "status": self.status_aplicado or None,
+                    "ativo_id": self.ativo_id_aplicado,
+                    "data_inicio": self.data_inicio_aplicada,
+                    "data_fim": self.data_fim_aplicada,
+                    "ordenar_por": self.ordenar_por,
+                    "direcao": self.direcao,
+                }
+                if self.ultima_atualizacao_inicio_aplicada is not None:
+                    filtros_consulta["ultima_atualizacao_inicio"] = self.ultima_atualizacao_inicio_aplicada
+                if self.ultima_atualizacao_fim_aplicada is not None:
+                    filtros_consulta["ultima_atualizacao_fim"] = self.ultima_atualizacao_fim_aplicada
+                chamada = cliente.listar_chamados(self._auth_token, **filtros_consulta)
                 if self.ativos:
                     resultado = await chamada
                     ativos = None
@@ -403,6 +557,9 @@ class ChamadosGerenteState(AuthState):
                     self.ativos = [
                         f"{item.id} — {item.nome_ativo}" for item in ativos
                     ]
+                    self._sincronizar_totem_e_etiquetas()
+                    if self.ativo_id_aplicado is not None and not self.filtro_ativo_confirmado:
+                        self._confirmar_filtros()
 
                 # Só repete automaticamente quando a consulta anterior
                 # terminou com sucesso e houve uma nova intenção concorrente.
@@ -420,16 +577,42 @@ class ChamadosGerenteState(AuthState):
 
     @rx.event
     async def aplicar_filtros(self):
+        filtros_confirmados = self._snapshot_filtros_confirmados()
         if not self._preparar_filtros_aplicados():
             return
         async for evento in self.carregar_lista():
             yield evento
+        if not self.mensagem_chamados:
+            try:
+                await self._salvar_preferencia()
+            except Exception as erro:  # noqa: BLE001
+                self._registrar_erro(erro, "mensagem_chamados")
+                self._restaurar_filtros_confirmados(filtros_confirmados)
 
     @rx.event
     async def limpar_filtros_lista(self):
+        filtros_confirmados = self._snapshot_filtros_confirmados()
         self._limpar_filtros()
         async for evento in self.carregar_lista():
             yield evento
+        if not self.mensagem_chamados:
+            try:
+                await self._salvar_preferencia()
+            except Exception as erro:  # noqa: BLE001
+                self._registrar_erro(erro, "mensagem_chamados")
+                self._restaurar_filtros_confirmados(filtros_confirmados)
+
+    @rx.event
+    def abrir_drawer_totem(self):
+        self.drawer_totem_aberto = bool(self.chamado.get("resumo_totem"))
+
+    @rx.event
+    def fechar_drawer_totem(self):
+        self.drawer_totem_aberto = False
+
+    @rx.event
+    def definir_drawer_totem_aberto(self, aberto: bool):
+        self.drawer_totem_aberto = aberto
 
     @rx.event
     async def alternar_ordenacao(self, coluna: str):

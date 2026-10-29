@@ -11,6 +11,8 @@ query "gerente/chamados" verb=GET {
     text ativo_id? filters=trim
     timestamp data_inicio?
     timestamp data_fim?
+    timestamp ultima_atualizacao_inicio?
+    timestamp ultima_atualizacao_fim?
     text ordenar_por? filters=trim
     text direcao? filters=trim
   }
@@ -24,6 +26,8 @@ query "gerente/chamados" verb=GET {
         ativo_id: $input.ativo_id,
         data_inicio: $input.data_inicio,
         data_fim: $input.data_fim,
+        ultima_atualizacao_inicio: $input.ultima_atualizacao_inicio,
+        ultima_atualizacao_fim: $input.ultima_atualizacao_fim,
         ordenar_por: $input.ordenar_por,
         direcao: $input.direcao
       }

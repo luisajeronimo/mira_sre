@@ -15,7 +15,7 @@ function "service_desk/obter_chamado_gerente" {
         "retorna detalhe da loja": ```
           {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
           ```
-        "retorna detalhe legado": ```
+        "retorna detalhe com campos opcionais legados": ```
           {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
           ```
         "retorna detalhe automático": ```
@@ -45,6 +45,11 @@ function "service_desk/obter_chamado_gerente" {
           type: "left"
           where: $db.chamados.ativos_referencia_id == $db.ativo.id
         }
+        loja: {
+          table: "lojas"
+          type: "left"
+          where: $db.ativo.lojas_id == $db.loja.id
+        }
         categoria: {
           table: "categorias_servico"
           type: "left"
@@ -65,6 +70,9 @@ function "service_desk/obter_chamado_gerente" {
         ativo_id: $db.ativo.id
         ativo_nome: $db.ativo.nome_ativo
         ativo_lojas_id: $db.ativo.lojas_id
+        loja_id: $db.loja.id
+        loja_nome: $db.loja.nome
+        ativo_status_atual: $db.ativo.status_atual
         categoria_id: $db.categoria.id
         categoria_nome: $db.categoria.nome
         solicitante_usuario_id: $db.solicitante.id
@@ -78,7 +86,7 @@ function "service_desk/obter_chamado_gerente" {
         "retorna detalhe da loja": ```
           {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
           ```
-        "retorna detalhe legado": ```
+        "retorna detalhe com campos opcionais legados": ```
           {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "retorna detalhe automático": ```
@@ -103,6 +111,13 @@ function "service_desk/obter_chamado_gerente" {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
+
+    db.query telemetria_equipamentos {
+      where = $db.telemetria_equipamentos.ativos_referencia_id == $registro.ativo_id
+      sort = {telemetria_equipamentos.evento_timestamp: "desc"}
+      return = {type: "single"}
+    } as $ultima_telemetria
+    var $telemetria { value = $ultima_telemetria != null ? {id: $ultima_telemetria.id, evento_timestamp: $ultima_telemetria.evento_timestamp, uso_cpu: $ultima_telemetria.uso_cpu, uso_memoria: $ultima_telemetria.uso_memoria, temperatura: $ultima_telemetria.temperatura, status_rede: $ultima_telemetria.status_rede} : null }
 
     var $solicitante {
       value = null
@@ -144,6 +159,8 @@ function "service_desk/obter_chamado_gerente" {
         categoria: {id: $registro.categoria_id, nome: $registro.categoria_nome},
         solicitante: $solicitante,
         tecnico: $tecnico
+        loja: {id: $registro.loja_id, nome: $registro.loja_nome}
+        resumo_totem: {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome, loja: {id: $registro.loja_id, nome: $registro.loja_nome}, status_atual: $registro.ativo_status_atual, ultima_telemetria: $telemetria}
       }
     }
   }

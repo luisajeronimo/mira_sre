@@ -75,12 +75,18 @@ def _resumo_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
             chamado.ultima_atualizacao_em
         ),
         "ativo_nome": chamado.ativo.nome_ativo,
+        "loja_nome": chamado.loja.nome if chamado.loja is not None else "Não informado",
         "categoria_nome": chamado.categoria.nome,
     }
 
 
 def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
     dados = asdict(chamado)
+    resumo_totem = dados.get("resumo_totem")
+    if resumo_totem is not None and resumo_totem["ultima_telemetria"] is not None:
+        resumo_totem["ultima_telemetria"]["evento_timestamp_texto"] = _timestamp_para_texto(
+            resumo_totem["ultima_telemetria"]["evento_timestamp"]
+        )
     dados["status"] = chamado.status or "Não informado"
     dados["criado_em_texto"] = _timestamp_funcional_para_texto(chamado.criado_em)
     dados["ultima_atualizacao_em_texto"] = _timestamp_funcional_para_texto(
@@ -217,6 +223,7 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
         "ativo_nome": chamado.ativo.nome_ativo,
         "categoria_nome": chamado.categoria.nome,
         "aberto_por": aberto_por,
+        "loja_nome": chamado.loja.nome if chamado.loja is not None else "Não informado",
         "tecnico_nome": tecnico.nome if tecnico is not None else "Não atribuído",
         "pode_assumir": (
             _status_permite_atribuicao(chamado.status) and tecnico is None
@@ -235,6 +242,7 @@ class ChamadoView(TypedDict):
     criado_em_texto: str
     ultima_atualizacao_em_texto: str
     ativo_nome: str
+    loja_nome: str
     categoria_nome: str
 
 
@@ -258,6 +266,28 @@ class DetalheView(TypedDict, total=False):
     pode_assumir: bool
     pode_atribuir: bool
     pode_liberar: bool
+    resumo_totem: "ResumoTotemChamadoView | None"
+
+
+class TelemetriaResumoTotemView(TypedDict):
+    evento_timestamp_texto: str
+    uso_cpu: float
+    uso_memoria: float
+    temperatura: float
+    status_rede: str
+
+
+class ReferenciaLojaView(TypedDict):
+    id: int
+    nome: str
+
+
+class ResumoTotemChamadoView(TypedDict):
+    id: int
+    nome_ativo: str
+    loja: ReferenciaLojaView
+    status_atual: str
+    ultima_telemetria: TelemetriaResumoTotemView | None
 
 
 class ComentarioView(TypedDict):
@@ -302,6 +332,7 @@ class TecnicoView(TypedDict, total=False):
     sla_horas_texto: str
     atribuido_em_texto: str
     ativo_nome: str
+    loja_nome: str
     categoria_nome: str
     aberto_por: str
     tecnico_nome: str

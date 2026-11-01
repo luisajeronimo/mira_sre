@@ -5,6 +5,29 @@ import reflex as rx
 from app.chamados.shared import cabecalho, erro
 from app.chamados.tecnico.state import ChamadosTecnicoState
 from app.components.layout import casca_conteudo, estado_carregamento, estado_revalidacao
+from app.components.visual import (
+    BORDA,
+    BORDA_ROSE_SUAVE,
+    ESTILO_CAMPO_COMENTARIO,
+    RAIO_CONTROLE,
+    RAIO_SUPERFICIE,
+    SOMBRA_BAIXA,
+    SUPERFICIE,
+    TEXTO,
+    TEXTO_SECUNDARIO,
+    acoes_filtro,
+    badge_status,
+    badge_visibilidade,
+    cabecalho_detalhe_chamado,
+    cabecalho_tabela_ordenavel,
+    celula_tabela,
+    campo_info,
+    campo_rotulado,
+    composicao_detalhe_chamado,
+    painel_filtros,
+    periodo_rotulado,
+    rotulo_campo,
+)
 from app.states.auth import AuthState
 
 
@@ -13,125 +36,150 @@ def _fila_tecnico() -> rx.Component:
         cabecalho("Fila técnica", "Consulte a fila global e a distribuição atual dos chamados."),
         rx.cond(
             AuthState.role == "tecnico",
-            rx.hstack(
-                rx.button(
-                    "Todos",
-                    variant=rx.cond(
-                        ChamadosTecnicoState.escopo_rapido == "todos",
-                        "solid",
-                        "outline",
+            rx.box(
+                rx.hstack(
+                    rx.button(
+                        "Todos",
+                        variant=rx.cond(
+                            ChamadosTecnicoState.escopo_rapido == "todos",
+                            "solid",
+                            "outline",
+                        ),
+                        on_click=ChamadosTecnicoState.selecionar_escopo_rapido("todos"),
+                        disabled=ChamadosTecnicoState.carregando_fila,
                     ),
-                    on_click=ChamadosTecnicoState.selecionar_escopo_rapido("todos"),
-                    disabled=ChamadosTecnicoState.carregando_fila,
-                ),
-                rx.button(
-                    "Atribuídos a mim",
-                    variant=rx.cond(
-                        ChamadosTecnicoState.escopo_rapido == "atribuidos_a_mim",
-                        "solid",
-                        "outline",
+                    rx.button(
+                        "Atribuídos a mim",
+                        variant=rx.cond(
+                            ChamadosTecnicoState.escopo_rapido == "atribuidos_a_mim",
+                            "solid",
+                            "outline",
+                        ),
+                        on_click=ChamadosTecnicoState.selecionar_escopo_rapido("atribuidos_a_mim"),
+                        disabled=ChamadosTecnicoState.carregando_fila,
                     ),
-                    on_click=ChamadosTecnicoState.selecionar_escopo_rapido("atribuidos_a_mim"),
-                    disabled=ChamadosTecnicoState.carregando_fila,
+                    spacing="2",
                 ),
+                background=SUPERFICIE,
+                border=f"1px solid {BORDA}",
+                border_radius=RAIO_SUPERFICIE,
+                padding="0.5rem",
+                box_shadow=SOMBRA_BAIXA,
+                width="fit-content",
             ),
         ),
-        rx.card(
-            rx.vstack(
-                rx.text("Filtros", weight="bold"),
-                rx.hstack(
-                    rx.input(
-                        value=ChamadosTecnicoState.filtro_numero,
-                        placeholder="Número do chamado",
-                        on_change=ChamadosTecnicoState.alterar_filtro_numero,
-                        type="number",
-                        min="1",
-                        aria_label="Pesquisar chamado por número",
+        painel_filtros(
+                    campo_rotulado(
+                        "Número do chamado",
+                        rx.input(
+                            value=ChamadosTecnicoState.filtro_numero,
+                            placeholder="Número do chamado",
+                            on_change=ChamadosTecnicoState.alterar_filtro_numero,
+                            type="number",
+                            min="1",
+                            aria_label="Pesquisar chamado por número",
+                            width="100%",
+                        ),
                     ),
-                    rx.select(
-                        ChamadosTecnicoState.status_filtros(),
-                        value=ChamadosTecnicoState.filtro_status,
-                        on_change=ChamadosTecnicoState.alterar_filtro_status,
-                        placeholder="Status",
+                    campo_rotulado(
+                        "Status",
+                        rx.select(
+                            ChamadosTecnicoState.status_filtros(),
+                            value=ChamadosTecnicoState.filtro_status,
+                            on_change=ChamadosTecnicoState.alterar_filtro_status,
+                            placeholder="Status",
+                            width="100%",
+                            text_transform="uppercase",
+                        ),
                     ),
-                    rx.select(
-                        ChamadosTecnicoState.prioridades_tratativa(),
-                        value=ChamadosTecnicoState.filtro_prioridade,
-                        on_change=ChamadosTecnicoState.alterar_filtro_prioridade,
-                        placeholder="Prioridade",
+                    campo_rotulado(
+                        "Prioridade",
+                        rx.select(
+                            ChamadosTecnicoState.prioridades_tratativa(),
+                            value=ChamadosTecnicoState.filtro_prioridade,
+                            on_change=ChamadosTecnicoState.alterar_filtro_prioridade,
+                            placeholder="Prioridade",
+                            width="100%",
+                        ),
                     ),
-                    rx.select(
-                        ChamadosTecnicoState.responsaveis_filtro,
-                        value=ChamadosTecnicoState.filtro_responsavel,
-                        on_change=ChamadosTecnicoState.alterar_filtro_responsavel,
-                        placeholder="Responsável",
+                    campo_rotulado(
+                        "Responsável",
+                        rx.select(
+                            ChamadosTecnicoState.responsaveis_filtro,
+                            value=ChamadosTecnicoState.filtro_responsavel,
+                            on_change=ChamadosTecnicoState.alterar_filtro_responsavel,
+                            placeholder="Responsável",
+                            width="100%",
+                        ),
                     ),
-                    rx.select(
-                        ChamadosTecnicoState.ativos,
-                        value=ChamadosTecnicoState.filtro_ativo,
-                        on_change=ChamadosTecnicoState.alterar_filtro_ativo,
-                        placeholder="Totem",
+                    campo_rotulado(
+                        "Totem",
+                        rx.select(
+                            ChamadosTecnicoState.ativos,
+                            value=ChamadosTecnicoState.filtro_ativo,
+                            on_change=ChamadosTecnicoState.alterar_filtro_ativo,
+                            placeholder="Totem",
+                            width="100%",
+                        ),
                     ),
-                    rx.select(
-                        ChamadosTecnicoState.lojas,
-                        value=ChamadosTecnicoState.filtro_loja,
-                        on_change=ChamadosTecnicoState.alterar_filtro_loja,
-                        placeholder="Loja",
+                    campo_rotulado(
+                        "Loja",
+                        rx.select(
+                            ChamadosTecnicoState.lojas,
+                            value=ChamadosTecnicoState.filtro_loja,
+                            on_change=ChamadosTecnicoState.alterar_filtro_loja,
+                            placeholder="Loja",
+                            width="100%",
+                        ),
                     ),
-                    rx.input(
-                        value=ChamadosTecnicoState.filtro_data_inicio,
-                        on_change=ChamadosTecnicoState.alterar_filtro_data_inicio,
-                        type="date",
-                        aria_label="Abertura a partir de",
+                    periodo_rotulado(
+                        "Abertura",
+                        ChamadosTecnicoState.filtro_data_inicio,
+                        ChamadosTecnicoState.filtro_data_fim,
+                        ChamadosTecnicoState.alterar_periodo_abertura,
+                        ChamadosTecnicoState.carregando_fila,
+                        coluna="span 3",
+                        largura="12rem",
+                        altura="3.75rem",
                     ),
-                    rx.input(
-                        value=ChamadosTecnicoState.filtro_data_fim,
-                        on_change=ChamadosTecnicoState.alterar_filtro_data_fim,
-                        type="date",
-                        aria_label="Abertura até",
+                    periodo_rotulado(
+                        "Atualização",
+                        ChamadosTecnicoState.filtro_ultima_atualizacao_inicio,
+                        ChamadosTecnicoState.filtro_ultima_atualizacao_fim,
+                        ChamadosTecnicoState.alterar_periodo_atualizacao,
+                        ChamadosTecnicoState.carregando_fila,
+                        coluna="span 3",
+                        largura="12rem",
+                        altura="3.75rem",
                     ),
-                    rx.input(
-                        value=ChamadosTecnicoState.filtro_ultima_atualizacao_inicio,
-                        on_change=ChamadosTecnicoState.alterar_filtro_ultima_atualizacao_inicio,
-                        type="date",
-                        aria_label="Última atualização a partir de",
+                    acoes=acoes_filtro(
+                        rx.button(
+                            "Aplicar",
+                            on_click=ChamadosTecnicoState.aplicar_filtros,
+                            disabled=ChamadosTecnicoState.carregando_fila,
+                        ),
+                        rx.button(
+                            "Limpar filtros",
+                            variant="outline",
+                            on_click=ChamadosTecnicoState.limpar_filtros,
+                            disabled=ChamadosTecnicoState.carregando_fila,
+                        ),
+                        mostrar_rotulo=False,
                     ),
-                    rx.input(
-                        value=ChamadosTecnicoState.filtro_ultima_atualizacao_fim,
-                        on_change=ChamadosTecnicoState.alterar_filtro_ultima_atualizacao_fim,
-                        type="date",
-                        aria_label="Última atualização até",
-                    ),
-                    rx.button(
-                        "Aplicar",
-                        on_click=ChamadosTecnicoState.aplicar_filtros,
-                        disabled=ChamadosTecnicoState.carregando_fila,
-                    ),
-                    rx.button(
-                        "Limpar filtros",
-                        variant="outline",
-                        on_click=ChamadosTecnicoState.limpar_filtros,
-                        disabled=ChamadosTecnicoState.carregando_fila,
-                    ),
-                    wrap="wrap",
-                    width="100%",
-                ),
-                rx.cond(
+                    aplicados=rx.cond(
                     ChamadosTecnicoState.filtros_aplicados.length() > 0,
                     rx.hstack(
                         rx.text("Aplicados:", size="2", weight="medium"),
                         rx.foreach(
                             ChamadosTecnicoState.filtros_aplicados,
-                            lambda filtro: rx.badge(filtro, color_scheme="gray"),
+                            lambda filtro: rx.badge(
+                                rx.text(filtro, text_transform="uppercase"),
+                                color_scheme="gray",
+                            ),
                         ),
                         wrap="wrap",
                     ),
                 ),
-                align="start",
-                spacing="3",
-                width="100%",
-            ),
-            width="100%",
         ),
         erro(ChamadosTecnicoState.mensagem_fila),
         rx.cond(
@@ -143,89 +191,87 @@ def _fila_tecnico() -> rx.Component:
                 rx.cond(
                     ChamadosTecnicoState.chamados.length() == 0,
                     rx.callout("Nenhum chamado encontrado.", icon="info"),
-                    rx.box(
-                    rx.table.root(
-                        rx.table.header(
-                            rx.table.row(
-                                _cabecalho_ordenavel("Número", "numero"),
-                                _cabecalho_ordenavel("Título", "titulo"),
-                                _cabecalho_ordenavel("Status", "status"),
-                                _cabecalho_ordenavel("Prioridade", "prioridade"),
-                                _cabecalho_ordenavel("Totem", "totem"),
-                                _cabecalho_ordenavel("Loja", "loja"),
-                                _cabecalho_ordenavel("Categoria", "categoria"),
-                                _cabecalho_ordenavel("Aberto por", "aberto_por"),
-                                _cabecalho_ordenavel("Responsável", "responsavel"),
-                                _cabecalho_ordenavel("Abertura", "criado_em"),
-                                _cabecalho_ordenavel("Última atualização", "ultima_atualizacao_em"),
-                                rx.table.column_header_cell("Ações"),
-                            )
-                        ),
-                        rx.table.body(
-                            rx.foreach(
-                                ChamadosTecnicoState.chamados,
-                                lambda item: rx.table.row(
-                                    rx.table.cell(
-                                        rx.link(
-                                            "#" + item["id"].to_string(),
-                                            href="/chamados/" + item["id"].to_string(),
-                                        )
-                                    ),
-                                    rx.table.cell(item["titulo"]),
-                                    rx.table.cell(rx.badge(item["status"])),
-                                    rx.table.cell(item["prioridade"]),
-                                    rx.table.cell(item["ativo_nome"]),
-                                    rx.table.cell(item["loja_nome"]),
-                                    rx.table.cell(item["categoria_nome"]),
-                                    rx.table.cell(item["aberto_por"]),
-                                    rx.table.cell(item["tecnico_nome"]),
-                                    rx.table.cell(item["criado_em_texto"]),
-                                    rx.table.cell(item["ultima_atualizacao_em_texto"]),
-                                    rx.table.cell(
-                                        rx.hstack(
-                                            rx.link(
-                                                "Ver detalhe",
-                                                href="/chamados/" + item["id"].to_string(),
-                                            ),
-                                            spacing="3",
-                                        )
-                                    ),
+                    rx.card(
+                        rx.box(
+                            rx.table.root(
+                                rx.table.header(
+                                    rx.table.row(
+                                        cabecalho_tabela_ordenavel("Número", "numero", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("numero"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Título", "titulo", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("titulo"), ChamadosTecnicoState.carregando_fila, largura="23%"),
+                                        cabecalho_tabela_ordenavel("Status", "status", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("status"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Prioridade", "prioridade", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("prioridade"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Totem", "totem", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("totem"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Loja", "loja", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("loja"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Categoria", "categoria", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("categoria"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Aberto por", "aberto_por", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("aberto_por"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Responsável", "responsavel", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("responsavel"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Abertura", "criado_em", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("criado_em"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                        cabecalho_tabela_ordenavel("Última atualização", "ultima_atualizacao_em", ChamadosTecnicoState.ordenar_por, ChamadosTecnicoState.direcao_ordenacao, ChamadosTecnicoState.ordenar_fila("ultima_atualizacao_em"), ChamadosTecnicoState.carregando_fila, largura="7.7%"),
+                                    )
                                 ),
-                            )
+                                rx.table.body(
+                                    rx.foreach(
+                                        ChamadosTecnicoState.chamados,
+                                        lambda item: rx.table.row(
+                                            celula_tabela(
+                                                rx.link(
+                                                    "#" + item["id"].to_string(),
+                                                    href="/chamados/" + item["id"].to_string(),
+                                                )
+                                            ),
+                                            celula_tabela(
+                                                rx.vstack(
+                                                    rx.text(item["titulo"], weight="medium"),
+                                                    rx.text(
+                                                        item["ocorrencia"],
+                                                        size="2",
+                                                        color="gray",
+                                                    ),
+                                                    align="start",
+                                                    spacing="1",
+                                                ),
+                                                alinhamento="left",
+                                            ),
+                                            celula_tabela(badge_status(item["status"])),
+                                            celula_tabela(item["prioridade"]),
+                                            celula_tabela(item["ativo_nome"]),
+                                            celula_tabela(item["loja_nome"]),
+                                            celula_tabela(
+                                                rx.text(
+                                                    item["categoria_nome"],
+                                                    max_width="9rem",
+                                                    white_space="normal",
+                                                    overflow_wrap="anywhere",
+                                                )
+                                            ),
+                                            celula_tabela(item["aberto_por"]),
+                                            celula_tabela(item["tecnico_nome"]),
+                                            celula_tabela(item["criado_em_texto"]),
+                                            celula_tabela(item["ultima_atualizacao_em_texto"]),
+                                        )
+                                    )
+                                ),
+                                width="100%",
+                                style={"tableLayout": "fixed"},
+                                min_width="0",
+                                max_width="100%",
+                                overflow_x="hidden",
+                            ),
+                            width="100%",
                         ),
                         width="100%",
-                    ),
-                        overflow_x="auto",
-                        width="100%",
+                        padding="0",
+                        background=SUPERFICIE,
+                        border=f"1px solid {BORDA}",
+                        border_radius=RAIO_SUPERFICIE,
+                        box_shadow=SOMBRA_BAIXA,
+                        overflow="hidden",
                     ),
                 ),
             ),
         ),
         spacing="5",
         width="100%",
-    )
-
-
-def _cabecalho_ordenavel(rotulo: str, coluna: str) -> rx.Component:
-    return rx.table.column_header_cell(
-        rx.button(
-            rx.hstack(
-                rx.text(rotulo),
-                rx.cond(
-                    ChamadosTecnicoState.ordenar_por == coluna,
-                    rx.cond(
-                        ChamadosTecnicoState.direcao_ordenacao == "ASC",
-                        rx.icon("arrow_up", size=17, color="var(--accent-11)"),
-                        rx.icon("arrow_down", size=17, color="var(--accent-11)"),
-                    ),
-                ),
-                spacing="1",
-                align="center",
-            ),
-            variant="ghost",
-            on_click=ChamadosTecnicoState.ordenar_fila(coluna),
-            disabled=ChamadosTecnicoState.carregando_fila,
-        )
     )
 
 
@@ -247,13 +293,13 @@ def _detalhe_tecnico() -> rx.Component:
             rx.spinner(size="3"),
             rx.cond(
                 ChamadosTecnicoState.detalhe_tecnico_carregado,
-                rx.card(
+                composicao_detalhe_chamado(
                     rx.vstack(
-                        rx.text(
-                            "Chamado #" + ChamadosTecnicoState.chamado["id"].to_string(),
-                            weight="bold",
+                        cabecalho_detalhe_chamado(
+                            ChamadosTecnicoState.chamado["id"].to_string(),
+                            ChamadosTecnicoState.chamado["titulo"],
+                            ChamadosTecnicoState.abrir_monitoramento_totem,
                         ),
-                        rx.heading(ChamadosTecnicoState.chamado["titulo"], size="5"),
                         rx.cond(
                             ChamadosTecnicoState.edicao_funcional_bloqueada,
                             rx.callout(
@@ -263,20 +309,22 @@ def _detalhe_tecnico() -> rx.Component:
                             ),
                             rx.fragment(),
                         ),
+                        rx.heading("Dados do chamado", size="3"),
                         rx.grid(
                             rx.vstack(
-                                rx.text("Status", size="2"),
+                                rotulo_campo("Status"),
                                 rx.select(
                                     ChamadosTecnicoState.status_filtros(),
                                     value=ChamadosTecnicoState.status_pendente,
                                     on_change=ChamadosTecnicoState.alterar_status_pendente,
                                     disabled=ChamadosTecnicoState.edicao_funcional_bloqueada | ChamadosTecnicoState.salvando_tratativa,
                                     width="100%",
+                                    text_transform="uppercase",
                                 ),
                                 align="start", width="100%",
                             ),
                             rx.vstack(
-                                rx.text("Prioridade", size="2"),
+                                rotulo_campo("Prioridade"),
                                 rx.select(
                                     ChamadosTecnicoState.prioridades_tratativa(),
                                     value=ChamadosTecnicoState.prioridade_pendente,
@@ -287,7 +335,7 @@ def _detalhe_tecnico() -> rx.Component:
                                 align="start", width="100%",
                             ),
                             rx.vstack(
-                                rx.text("Responsável", size="2"),
+                                rotulo_campo("Responsável"),
                                 rx.select.root(
                                     rx.select.trigger(width="100%"),
                                     rx.select.content(
@@ -308,7 +356,7 @@ def _detalhe_tecnico() -> rx.Component:
                                 align="start", width="100%",
                             ),
                             rx.vstack(
-                                rx.text("Categoria", size="2"),
+                                rotulo_campo("Categoria"),
                                 rx.cond(
                                     ChamadosTecnicoState.categoria_confirmada_inativa,
                                     rx.text(
@@ -345,62 +393,49 @@ def _detalhe_tecnico() -> rx.Component:
                                 ),
                                 align="start", width="100%",
                             ),
-                            rx.vstack(rx.text("Totem", size="2"), rx.text(ChamadosTecnicoState.chamado["ativo_nome"]), align="start", width="100%"),
-                            rx.button(
-                                "Detalhe do Totem",
-                                variant="outline",
-                                on_click=ChamadosTecnicoState.abrir_monitoramento_totem,
+                            campo_info("Totem", ChamadosTecnicoState.chamado["ativo_nome"]),
+                            campo_info("Loja", ChamadosTecnicoState.chamado["loja_nome"]),
+                            campo_info("Solicitante", ChamadosTecnicoState.chamado["solicitante_nome"]),
+                            campo_info(
+                                "Origem",
+                                rx.text(
+                                    ChamadosTecnicoState.chamado["origem"],
+                                    text_transform="uppercase",
+                                ),
                             ),
-                            rx.vstack(rx.text("Loja", size="2"), rx.text(ChamadosTecnicoState.chamado["loja_nome"]), align="start", width="100%"),
-                            rx.vstack(rx.text("Solicitante", size="2"), rx.text(ChamadosTecnicoState.chamado["solicitante_nome"]), align="start", width="100%"),
-                            rx.vstack(
-                                rx.text("Origem: " + ChamadosTecnicoState.chamado["origem"], size="2"),
-                                align="start",
-                                width="100%",
-                            ),
-                            rx.vstack(rx.text("SLA aplicado", size="2"), rx.text(ChamadosTecnicoState.chamado["sla_horas_texto"]), align="start", width="100%"),
-                            rx.vstack(rx.text("Atribuído em", size="2"), rx.text(ChamadosTecnicoState.chamado["atribuido_em_texto"]), align="start", width="100%"),
-                            rx.vstack(rx.text("Aberto em", size="2"), rx.text(ChamadosTecnicoState.chamado["criado_em_texto"]), align="start", width="100%"),
-                            rx.vstack(rx.text("Última atualização", size="2"), rx.text(ChamadosTecnicoState.chamado["ultima_atualizacao_em_texto"]), align="start", width="100%"),
+                            campo_info("SLA aplicado", ChamadosTecnicoState.chamado["sla_horas_texto"]),
+                            campo_info("Atribuído em", ChamadosTecnicoState.chamado["atribuido_em_texto"]),
+                            campo_info("Aberto em", ChamadosTecnicoState.chamado["criado_em_texto"]),
+                            campo_info("Última atualização", ChamadosTecnicoState.chamado["ultima_atualizacao_em_texto"]),
                             rx.cond(
                                 ChamadosTecnicoState.chamado["criador_sistema_nome"] != "",
-                                rx.vstack(
-                                    rx.text(
-                                        "Criado por: "
-                                        + ChamadosTecnicoState.chamado["criador_sistema_nome"],
-                                        size="2",
-                                    ),
-                                    align="start",
-                                    width="100%",
-                                ),
+                                campo_info("Criado por", ChamadosTecnicoState.chamado["criador_sistema_nome"]),
                                 rx.fragment(),
                             ),
                             columns="3",
                             spacing="4",
                             width="100%",
                         ),
+                        align="start",
+                        spacing="4",
+                        width="100%",
+                    ),
+                    ChamadosTecnicoState.chamado["descricao"],
+                    rx.vstack(
                         rx.vstack(
-                            rx.text("Descrição", size="2"),
-                            rx.text(
-                                ChamadosTecnicoState.chamado["descricao"],
-                                white_space="pre-wrap",
-                            ),
-                            align="start",
-                            width="100%",
-                        ),
-                        rx.vstack(
-                            rx.text("Comentário", size="2"),
+                            rotulo_campo("Comentário"),
                             rx.text_area(
                                 value=ChamadosTecnicoState.comentario_status_pendente,
                                 on_change=ChamadosTecnicoState.alterar_comentario_status_pendente,
                                 placeholder="Registre uma atualização para o chamado",
                                 disabled=ChamadosTecnicoState.salvando_tratativa,
                                 width="100%",
+                                **ESTILO_CAMPO_COMENTARIO,
                             ),
-                            rx.text("Visibilidade", size="2"),
+                            rotulo_campo("Visibilidade"),
                             rx.cond(
                                 ChamadosTecnicoState.status_pendente_exige_comentario_publico,
-                                rx.badge("Público", color_scheme="blue"),
+                                badge_visibilidade("Público"),
                                 rx.select.root(
                                     rx.select.trigger(width="100%"),
                                     rx.select.content(
@@ -436,7 +471,6 @@ def _detalhe_tecnico() -> rx.Component:
                         spacing="4",
                         width="100%",
                     ),
-                    width="100%",
                 ),
                 rx.fragment(),
             ),
@@ -459,13 +493,22 @@ def _detalhe_tecnico() -> rx.Component:
                             lambda item: rx.card(
                                 rx.vstack(
                                     rx.hstack(
-                                        rx.heading(item["titulo"], size="3"),
-                                        rx.badge(item["visibilidade_texto"]),
-                                        rx.text(item["criado_em_texto"], color="gray"),
+                                        rx.vstack(
+                                            rx.heading(item["titulo"], size="3"),
+                                            rx.text("Por: " + item["autor_nome"], size="2", color=TEXTO_SECUNDARIO),
+                                            align="start",
+                                            spacing="1",
+                                        ),
+                                        rx.vstack(
+                                            rx.text(item["criado_em_texto"], size="1", color=TEXTO_SECUNDARIO),
+                                            badge_visibilidade(item["visibilidade_texto"]),
+                                            align="end",
+                                            spacing="2",
+                                        ),
                                         justify="between",
+                                        align="start",
                                         width="100%",
                                     ),
-                                    rx.text("Por: " + item["autor_nome"], color="gray"),
                                     rx.cond(
                                         item["conteudo"] != "",
                                         rx.text(item["conteudo"], white_space="pre-wrap"),
@@ -475,8 +518,8 @@ def _detalhe_tecnico() -> rx.Component:
                                         item["comentario_conteudo"] != "",
                                         rx.vstack(
                                             rx.hstack(
-                                                rx.text("Comentário", weight="medium"),
-                                                rx.badge(item["comentario_visibilidade_texto"]),
+                                                rx.text("Comentário", weight="bold"),
+                                                badge_visibilidade(item["comentario_visibilidade_texto"]),
                                                 spacing="2",
                                             ),
                                             rx.text(item["comentario_conteudo"], white_space="pre-wrap"),
@@ -489,16 +532,24 @@ def _detalhe_tecnico() -> rx.Component:
                                     rx.cond(
                                         item["alteracoes_detalhadas"].length() > 0,
                                         rx.vstack(
-                                            rx.text("Alterações realizadas", weight="medium"),
-                                            rx.foreach(
+                                            rx.text("Alterações realizadas", weight="bold"),
+                                            rx.grid(
+                                                rx.foreach(
                                                 item["alteracoes_detalhadas"],
                                                 lambda alteracao: rx.vstack(
-                                                    rx.text(alteracao["campo"], weight="medium", size="2"),
+                                                    rx.text(alteracao["campo"], weight="bold", size="2"),
                                                     rx.text(alteracao["anterior"] + " → " + alteracao["resultante"], size="2"),
                                                     align="start",
                                                     spacing="0",
+                                                    border=f"1px solid {BORDA_ROSE_SUAVE}",
+                                                    border_radius=RAIO_CONTROLE,
+                                                    padding="0.625rem",
                                                     width="100%",
                                                 ),
+                                            ),
+                                                columns="2",
+                                                gap="0.75rem",
+                                                width="100%",
                                             ),
                                             align="start",
                                             spacing="2",
@@ -521,6 +572,11 @@ def _detalhe_tecnico() -> rx.Component:
                                     width="100%",
                                 ),
                                 width="100%",
+                                padding="1rem",
+                                border=f"1px solid {BORDA_ROSE_SUAVE}",
+                                border_radius=RAIO_SUPERFICIE,
+                                box_shadow="none",
+                                background=SUPERFICIE,
                             ),
                         ),
                         spacing="3",

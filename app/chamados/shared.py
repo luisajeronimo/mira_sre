@@ -8,6 +8,8 @@ from typing import Any, TypedDict
 
 import reflex as rx
 
+from app.components.visual import TEXTO, TEXTO_SECUNDARIO
+
 from app.services.service_desk import (
     ChamadoDetalhe,
     ChamadoResumo,
@@ -202,6 +204,10 @@ def evento_timeline_para_dict(
 
 def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
     tecnico = chamado.tecnico
+    descricao = chamado.descricao or ""
+    ocorrencia = descricao
+    if len(descricao) > 80:
+        ocorrencia = descricao[:80] + "…"
     aberto_por = "Não informado"
     if chamado.origem == "automatico":
         aberto_por = "Bot de Fiscalização"
@@ -210,7 +216,8 @@ def _tecnico_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
     return {
         "id": chamado.id,
         "titulo": chamado.titulo,
-        "descricao": chamado.descricao or "",
+        "descricao": descricao,
+        "ocorrencia": ocorrencia or "Não informado",
         "status": chamado.status or "Não informado",
         "prioridade": chamado.prioridade,
         "origem": chamado.origem or "Não informado",
@@ -324,6 +331,7 @@ class TecnicoView(TypedDict, total=False):
     id: int
     titulo: str
     descricao: str
+    ocorrencia: str
     status: str
     prioridade: str
     origem: str
@@ -348,9 +356,9 @@ def erro(mensagem: rx.Var) -> rx.Component:
 
 def cabecalho(titulo: str, descricao: str) -> rx.Component:
     return rx.vstack(
-        rx.heading(titulo, size="7"),
-        rx.text(descricao, color="gray"),
+        rx.heading(titulo, size="8", color=TEXTO, letter_spacing="-0.03em"),
+        rx.text(descricao, color=TEXTO_SECUNDARIO, size="3", max_width="46rem"),
         align="start",
-        spacing="1",
+        spacing="2",
         width="100%",
     )

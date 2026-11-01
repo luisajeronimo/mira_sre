@@ -356,12 +356,22 @@ class ChamadosGerenteState(AuthState):
         self.filtro_data_fim = valor
 
     @rx.event
+    def alterar_periodo_abertura(self, inicio: str, fim: str):
+        self.filtro_data_inicio = inicio
+        self.filtro_data_fim = fim
+
+    @rx.event
     def alterar_filtro_ultima_atualizacao_inicio(self, valor: str):
         self.filtro_ultima_atualizacao_inicio = valor
 
     @rx.event
     def alterar_filtro_ultima_atualizacao_fim(self, valor: str):
         self.filtro_ultima_atualizacao_fim = valor
+
+    @rx.event
+    def alterar_periodo_atualizacao(self, inicio: str, fim: str):
+        self.filtro_ultima_atualizacao_inicio = inicio
+        self.filtro_ultima_atualizacao_fim = fim
 
     def _aplicar_preferencia(self, preferencia) -> None:
         self.numero_aplicado = preferencia.numero

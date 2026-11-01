@@ -63,6 +63,10 @@ def test_resumo_tecnico_expoe_ultima_atualizacao_formatada():
 
     assert visual["ultima_atualizacao_em_texto"] != "Não informado"
     assert visual["ultima_atualizacao_em_texto"] != visual["criado_em_texto"]
+    assert visual["ocorrencia"] == "Sem conexão"
+    assert _tecnico_para_dict(
+        replace(chamado, descricao="x" * 81)
+    )["ocorrencia"] == ("x" * 80) + "…"
     assert visual["aberto_por"] == "Gerente"
     assert _tecnico_para_dict(
         replace(chamado, origem="automatico", solicitante=None, criador_sistema="bot_fiscalizacao")

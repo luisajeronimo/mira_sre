@@ -5,6 +5,18 @@ from __future__ import annotations
 import reflex as rx
 
 from app.components.navegacao import ITENS_NAVEGACAO, ItemNavegacao
+from app.components.visual import (
+    BORDA,
+    CANVAS,
+    FOCO_VISIVEL,
+    RAIO_CONTROLE,
+    RAIO_SUPERFICIE,
+    SOMBRA_BAIXA,
+    SUPERFICIE,
+    SUPERFICIE_SUAVE,
+    TEXTO,
+    TEXTO_SECUNDARIO,
+)
 from app.states.auth import AuthState
 
 
@@ -74,17 +86,14 @@ def _link_navegacao(item: ItemNavegacao) -> rx.Component:
             href=item.rota,
             aria_current=rx.cond(ativo, "page", "false"),
             width="100%",
-            padding="0.7rem 0.8rem",
-            border_radius="8px",
+            padding="0.75rem 0.875rem",
+            border_radius=RAIO_CONTROLE,
             background=rx.cond(ativo, "var(--accent-3)", "transparent"),
-            color=rx.cond(ativo, "var(--accent-11)", "var(--gray-12)"),
+            color=rx.cond(ativo, "var(--accent-11)", TEXTO),
             text_decoration="none",
             border_left=rx.cond(ativo, "3px solid var(--accent-9)", "3px solid transparent"),
-            _hover={"background": "var(--gray-3)"},
-            _focus_visible={
-                "outline": "3px solid var(--accent-9)",
-                "outline_offset": "2px",
-            },
+            _hover={"background": SUPERFICIE_SUAVE},
+            _focus_visible=FOCO_VISIVEL,
         ),
         rx.fragment(),
     )
@@ -99,8 +108,8 @@ def _marca() -> rx.Component:
             height="2.5rem",
         ),
         rx.vstack(
-            rx.text("MIRA", weight="bold", size="4"),
-            rx.text("Service Desk e Observabilidade", size="1", color="gray"),
+            rx.text("MIRA", weight="bold", size="4", color=TEXTO),
+            rx.text("Service Desk e Observabilidade", size="1", color=TEXTO_SECUNDARIO),
             align="start",
             spacing="0",
         ),
@@ -118,38 +127,56 @@ def _itens_navegacao() -> rx.Component:
     )
 
 
-def _identidade() -> rx.Component:
-    return rx.vstack(
-        rx.text(AuthState.nome, weight="bold", size="2"),
-        rx.text(AuthState.email, size="1", color="gray", max_width="13rem"),
-        rx.badge(AuthState.role, variant="soft"),
-        align="start",
-        spacing="1",
-        width="100%",
-    )
-
-
 def _sidebar_desktop() -> rx.Component:
     return rx.vstack(
         _marca(),
         _itens_navegacao(),
         rx.spacer(),
-        _identidade(),
-        rx.button(
-            "Sair",
-            on_click=AuthState.logout,
-            variant="outline",
-            width="100%",
-        ),
-        width="17rem",
+        width="17.5rem",
         min_height="100vh",
-        padding="1.25rem",
-        border_right="1px solid var(--gray-5)",
-        background="var(--color-panel)",
+        padding="1.5rem 1rem",
+        border_right=f"1px solid {BORDA}",
+        background=SUPERFICIE,
         align="start",
         spacing="5",
         position="sticky",
         top="0",
+    )
+
+
+def _topbar_desktop() -> rx.Component:
+    return rx.hstack(
+        rx.spacer(),
+        rx.hstack(
+            rx.avatar(name=AuthState.nome, size="2", variant="soft"),
+            rx.vstack(
+                rx.text(AuthState.nome, size="2", weight="medium", color=TEXTO),
+                rx.text(
+                    AuthState.role,
+                    size="1",
+                    weight="bold",
+                    color=TEXTO_SECUNDARIO,
+                    text_transform="uppercase",
+                    letter_spacing="0.05em",
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.divider(orientation="vertical", height="1.75rem"),
+            rx.button(
+                "Sair",
+                on_click=AuthState.logout,
+                color_scheme="ruby",
+                size="2",
+            ),
+            spacing="3",
+            align="center",
+        ),
+        width="100%",
+        padding="0.875rem 2rem",
+        border_bottom=f"1px solid {BORDA}",
+        background=SUPERFICIE,
+        min_height="4.25rem",
     )
 
 
@@ -181,10 +208,17 @@ def casca_conteudo(
     return rx.hstack(
         _sidebar_desktop(),
         rx.vstack(
+            _topbar_desktop(),
             rx.box(
-                conteudo,
+                rx.box(
+                    conteudo,
+                    width="100%",
+                    max_width="104rem",
+                    margin="0 auto",
+                ),
                 width="100%",
-                padding="2rem",
+                padding="2rem 2.5rem 3rem",
+                background=CANVAS,
             ),
             width="100%",
             min_height="100vh",

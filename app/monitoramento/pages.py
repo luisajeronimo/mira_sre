@@ -7,6 +7,7 @@ from app.components.layout import (
     estado_carregamento,
     estado_revalidacao,
 )
+from app.components.visual import badge_status
 from app.monitoramento.state import MonitoramentoState
 from app.states.auth import AuthState
 
@@ -38,7 +39,7 @@ def _resumo() -> rx.Component:
         ),
         rx.card(
             rx.vstack(
-                rx.text("Online", color="gray"),
+                rx.text("ONLINE", color="gray"),
                 rx.heading(
                     MonitoramentoState.totens_online,
                     size="7",
@@ -48,7 +49,7 @@ def _resumo() -> rx.Component:
         ),
         rx.card(
             rx.vstack(
-                rx.text("Offline", color="gray"),
+                rx.text("OFFLINE", color="gray"),
                 rx.heading(
                     MonitoramentoState.totens_offline,
                     size="7",
@@ -104,7 +105,7 @@ def _lista_totens() -> rx.Component:
                                         )
                                     ),
                                     rx.table.cell(totem["loja_nome"]),
-                                    rx.table.cell(rx.badge(totem["status_atual"])),
+                                    rx.table.cell(badge_status(totem["status_atual"])),
                                     rx.table.cell(totem["ultima_telemetria_em_texto"]),
                                     rx.table.cell(
                                         totem["ultima_transicao_disponibilidade_em_texto"]
@@ -165,7 +166,7 @@ def _telemetria_atual() -> rx.Component:
             ),
             rx.vstack(
                 rx.text("Rede", size="2", color="gray"),
-                rx.text(
+                badge_status(
                     MonitoramentoState.detalhe_totem["ultima_telemetria"]["status_rede"]
                 ),
                 align="start",
@@ -200,7 +201,7 @@ def _historico_telemetrias() -> rx.Component:
                             rx.table.cell(telemetria["uso_cpu"]),
                             rx.table.cell(telemetria["uso_memoria"]),
                             rx.table.cell(telemetria["temperatura"]),
-                            rx.table.cell(telemetria["status_rede"]),
+                            rx.table.cell(badge_status(telemetria["status_rede"])),
                         ),
                     )
                 ),
@@ -229,7 +230,7 @@ def _transicoes() -> rx.Component:
                     rx.foreach(
                         MonitoramentoState.detalhe_totem["transicoes"],
                         lambda transicao: rx.table.row(
-                            rx.table.cell(rx.badge(transicao["status"])),
+                            rx.table.cell(badge_status(transicao["status"])),
                             rx.table.cell(transicao["detectado_em_texto"]),
                             rx.table.cell(transicao["heartbeat_limite_minutos"]),
                         ),
@@ -263,7 +264,7 @@ def _incidentes() -> rx.Component:
                         MonitoramentoState.detalhe_totem["incidentes"],
                         lambda incidente: rx.table.row(
                             rx.table.cell(incidente["titulo"]),
-                            rx.table.cell(rx.badge(incidente["status"])),
+                            rx.table.cell(badge_status(incidente["status"])),
                             rx.table.cell(incidente["prioridade"]),
                             rx.table.cell(incidente["criado_em_texto"]),
                             rx.table.cell(
@@ -308,7 +309,7 @@ def _painel_detalhe() -> rx.Component:
                             align="start",
                             spacing="1",
                         ),
-                        rx.badge(MonitoramentoState.detalhe_totem["status_atual"]),
+                        badge_status(MonitoramentoState.detalhe_totem["status_atual"]),
                         justify="between",
                         width="100%",
                     ),

@@ -19,10 +19,18 @@ from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
 from app.pages.administracao import AdministracaoState
 from app.states.auth import AuthState
+from app.components.visual import CANVAS, FONTE_INTERFACE, TEXTO
 
 
 # `ruby` é o token Radix disponível mais próximo do rose definido no DESIGN.md.
-app = rx.App(theme=rx.theme(appearance="light", accent_color="ruby"))
+app = rx.App(
+    theme=rx.theme(appearance="light", accent_color="ruby"),
+    style={
+        "font_family": FONTE_INTERFACE,
+        "background": CANVAS,
+        "color": TEXTO,
+    },
+)
 
 app.add_page(index, route="/", title="MIRA", on_load=AuthState.carregar_raiz)
 app.add_page(

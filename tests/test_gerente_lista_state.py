@@ -10,6 +10,7 @@ import pytest
 
 import app.chamados.gerente.pages as paginas
 import app.chamados.gerente.state as gerente_module
+import app.components.visual as visual
 from app.chamados.gerente.state import ChamadosGerenteState
 from app.services.service_desk import (
     AtivoServiceDesk,
@@ -182,6 +183,26 @@ def test_preferencia_gerente_restaura_totem_e_criterios_confirmados():
 
     assert estado.filtro_ativo == "1 — Totem 01"
     assert "Totem: Totem 01" in estado.filtros_aplicados
+
+
+def test_seletor_de_periodo_preserva_campos_de_filtro_do_gerente():
+    estado = novo_estado()
+
+    ChamadosGerenteState.alterar_periodo_abertura.fn(
+        estado, "2026-10-01", "2026-10-03"
+    )
+    ChamadosGerenteState.alterar_periodo_atualizacao.fn(
+        estado, "2026-10-04", "2026-10-06"
+    )
+
+    assert (estado.filtro_data_inicio, estado.filtro_data_fim) == (
+        "2026-10-01",
+        "2026-10-03",
+    )
+    assert (
+        estado.filtro_ultima_atualizacao_inicio,
+        estado.filtro_ultima_atualizacao_fim,
+    ) == ("2026-10-04", "2026-10-06")
 
 
 def test_falha_ao_salvar_preferencia_gerente_restaura_confirmados(monkeypatch):
@@ -515,17 +536,24 @@ def test_formulario_exibe_nome_e_transporta_id_nos_selects():
 
 
 def test_cabecalho_ordenavel_do_gerente_exibe_apenas_a_seta_ativa():
-    fonte = inspect.getsource(paginas._cabecalho_ordenavel)
+    fonte = inspect.getsource(visual.cabecalho_tabela_ordenavel)
 
     assert fonte.count('rx.icon("arrow_up"') == 1
     assert fonte.count('rx.icon("arrow_down"') == 1
-    assert "ChamadosGerenteState.ordenar_por == coluna" in fonte
-    assert 'ChamadosGerenteState.direcao == "ASC"' in fonte
+    assert "ordenar_por == coluna" in fonte
+    assert 'direcao == "ASC"' in fonte
     assert "size=17" in fonte
     assert "size=13" not in fonte
-    assert "rx.text(ChamadosGerenteState.direcao)" not in fonte
+    assert 'background="var(--accent-9)"' in fonte
+    assert 'color="white"' in fonte
+    assert 'weight="bold"' in fonte
+    assert 'border_radius="0"' in fonte
+    assert 'padding="0"' in fonte
+    assert 'transition="background-color 150ms ease"' in fonte
+    assert 'transform="none"' in fonte
+    assert '"transform": "none"' in fonte
     assert 'rx.text("Ordenar")' not in fonte
-    assert "ChamadosGerenteState.alternar_ordenacao(coluna)" in fonte
+    assert "on_click=on_click" in fonte
 
 
 def test_drawer_do_totem_usa_painel_nativo_a_direita_e_timestamp():
@@ -547,7 +575,7 @@ def test_tabela_e_formulario_implementam_somente_as_acoes_aprovadas():
 
     for coluna in (
         "Número",
-        "Título + ocorrência",
+            "Chamado",
         "Status",
         "Prioridade",
         "Totem",
@@ -557,12 +585,82 @@ def test_tabela_e_formulario_implementam_somente_as_acoes_aprovadas():
     ):
         assert coluna in lista
     assert "rx.table.root" in lista
+    assert "cabecalho_tabela_ordenavel" in lista
+    assert lista.count('largura="10%"') == 7
+    assert 'largura="30%"' in lista
+    assert lista.count("celula_tabela(") == 8
+    assert 'style={"tableLayout": "fixed"}' in lista
+    assert 'variante="lavanda"' not in lista
+    assert "badge_prioridade" not in lista
+    assert 'overflow_x="auto"' not in lista
+    assert 'overflow_x="hidden"' in lista
+    assert "painel_filtros" in lista
+    assert '"Abertura"' in lista
+    assert '"Atualização"' in lista
+    assert lista.count('coluna="span 6"') == 2
+    assert lista.count('largura="12rem"') == 2
+    assert lista.count('altura="3.75rem"') == 2
+    assert 'mostrar_rotulo=False' in lista
+    assert 'justify="between"' in lista
     assert "Limpar filtros" in lista
     assert "filtros_aplicados" in lista
     assert "Limpar" in formulario
     assert "Descartar" in formulario
-    assert "Voltar para lista de chamados" in formulario
+    assert "Voltar para lista" in formulario
+    assert "ChamadosGerenteState.voltar_para_lista" in formulario
     assert "rx.toast.success" in inspect.getsource(ChamadosGerenteState.abrir_chamado.fn)
+
+
+def test_formulario_de_abertura_usa_hierarquia_visual_sem_alterar_eventos():
+    formulario = inspect.getsource(paginas._formulario)
+    prioridade = inspect.getsource(paginas._opcao_prioridade)
+
+    assert '"Abrir novo chamado"' in formulario
+    assert '"Dados do chamado"' in formulario
+    assert formulario.index('"Título do chamado"') < formulario.index(
+        '"Totem afetado"'
+    ) < formulario.index('"Prioridade"') < formulario.index(
+        '"Descrição detalhada"'
+    )
+    assert 'columns="2"' in formulario
+    assert 'columns="4"' in formulario
+    assert "ChamadosGerenteState.prioridades()" in formulario
+    assert "ChamadosGerenteState.alterar_prioridade_formulario(prioridade)" in prioridade
+    assert "aria_pressed=selecionada" in prioridade
+    assert 'height="3.75rem"' in prioridade
+    assert 'min_width="0"' in prioridade
+    assert 'max_width="100%"' in prioridade
+    assert 'margin="0"' in prioridade
+    assert '"gridTemplateColumns": "repeat(4, minmax(0, 1fr))"' in formulario
+    assert '"Confirmar e abrir chamado"' in formulario
+    for evento in (
+        "abrir_chamado",
+        "limpar_formulario",
+        "descartar_formulario",
+        "voltar_para_lista",
+    ):
+        assert f"ChamadosGerenteState.{evento}" in formulario
+
+
+def test_detalhe_gerente_usa_painel_unico_e_campos_sem_cards_individuais():
+    detalhe = inspect.getsource(paginas._detalhe)
+    cabecalho_detalhe = inspect.getsource(visual.cabecalho_detalhe_chamado)
+    composicao = inspect.getsource(visual.composicao_detalhe_chamado)
+    descricao = inspect.getsource(visual.bloco_descricao)
+
+    assert "composicao_detalhe_chamado" in detalhe
+    assert "cabecalho_detalhe_chamado" in detalhe
+    assert 'text_transform="uppercase"' in detalhe
+    assert "badge_prioridade" in detalhe
+    assert "ESTILO_CAMPO_COMENTARIO" in detalhe
+    assert '"Chamado #" + identificador + " - " + titulo' in cabecalho_detalhe
+    assert 'size="3"' in cabecalho_detalhe
+    assert 'rx.text("Detalhe do Totem", weight="bold")' in cabecalho_detalhe
+    assert composicao.index("painel_detalhe(dados)") < composicao.index(
+        "bloco_descricao(descricao)"
+    )
+    assert "background=SUPERFICIE" in descricao
+    assert "background=SUPERFICIE_SUAVE" not in descricao
 
 
 def test_salvar_ignora_payload_de_clique_do_mouse_e_consome_state(monkeypatch):

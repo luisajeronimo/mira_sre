@@ -11,3 +11,4 @@ build/
 .vscode/
 .playwright-mcp/
 profile.yaml
+assets/external/

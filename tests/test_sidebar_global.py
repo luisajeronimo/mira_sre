@@ -91,6 +91,53 @@ def test_casca_reutiliza_asset_oficial_em_sidebar_desktop_sem_drawer():
     assert 'accent_color="ruby"' in app_fonte
 
 
+def test_casca_desktop_reutiliza_tokens_visuais_e_topbar_sem_mudar_navegacao():
+    fonte = (ROOT / "app/components/layout.py").read_text(encoding="utf-8")
+    tokens = (ROOT / "app/components/visual.py").read_text(encoding="utf-8")
+
+    assert "_topbar_desktop" in fonte
+    assert "CANVAS" in fonte
+    assert "FOCO_VISIVEL" in fonte
+    assert "Plus Jakarta Sans" in tokens
+    assert "JetBrains Mono" in tokens
+    assert "Área de trabalho" not in fonte
+    assert "text_transform=\"uppercase\"" in fonte
+    assert 'color_scheme="ruby"' in fonte
+    assert "def _identidade" not in fonte
+    assert "rx.drawer" not in fonte
+
+
+def test_login_aplica_frame_visual_sem_alterar_contrato_funcional():
+    fonte = (ROOT / "app/pages/login.py").read_text(encoding="utf-8")
+
+    assert '"gridTemplateColumns": "minmax(0, 5fr) minmax(0, 7fr)"' in fonte
+    assert fonte.count('src="/mira-logo.svg"') == 2
+    assert 'alt="Logotipo oficial do MIRA"' in fonte
+    assert 'width="7rem"' in fonte
+    assert '"email",' in fonte
+    assert '"senha",' in fonte
+    assert "AuthState.mensagem_erro" in fonte
+    assert "AuthState.carregando" in fonte
+    assert "on_submit=AuthState.login" in fonte
+    assert "reset_on_submit=True" in fonte
+    assert 'type="submit"' in fonte
+    assert 'disabled=AuthState.carregando' in fonte
+    assert "Entre com suas credenciais." in fonte
+    assert 'rx.text("Entrar", weight="bold")' in fonte
+    assert 'rx.icon("arrow_right", size=18)' in fonte
+    assert "Entrar no sistema" not in fonte
+    assert "ACESSO SEGURO" not in fonte
+    assert "MIRA • OPERAÇÃO INTEGRADA" not in fonte
+    assert "Autenticação no sistema" not in fonte
+    for acao_nao_autorizada in (
+        "Esqueceu a senha",
+        "Lembrar meu acesso",
+        "2FA Ativo",
+        "Federação",
+    ):
+        assert acao_nao_autorizada not in fonte
+
+
 def test_cliente_de_monitoramento_usa_contrato_dedicado():
     requisicoes = []
 

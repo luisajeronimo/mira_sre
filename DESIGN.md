@@ -20,6 +20,15 @@ ilustrativos e nunca definem requisitos funcionais. Eles servem somente para
 composição, hierarquia, densidade, identidade, navegação, aparência de
 componentes, espaçamento e linguagem visual.
 
+## Referências visuais
+
+- [Figma — MIRA: identidade e telas de referência](https://www.figma.com/design/W5qbds0Ec5MtqEIfZ4MvRk/Untitled?node-id=0-1&p=f&t=DiOMFvvtzpFX0sUO-0)
+- PNGs sanitizados em [`docs/design/references/`](docs/design/references/)
+
+As referências orientam composição, hierarquia, proporções e acabamento. Elas
+não autorizam dados, métricas, ações, permissões ou fluxos que não estejam nos
+requisitos funcionais vigentes.
+
 ## Logotipo e identidade visual
 
 [`docs/design/references/logo.svg`](docs/design/references/logo.svg) é a

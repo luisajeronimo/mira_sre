@@ -1,11 +1,13 @@
 import asyncio
 import inspect
+from pathlib import Path
 
 import pytest
 
 import app.chamados.gerente.pages as paginas_gerente
 import app.chamados.tecnico.pages as paginas_chamados
 import app.chamados.tecnico.state as chamados_module
+import app.components.visual as visual
 from app.services.service_desk import (
     ChamadoDetalhe,
     ChamadoResumo,
@@ -244,12 +246,12 @@ def test_filtro_de_responsavel_usa_id_e_nao_atribuido_sem_comparar_nomes():
 
 def test_fila_global_exibe_aberto_por_antes_do_responsavel_sem_coluna_atribuido_em():
     fonte = inspect.getsource(paginas_chamados._fila_tecnico)
-    assert fonte.index('_cabecalho_ordenavel("Aberto por", "aberto_por")') < fonte.index(
-        '_cabecalho_ordenavel("Responsável", "responsavel")'
+    assert fonte.index('cabecalho_tabela_ordenavel("Aberto por", "aberto_por"') < fonte.index(
+        'cabecalho_tabela_ordenavel("Responsável", "responsavel"'
     )
-    assert 'rx.table.cell(item["aberto_por"])' in fonte
-    assert '_cabecalho_ordenavel("Loja", "loja")' in fonte
-    assert '_cabecalho_ordenavel("Responsável", "responsavel")' in fonte
+    assert 'celula_tabela(item["aberto_por"])' in fonte
+    assert 'cabecalho_tabela_ordenavel("Loja", "loja"' in fonte
+    assert 'cabecalho_tabela_ordenavel("Responsável", "responsavel"' in fonte
     assert 'rx.table.column_header_cell("Atribuído em")' not in fonte
     assert 'rx.table.cell(item["atribuido_em_texto"])' not in fonte
     assert '"aberto_por"' in inspect.getsource(ChamadosTecnicoState.ordenar_fila.fn)
@@ -257,15 +259,106 @@ def test_fila_global_exibe_aberto_por_antes_do_responsavel_sem_coluna_atribuido_
 
 
 def test_cabecalho_ordenavel_da_fila_global_exibe_apenas_a_seta_ativa():
-    fonte = inspect.getsource(paginas_chamados._cabecalho_ordenavel)
+    fonte = inspect.getsource(visual.cabecalho_tabela_ordenavel)
 
     assert fonte.count('rx.icon("arrow_up"') == 1
     assert fonte.count('rx.icon("arrow_down"') == 1
-    assert "ChamadosTecnicoState.ordenar_por == coluna" in fonte
-    assert 'ChamadosTecnicoState.direcao_ordenacao == "ASC"' in fonte
+    assert "ordenar_por == coluna" in fonte
+    assert 'direcao == "ASC"' in fonte
     assert "size=17" in fonte
     assert "size=13" not in fonte
-    assert "ChamadosTecnicoState.ordenar_fila(coluna)" in fonte
+    assert 'background="var(--accent-9)"' in fonte
+    assert 'color="white"' in fonte
+    assert 'weight="bold"' in fonte
+
+
+def test_fila_global_aplica_superficies_sem_alterar_controles_existentes():
+    fonte = inspect.getsource(paginas_chamados._fila_tecnico)
+
+    assert "SUPERFICIE" in fonte
+    assert "SOMBRA_BAIXA" in fonte
+    assert 'ChamadosTecnicoState.aplicar_filtros' in fonte
+    assert 'ChamadosTecnicoState.limpar_filtros' in fonte
+    assert 'cabecalho_tabela_ordenavel("Loja", "loja"' in fonte
+    assert fonte.count("periodo_rotulado(") == 2
+    assert '"Abertura"' in fonte
+    assert '"Atualização"' in fonte
+    assert fonte.count('coluna="span 3"') == 2
+    assert fonte.count('largura="12rem"') == 2
+    assert fonte.count('altura="3.75rem"') == 2
+    assert 'mostrar_rotulo=False' in fonte
+    assert "Status" in fonte
+    assert "badge_status(item[\"status\"])" in fonte
+    assert "painel_filtros" in fonte
+    assert fonte.count('largura="7.7%"') == 10
+    assert 'largura="7%"' not in fonte
+    assert 'largura="23%"' in fonte
+    assert fonte.count("celula_tabela(") == 11
+    assert 'cabecalho_tabela_texto("Ações"' not in fonte
+    assert '"Ver detalhe"' not in fonte
+    assert 'href="/chamados/" + item["id"].to_string()' in fonte
+    assert 'rx.text(item["titulo"], weight="medium")' in fonte
+    assert 'item["ocorrencia"]' in fonte
+    assert 'style={"tableLayout": "fixed"}' in fonte
+    assert 'overflow_x="auto"' not in fonte
+    assert 'overflow_x="hidden"' in fonte
+    painel = inspect.getsource(visual.painel_filtros)
+    assert "acoes" in painel
+    assert 'padding="1.5rem"' in painel
+
+
+def test_seletor_de_periodo_compartilhado_atualiza_os_mesmos_campos_da_fila():
+    estado = novo_estado_tecnico()
+
+    ChamadosTecnicoState.alterar_periodo_abertura.fn(
+        estado, "2026-10-01", "2026-10-03"
+    )
+    ChamadosTecnicoState.alterar_periodo_atualizacao.fn(
+        estado, "2026-10-04", "2026-10-06"
+    )
+
+    assert (estado.filtro_data_inicio, estado.filtro_data_fim) == (
+        "2026-10-01",
+        "2026-10-03",
+    )
+    assert (
+        estado.filtro_ultima_atualizacao_inicio,
+        estado.filtro_ultima_atualizacao_fim,
+    ) == ("2026-10-04", "2026-10-06")
+    seletor = inspect.getsource(visual.SeletorPeriodoCalendario)
+    assert "react-day-picker@9.14.0" in seletor
+    codigo_calendario = (
+        Path(__file__).resolve().parents[1] / "app/components/date_range_picker.jsx"
+    ).read_text(
+        encoding="utf-8"
+    )
+    assert "createPortal" in codigo_calendario
+    assert "document.body" in codigo_calendario
+    assert "const [rascunho, definirRascunho]" in codigo_calendario
+    assert "const [aguardandoFim, definirAguardandoFim]" in codigo_calendario
+    assert "...estiloCalendarioRose" in codigo_calendario
+    assert '"--rdp-range_middle-background-color": "#FFF1F2"' in codigo_calendario
+    assert "style={estiloCalendarioRose}" in codigo_calendario
+
+
+def test_detalhe_e_linha_do_tempo_usam_campos_e_badges_compactos():
+    fonte = inspect.getsource(paginas_chamados._detalhe_tecnico)
+    cabecalho_detalhe = inspect.getsource(visual.cabecalho_detalhe_chamado)
+    composicao = inspect.getsource(visual.composicao_detalhe_chamado)
+
+    assert '"Origem",' in fonte
+    assert "badge_visibilidade(item[\"visibilidade_texto\"])" in fonte
+    assert "item[\"criado_em_texto\"]" in fonte
+    assert "composicao_detalhe_chamado" in fonte
+    assert "cabecalho_detalhe_chamado" in fonte
+    assert 'text_transform="uppercase"' in fonte
+    assert "ESTILO_CAMPO_COMENTARIO" in fonte
+    assert 'columns="2"' in fonte
+    assert '"Chamado #" + identificador + " - " + titulo' in cabecalho_detalhe
+    assert 'rx.text("Detalhe do Totem", weight="bold")' in cabecalho_detalhe
+    assert composicao.index("painel_detalhe(dados)") < composicao.index(
+        "bloco_descricao(descricao)"
+    ) < composicao.rindex("*secoes_externas")
 
 
 def liberar_validacao_de_sessao(monkeypatch):
@@ -813,7 +906,7 @@ def test_erro_da_fila_nao_renderiza_empty_state_simultaneamente():
 def test_visao_rapida_esta_fora_dos_filtros_e_so_aparece_para_tecnico():
     fonte = inspect.getsource(paginas_chamados._fila_tecnico)
 
-    assert fonte.index('"Atribuídos a mim"') < fonte.index('rx.text("Filtros"')
+    assert fonte.index('"Atribuídos a mim"') < fonte.index("painel_filtros(")
     assert 'AuthState.role == "tecnico"' in fonte
     assert "Atribuídos a outros Técnicos" not in fonte
 
@@ -898,8 +991,9 @@ def test_detalhes_apresentam_autoria_persistida_sem_ampliar_listagens():
 
     for detalhe in (detalhe_gerente, detalhe_tecnico):
         assert '"criador_sistema_nome"] != ""' in detalhe
-        assert "Criado por: " in detalhe
-        assert "Origem: " in detalhe
+        assert 'campo_info("Criado por"' in detalhe
+        assert '"Origem",' in detalhe
+        assert 'text_transform="uppercase"' in detalhe
 
     assert "criador_sistema" not in lista_gerente
     assert "criador_sistema" not in fila_tecnica
@@ -1320,14 +1414,12 @@ def test_detalhe_tecnico_usa_um_unico_grid_sem_acao_separada_de_comentario():
         'rx.text("prioridade"',
         'rx.text("categoria"',
     ):
-        assert controle in fonte
-        assert fonte.count(controle) == 1
-    for controle in (
-        'rx.text("comentário"',
-        'rx.text("descrição"',
-        '"linha do tempo"',
-    ):
-        assert controle in fonte
+        rotulo = controle.replace('rx.text(', 'rotulo_campo(')
+        assert rotulo in fonte
+        assert fonte.count(rotulo) == 1
+    assert 'rotulo_campo("comentário"' in fonte
+    assert "composicao_detalhe_chamado" in fonte
+    assert '"linha do tempo"' in fonte
 
 
 def test_terminal_comenta_pelo_unico_salvar_e_atualiza_detalhe_canonico(monkeypatch):

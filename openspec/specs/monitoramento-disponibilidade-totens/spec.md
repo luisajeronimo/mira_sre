@@ -211,3 +211,14 @@ A interface DEVE (MUST) mostrar somente fatos persistidos no Xano e NÃO DEVE (M
 
 - **WHEN** não há novos fatos persistidos porque o Fiscal não foi executado por um período
 - **THEN** a página mantém a apresentação do último estado e dos registros existentes sem indicar falha ou inatividade do Fiscal
+
+### Requirement: Estados operacionais preservam dados e usam badge consistente
+A página de monitoramento DEVE (MUST) apresentar estados persistidos de Totens
+e incidentes em maiúsculas com o mesmo padrão semântico de badge da interface.
+A apresentação NÃO DEVE (MUST NOT) alterar valores, cálculos, autorização ou
+fatos persistidos.
+
+#### Scenario: Totem retorna estado persistido
+- **WHEN** a consulta existente retorna `online` ou `offline`
+- **THEN** a interface exibe respectivamente `ONLINE` ou `OFFLINE` como
+  apresentação visual, mantendo o valor retornado pela consulta

@@ -42,37 +42,37 @@ class ChamadosTecnicoState(AuthState):
     """Mantém a fila global e a tratativa técnica do chamado."""
 
     filtro_numero: str = ""
-    filtro_status: str = ""
-    filtro_ativo: str = ""
-    filtro_prioridade: str = ""
-    filtro_responsavel: str = ""
+    filtro_status: list[str] = []
+    filtro_ativo: list[str] = []
+    filtro_prioridade: list[str] = []
+    filtro_responsavel: list[str] = []
     filtro_data_inicio: str = ""
     filtro_data_fim: str = ""
     filtro_ultima_atualizacao_inicio: str = ""
     filtro_ultima_atualizacao_fim: str = ""
-    filtro_loja: str = ""
+    filtro_loja: list[str] = []
     filtro_numero_confirmado: str = ""
-    filtro_status_confirmado: str = ""
-    filtro_ativo_confirmado: str = ""
-    filtro_prioridade_confirmada: str = ""
-    filtro_responsavel_confirmado: str = ""
+    filtro_status_confirmado: list[str] = []
+    filtro_ativo_confirmado: list[str] = []
+    filtro_prioridade_confirmada: list[str] = []
+    filtro_responsavel_confirmado: list[str] = []
     filtro_data_inicio_confirmada: str = ""
     filtro_data_fim_confirmada: str = ""
     filtro_ultima_atualizacao_inicio_confirmada: str = ""
     filtro_ultima_atualizacao_fim_confirmada: str = ""
-    filtro_loja_confirmada: str = ""
+    filtro_loja_confirmada: list[str] = []
     numero_aplicado: int | None = None
-    status_aplicado: str = ""
-    ativo_id_aplicado: int | None = None
-    prioridade_aplicada: str = ""
-    responsavel_id_aplicado: int | None = None
+    status_aplicado: list[str] = []
+    ativo_id_aplicado: list[int] = []
+    prioridade_aplicada: list[str] = []
+    responsavel_id_aplicado: list[int] = []
     somente_nao_atribuido_aplicado: bool = False
-    responsavel_filtro_transitorio_id: int | None = None
+    responsavel_filtro_transitorio_id: list[int] = []
     data_inicio_aplicada: int | None = None
     data_fim_aplicada: int | None = None
     ultima_atualizacao_inicio_aplicada: int | None = None
     ultima_atualizacao_fim_aplicada: int | None = None
-    loja_id_aplicada: int | None = None
+    loja_id_aplicada: list[int] = []
     filtros_aplicados: list[str] = []
     escopo_rapido: str = "todos"
     ordenar_por: str = "numero"
@@ -119,24 +119,15 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.var
     def responsaveis_filtro(self) -> list[str]:
-        opcoes = ["0 — Não atribuído"] + [
+        opcoes = ["Não atribuído"] + [
             f"{tecnico['id']} — {tecnico['nome']}" for tecnico in self.tecnicos
         ]
-        if (
-            self.responsavel_filtro_transitorio_id is not None
-            and all(
-                tecnico["id"] != self.responsavel_filtro_transitorio_id
-                for tecnico in self.tecnicos
-            )
-        ):
-            opcoes.append(
-                f"{self.responsavel_filtro_transitorio_id} — Técnico não listado"
-            )
+        opcoes.extend(f"{identificador} — Técnico não listado" for identificador in self.responsavel_filtro_transitorio_id if all(tecnico["id"] != identificador for tecnico in self.tecnicos))
         return opcoes
 
     def _opcao_responsavel(self, responsavel_id: int | None, somente_nao_atribuido: bool) -> str:
         if somente_nao_atribuido:
-            return "0 — Não atribuído"
+            return "Não atribuído"
         if responsavel_id is None:
             return ""
         opcao = next(
@@ -148,26 +139,10 @@ class ChamadosTecnicoState(AuthState):
             "",
         )
         if opcao:
-            if self.responsavel_filtro_transitorio_id == responsavel_id:
-                self.responsavel_filtro_transitorio_id = None
             return opcao
-        if responsavel_id == self.responsavel_filtro_transitorio_id:
+        if responsavel_id in self.responsavel_filtro_transitorio_id:
             return f"{responsavel_id} — Técnico não listado"
         return ""
-
-    def _incorporar_responsaveis_da_fila(self, itens) -> None:
-        """Reaproveita responsáveis retornados pela própria lista da fila."""
-        catalogo = {item["id"]: item["nome"] for item in self.tecnicos}
-        for chamado in itens:
-            tecnico = chamado.tecnico
-            if tecnico is not None:
-                catalogo[tecnico.id] = tecnico.nome
-        self.tecnicos = [
-            {"id": tecnico_id, "nome": nome}
-            for tecnico_id, nome in sorted(
-                catalogo.items(), key=lambda item: (item[1].casefold(), item[0])
-            )
-        ]
 
     @staticmethod
     def _status_exige_comentario_publico(status: str) -> bool:
@@ -301,6 +276,8 @@ class ChamadosTecnicoState(AuthState):
                 comentario = comentarios[comentario_id]
                 item["comentario_conteudo"] = comentario["conteudo"]
                 item["comentario_visibilidade_texto"] = comentario["visibilidade_texto"]
+                item["comentario_autor_nome"] = comentario["autor_nome"]
+                item["comentario_criado_em_texto"] = comentario["criado_em_texto"]
         self.timeline = [
             item
             for item in eventos
@@ -432,16 +409,16 @@ class ChamadosTecnicoState(AuthState):
     @rx.event
     def alterar_filtro_numero(self, valor: str) -> None: self.filtro_numero = valor
     @rx.event
-    def alterar_filtro_status(self, valor: str) -> None: self.filtro_status = valor
+    def alterar_filtro_status(self, valor: str) -> None: self.filtro_status = self._alternar(self.filtro_status, valor)
     @rx.event
-    def alterar_filtro_ativo(self, valor: str) -> None: self.filtro_ativo = valor
+    def alterar_filtro_ativo(self, valor: str) -> None: self.filtro_ativo = self._alternar(self.filtro_ativo, valor)
     @rx.event
-    def alterar_filtro_prioridade(self, valor: str) -> None: self.filtro_prioridade = valor
+    def alterar_filtro_prioridade(self, valor: str) -> None: self.filtro_prioridade = self._alternar(self.filtro_prioridade, valor)
     @rx.event
     def alterar_filtro_responsavel(self, valor: str) -> None:
         responsavel_id = self._id_da_opcao(valor)
-        if valor == "0 — Não atribuído" or responsavel_id in {item["id"] for item in self.tecnicos} or responsavel_id == self.responsavel_filtro_transitorio_id:
-            self.filtro_responsavel = valor
+        if valor == "Não atribuído" or responsavel_id in {item["id"] for item in self.tecnicos} or responsavel_id in self.responsavel_filtro_transitorio_id:
+            self.filtro_responsavel = self._alternar(self.filtro_responsavel, valor)
     @rx.event
     def alterar_filtro_data_inicio(self, valor: str) -> None: self.filtro_data_inicio = valor
     @rx.event
@@ -459,7 +436,11 @@ class ChamadosTecnicoState(AuthState):
         self.filtro_ultima_atualizacao_inicio = inicio
         self.filtro_ultima_atualizacao_fim = fim
     @rx.event
-    def alterar_filtro_loja(self, valor: str) -> None: self.filtro_loja = valor
+    def alterar_filtro_loja(self, valor: str) -> None: self.filtro_loja = self._alternar(self.filtro_loja, valor)
+
+    @staticmethod
+    def _alternar(opcoes: list[str], valor: str) -> list[str]:
+        return [item for item in opcoes if item != valor] if valor in opcoes else [*opcoes, valor]
 
     @rx.event
     def alterar_responsavel_pendente(self, valor: str) -> None:
@@ -517,16 +498,13 @@ class ChamadosTecnicoState(AuthState):
         except (TypeError, ValueError): return None
         return resultado if resultado and resultado > 0 else None
 
-    def _responsavel_solicitado(self) -> tuple[int | None, bool] | None:
-        if not self.filtro_responsavel:
-            return None, False
-        if self.filtro_responsavel == "0 — Não atribuído":
-            return None, True
-        responsavel_id = self._id_da_opcao(self.filtro_responsavel)
-        if responsavel_id not in {item["id"] for item in self.tecnicos} and responsavel_id != self.responsavel_filtro_transitorio_id:
+    def _responsavel_solicitado(self) -> tuple[list[int], bool] | None:
+        responsaveis = [self._id_da_opcao(item) for item in self.filtro_responsavel if item != "Não atribuído"]
+        validos = {item["id"] for item in self.tecnicos} | set(self.responsavel_filtro_transitorio_id)
+        if any(item not in validos for item in responsaveis):
             self.mensagem_fila = "Selecione um Responsável válido."
             return None
-        return responsavel_id, False
+        return responsaveis, "Não atribuído" in self.filtro_responsavel
 
     @staticmethod
     def _inicio_do_dia(data: str) -> int:
@@ -540,20 +518,20 @@ class ChamadosTecnicoState(AuthState):
             instante / 1000, tz=ZoneInfo("America/Sao_Paulo")
         ).strftime("%Y-%m-%d")
 
-    def _filtros_solicitados(self) -> tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, int | None, int | None, int | None, list[str]] | None:
+    def _filtros_solicitados(self) -> tuple | None:
         numero = self.filtro_numero.strip()
         if numero and (not numero.isdigit() or int(numero) <= 0):
             self.mensagem_fila = "Informe um número de chamado válido."; return None
-        if self.filtro_status and self.filtro_status not in self.status_filtros():
+        if any(item not in self.status_filtros() for item in self.filtro_status):
             self.mensagem_fila = "Informe um status válido."; return None
-        if self.filtro_prioridade and self.filtro_prioridade not in self.prioridades_tratativa():
+        if any(item not in self.prioridades_tratativa() for item in self.filtro_prioridade):
             self.mensagem_fila = "Informe uma prioridade válida."; return None
         responsavel = self._responsavel_solicitado()
         if responsavel is None:
             return None
         responsavel_id, somente_nao_atribuido = responsavel
-        ativo_id = self._id_da_opcao(self.filtro_ativo)
-        if self.filtro_ativo and ativo_id is None:
+        ativo_id = [self._id_da_opcao(item) for item in self.filtro_ativo]
+        if any(item is None for item in ativo_id):
             self.mensagem_fila = "Selecione um Totem válido."; return None
         try:
             inicio = self._inicio_do_dia(self.filtro_data_inicio) if self.filtro_data_inicio else None
@@ -569,11 +547,22 @@ class ChamadosTecnicoState(AuthState):
             self.mensagem_fila = "Informe um período de última atualização válido."; return None
         if ultima_inicio is not None and ultima_fim is not None and ultima_inicio >= ultima_fim:
             self.mensagem_fila = "A data inicial deve ser anterior à data final."; return None
-        loja_id = self._id_da_opcao(self.filtro_loja)
-        if self.filtro_loja and loja_id is None:
+        loja_id = [self._id_da_opcao(item) for item in self.filtro_loja]
+        if any(item is None for item in loja_id):
             self.mensagem_fila = "Selecione uma Loja válida."; return None
-        etiquetas = ([f"Número: {numero}"] if numero else []) + ([f"Status: {self.filtro_status}"] if self.filtro_status else []) + ([f"Prioridade: {self.filtro_prioridade}"] if self.filtro_prioridade else []) + ([f"Responsável: {self.filtro_responsavel.split(' — ', 1)[-1]}"] if self.filtro_responsavel else []) + ([f"Totem: {self.filtro_ativo.split(' — ', 1)[-1]}"] if self.filtro_ativo else []) + ([f"Loja: {self.filtro_loja.split(' — ', 1)[-1]}"] if self.filtro_loja else []) + ([f"Abertura a partir de: {self.filtro_data_inicio}"] if self.filtro_data_inicio else []) + ([f"Abertura até: {self.filtro_data_fim}"] if self.filtro_data_fim else []) + ([f"Atualização a partir de: {self.filtro_ultima_atualizacao_inicio}"] if self.filtro_ultima_atualizacao_inicio else []) + ([f"Atualização até: {self.filtro_ultima_atualizacao_fim}"] if self.filtro_ultima_atualizacao_fim else [])
+        etiquetas = self._etiquetas_filtros()
         return (int(numero) if numero else None, self.filtro_status, ativo_id, inicio, fim, self.filtro_prioridade, responsavel_id, somente_nao_atribuido, ultima_inicio, ultima_fim, loja_id, etiquetas)
+
+    def _etiquetas_filtros(self) -> list[str]:
+        numero = self.filtro_numero.strip()
+        etiquetas = ([f"Número: {numero}"] if numero else [])
+        for rotulo, valores in (("Status", self.filtro_status), ("Prioridade", self.filtro_prioridade), ("Responsável", self.filtro_responsavel), ("Totem", self.filtro_ativo), ("Loja", self.filtro_loja)):
+            if valores:
+                etiquetas.append(f"{rotulo}: {', '.join(item.split(' — ', 1)[-1] for item in valores)}")
+        for rotulo, valor in (("Abertura a partir de", self.filtro_data_inicio), ("Abertura até", self.filtro_data_fim), ("Atualização a partir de", self.filtro_ultima_atualizacao_inicio), ("Atualização até", self.filtro_ultima_atualizacao_fim)):
+            if valor:
+                etiquetas.append(f"{rotulo}: {valor}")
+        return etiquetas
 
     def _restaurar_filtros_confirmados(self) -> None:
         self.filtro_numero = self.filtro_numero_confirmado
@@ -590,37 +579,37 @@ class ChamadosTecnicoState(AuthState):
     def _limpar_contexto_fila(self) -> None:
         """Descarta dados protegidos e filtros associados a outra identidade."""
         self.filtro_numero = ""
-        self.filtro_status = ""
-        self.filtro_ativo = ""
-        self.filtro_prioridade = ""
-        self.filtro_responsavel = ""
+        self.filtro_status = []
+        self.filtro_ativo = []
+        self.filtro_prioridade = []
+        self.filtro_responsavel = []
         self.filtro_data_inicio = ""
         self.filtro_data_fim = ""
         self.filtro_ultima_atualizacao_inicio = ""
         self.filtro_ultima_atualizacao_fim = ""
-        self.filtro_loja = ""
+        self.filtro_loja = []
         self.filtro_numero_confirmado = ""
-        self.filtro_status_confirmado = ""
-        self.filtro_ativo_confirmado = ""
-        self.filtro_prioridade_confirmada = ""
-        self.filtro_responsavel_confirmado = ""
+        self.filtro_status_confirmado = []
+        self.filtro_ativo_confirmado = []
+        self.filtro_prioridade_confirmada = []
+        self.filtro_responsavel_confirmado = []
         self.filtro_data_inicio_confirmada = ""
         self.filtro_data_fim_confirmada = ""
         self.filtro_ultima_atualizacao_inicio_confirmada = ""
         self.filtro_ultima_atualizacao_fim_confirmada = ""
-        self.filtro_loja_confirmada = ""
+        self.filtro_loja_confirmada = []
         self.numero_aplicado = None
-        self.status_aplicado = ""
-        self.ativo_id_aplicado = None
-        self.prioridade_aplicada = ""
-        self.responsavel_id_aplicado = None
+        self.status_aplicado = []
+        self.ativo_id_aplicado = []
+        self.prioridade_aplicada = []
+        self.responsavel_id_aplicado = []
         self.somente_nao_atribuido_aplicado = False
-        self.responsavel_filtro_transitorio_id = None
+        self.responsavel_filtro_transitorio_id = []
         self.data_inicio_aplicada = None
         self.data_fim_aplicada = None
         self.ultima_atualizacao_inicio_aplicada = None
         self.ultima_atualizacao_fim_aplicada = None
-        self.loja_id_aplicada = None
+        self.loja_id_aplicada = []
         self.filtros_aplicados = []
         self.escopo_rapido = "todos"
         self.ordenar_por = "numero"
@@ -684,7 +673,7 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.event
     async def limpar_filtros(self):
-        filtros = (None, "", None, None, None, "", None, False, None, None, None, [])
+        filtros = (None, [], [], None, None, [], [], False, None, None, [], [])
         async for evento in self._carregar_fila(
             filtros=filtros,
             persistir=True,
@@ -697,7 +686,7 @@ class ChamadosTecnicoState(AuthState):
         if self.role != "tecnico" or escopo not in {"todos", "atribuidos_a_mim"}:
             return
         async for evento in self._carregar_fila(
-            filtros=(None, "", None, None, None, "", None, False, None, None, None, []),
+            filtros=(None, [], [], None, None, [], [], False, None, None, [], []),
             persistir=False,
             escopo_rapido=escopo,
             alteracao_explicita=True,
@@ -730,7 +719,7 @@ class ChamadosTecnicoState(AuthState):
     async def _carregar_fila(
         self,
         *,
-        filtros: tuple[int | None, str, int | None, int | None, int | None, str, int | None, bool, int | None, int | None, int | None, list[str]],
+        filtros: tuple,
         persistir: bool,
         escopo_rapido: str,
         alteracao_explicita: bool = False,
@@ -751,7 +740,7 @@ class ChamadosTecnicoState(AuthState):
                 return
             identidade_alterada = self._sincronizar_contexto_fila()
             if identidade_alterada:
-                filtros = (None, "", None, None, None, "", None, False, None, None, None, [])
+                filtros = (None, [], [], None, None, [], [], False, None, None, [], [])
             escopo_solicitado = (
                 escopo_rapido if alteracao_explicita else self.escopo_rapido
             )
@@ -770,82 +759,37 @@ class ChamadosTecnicoState(AuthState):
                 deve_carregar_preferencia = carregar_preferencia or (not persistir and self.escopo_preferencia_carregada != escopo_efetivo)
                 if deve_carregar_preferencia:
                     preferencia = await cliente.obter_preferencia_fila_tecnica(self._auth_token, escopo=escopo_efetivo)
-                    self.responsavel_filtro_transitorio_id = (
-                        preferencia.responsavel_id
-                        if preferencia.responsavel_id is not None
-                        else None
-                    )
-                    responsavel_preferencia = self._opcao_responsavel(
-                        preferencia.responsavel_id,
-                        preferencia.somente_nao_atribuido,
-                    )
-                    etiquetas_preferencia = ([f"Número: {preferencia.numero}"] if preferencia.numero is not None else []) + ([f"Status: {preferencia.status}"] if preferencia.status else []) + ([f"Prioridade: {preferencia.prioridade}"] if preferencia.prioridade else []) + ([f"Responsável: {responsavel_preferencia.split(' — ', 1)[-1]}"] if responsavel_preferencia else [])
-                    filtros = (preferencia.numero, preferencia.status or "", preferencia.ativo_id, preferencia.data_inicio, preferencia.data_fim, preferencia.prioridade or "", preferencia.responsavel_id, preferencia.somente_nao_atribuido, preferencia.ultima_atualizacao_inicio, preferencia.ultima_atualizacao_fim, preferencia.loja_id, etiquetas_preferencia)
+                    self.responsavel_filtro_transitorio_id = list(preferencia.responsavel_ids)
+                    filtros = (preferencia.numero, list(preferencia.status), list(preferencia.ativo_ids), preferencia.data_inicio, preferencia.data_fim, list(preferencia.prioridades), list(preferencia.responsavel_ids), preferencia.incluir_nao_atribuido, preferencia.ultima_atualizacao_inicio, preferencia.ultima_atualizacao_fim, list(preferencia.loja_ids), [])
                     ordenar_por, direcao = preferencia.ordenar_por, preferencia.direcao
                 elif ordenacao_candidata is not None:
                     ordenar_por, direcao = ordenacao_candidata
                 else:
                     ordenar_por, direcao = self.ordenar_por, self.direcao_ordenacao
                 numero, status, ativo_id, inicio, fim, prioridade, responsavel_id, somente_nao_atribuido, ultima_inicio, ultima_fim, loja_id, etiquetas = filtros
-                consulta = {"numero": numero, "status": status or None, "ativo_id": ativo_id, "data_inicio": inicio, "data_fim": fim, "somente_atribuidos_a_mim": escopo_efetivo == "atribuidos_a_mim"}
+                consulta = {"numero": numero, "status": status, "ativo_ids": ativo_id, "data_inicio": inicio, "data_fim": fim, "somente_atribuidos_a_mim": escopo_efetivo == "atribuidos_a_mim", "loja_ids": loja_id, "prioridades": prioridade, "responsavel_ids": responsavel_id, "incluir_nao_atribuido": somente_nao_atribuido}
                 if ultima_inicio is not None:
                     consulta["ultima_atualizacao_inicio"] = ultima_inicio
                 if ultima_fim is not None:
                     consulta["ultima_atualizacao_fim"] = ultima_fim
-                if loja_id is not None:
-                    consulta["loja_id"] = loja_id
-                if prioridade:
-                    consulta["prioridade"] = prioridade
-                if responsavel_id is not None:
-                    consulta["responsavel_id"] = responsavel_id
-                elif somente_nao_atribuido:
-                    consulta["responsavel_id"] = 0
                 if ordenar_por != "numero":
                     consulta["ordenar_por"] = ordenar_por
                 if direcao != "DESC":
                     consulta["direcao"] = direcao
                 resultado = await cliente.listar_chamados_tecnico(self._auth_token, **consulta)
                 ativos_carregados: list[str] | None = None
+                tecnicos = await cliente.listar_tecnicos_fila(self._auth_token)
+                self.tecnicos = [{"id": item.id, "nome": item.nome} for item in tecnicos]
                 if not self.ativos:
                     ativos = await cliente.listar_ativos_tecnico(self._auth_token)
                     ativos_carregados = [f"{item.id} — {item.nome_ativo}" for item in ativos]
                     self.lojas = sorted({f"{item.loja.id} — {item.loja.nome}" for item in ativos if item.loja is not None})
                 # Consulta candidata antes do save; o State só confirma após ambos.
                 if persistir:
-                    await cliente.salvar_preferencia_fila_tecnica(self._auth_token, escopo=escopo_efetivo, numero=numero, status=status or None, ativo_id=ativo_id, data_inicio=inicio, data_fim=fim, ultima_atualizacao_inicio=ultima_inicio, ultima_atualizacao_fim=ultima_fim, loja_id=loja_id, prioridade=prioridade or None, responsavel_id=responsavel_id, somente_nao_atribuido=somente_nao_atribuido, ordenar_por=ordenar_por, direcao=direcao)
-                self._incorporar_responsaveis_da_fila(resultado.items)
-                responsavel_opcao = self._opcao_responsavel(
-                    responsavel_id, somente_nao_atribuido
-                )
-                if responsavel_opcao:
-                    etiqueta_responsavel = (
-                        f"Responsável: {responsavel_opcao.split(' — ', 1)[-1]}"
-                    )
-                    if any(
-                        etiqueta.startswith("Responsável:") for etiqueta in etiquetas
-                    ):
-                        etiquetas = [
-                            etiqueta_responsavel
-                            if etiqueta.startswith("Responsável:")
-                            else etiqueta
-                            for etiqueta in etiquetas
-                        ]
-                    else:
-                        etiquetas = [*etiquetas, etiqueta_responsavel]
-                    filtros = (
-                        numero,
-                        status,
-                        ativo_id,
-                        inicio,
-                        fim,
-                        prioridade,
-                        responsavel_id,
-                        somente_nao_atribuido,
-                        ultima_inicio,
-                        ultima_fim,
-                        loja_id,
-                        etiquetas,
-                    )
+                    await cliente.salvar_preferencia_fila_tecnica(self._auth_token, escopo=escopo_efetivo, numero=numero, status=status, ativo_ids=ativo_id, data_inicio=inicio, data_fim=fim, ultima_atualizacao_inicio=ultima_inicio, ultima_atualizacao_fim=ultima_fim, loja_ids=loja_id, prioridades=prioridade, responsavel_ids=responsavel_id, incluir_nao_atribuido=somente_nao_atribuido, ordenar_por=ordenar_por, direcao=direcao)
+                responsavel_opcoes = [self._opcao_responsavel(item, False) or f"{item} — Técnico não listado" for item in responsavel_id]
+                if somente_nao_atribuido:
+                    responsavel_opcoes.insert(0, "Não atribuído")
                 self.chamados = [_tecnico_para_dict(item) for item in resultado.items]
                 self.total_chamados = resultado.total
                 self.escopo_rapido = escopo_efetivo
@@ -856,15 +800,16 @@ class ChamadosTecnicoState(AuthState):
                 if persistir or deve_carregar_preferencia:
                     self.numero_aplicado, self.status_aplicado, self.ativo_id_aplicado, self.data_inicio_aplicada, self.data_fim_aplicada, self.prioridade_aplicada, self.responsavel_id_aplicado, self.somente_nao_atribuido_aplicado, self.ultima_atualizacao_inicio_aplicada, self.ultima_atualizacao_fim_aplicada, self.loja_id_aplicada, self.filtros_aplicados = filtros
                     self.filtro_numero = str(numero) if numero is not None else ""
-                    self.filtro_status = status
-                    self.filtro_ativo = next((item for item in self.ativos if item.startswith(f"{ativo_id} —")), "") if ativo_id else ""
-                    self.filtro_prioridade = prioridade
-                    self.filtro_responsavel = responsavel_opcao
+                    self.filtro_status = list(status)
+                    self.filtro_ativo = [item for item in self.ativos if self._id_da_opcao(item) in ativo_id]
+                    self.filtro_prioridade = list(prioridade)
+                    self.filtro_responsavel = responsavel_opcoes
                     self.filtro_data_inicio = self._data_do_timestamp(inicio)
                     self.filtro_data_fim = self._data_do_timestamp(fim - 86_400_000) if fim is not None else ""
                     self.filtro_ultima_atualizacao_inicio = self._data_do_timestamp(ultima_inicio)
                     self.filtro_ultima_atualizacao_fim = self._data_do_timestamp(ultima_fim - 86_400_000) if ultima_fim is not None else ""
-                    self.filtro_loja = next((item for item in self.lojas if item.startswith(f"{loja_id} —")), "") if loja_id else ""
+                    self.filtro_loja = [item for item in self.lojas if self._id_da_opcao(item) in loja_id]
+                    self.filtros_aplicados = self._etiquetas_filtros()
                     self.filtro_numero_confirmado = self.filtro_numero
                     self.filtro_status_confirmado = self.filtro_status
                     self.filtro_ativo_confirmado = self.filtro_ativo

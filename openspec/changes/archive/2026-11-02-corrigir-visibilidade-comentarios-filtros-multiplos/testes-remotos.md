@@ -1,0 +1,72 @@
+# Evidência dos testes remotos
+
+Workspace 152692, branch v1. Versão nova publicada nesta execução. 64 aprovados na primeira rodada e 4 aprovados na repetição após correção de fixtures; total 68 testes/113 asserções. Não inclui validação HTTP autenticada.
+
+- service_desk/listar_chamados_gerente — lista padrão da loja
+- service_desk/listar_chamados_gerente — lista vazio
+- service_desk/assumir_chamado_tecnico — assume padrão
+- service_desk/assumir_chamado_tecnico — assume ação vazia
+- service_desk/assumir_chamado_tecnico — assume idempotente
+- service_desk/assumir_chamado_tecnico — assume outro técnico
+- service_desk/assumir_chamado_tecnico — atribui em Resolvido
+- service_desk/assumir_chamado_tecnico — reatribui
+- service_desk/assumir_chamado_tecnico — rejeita alvo não Técnico
+- service_desk/assumir_chamado_tecnico — libera própria
+- service_desk/assumir_chamado_tecnico — Técnico não libera outro
+- service_desk/assumir_chamado_tecnico — Diretoria libera
+- service_desk/assumir_chamado_tecnico — Administrador libera
+- service_desk/assumir_chamado_tecnico — Encerrado terminal
+- service_desk/assumir_chamado_tecnico — Cancelado terminal
+- service_desk/assumir_chamado_tecnico — status desconhecido
+- service_desk/assumir_chamado_tecnico — Diretoria não assume
+- service_desk/assumir_chamado_tecnico — atribui mesmo Técnico
+- service_desk/assumir_chamado_tecnico — libera sem responsável
+- service_desk/listar_chamados_tecnico — consulta padrão preserva query base
+- service_desk/listar_chamados_tecnico — filtra prioridade após query base
+- service_desk/listar_chamados_tecnico — combina prioridade e responsável após query ordenada
+- service_desk/listar_chamados_tecnico — ordena responsável pelo texto exibido ascendente
+- service_desk/listar_chamados_tecnico — ordena responsável pelo texto exibido descendente
+- service_desk/listar_chamados_tecnico — filtra responsável sem predicado search dinâmico
+- service_desk/listar_chamados_tecnico — filtra não atribuído sem predicado search dinâmico
+- service_desk/listar_chamados_tecnico — multiplos status usam OR
+- service_desk/listar_chamados_tecnico — filtros diferentes usam AND
+- service_desk/listar_chamados_tecnico — responsavel inclui nao atribuido
+- service_desk/obter_chamado_tecnico — retorna detalhe
+- service_desk/obter_chamado_tecnico — retorna detalhe legado
+- service_desk/obter_chamado_tecnico — retorna detalhe automático
+- service_desk/obter_chamado_tecnico — retorna timeline cronológica decrescente com legado
+- service_desk/obter_chamado_tecnico — retorna detalhe Diretoria
+- service_desk/obter_chamado_tecnico — retorna detalhe Administrador
+- service_desk/obter_chamado_tecnico — rejeita inexistente
+- service_desk/listar_comentarios_publicos_gerente — lista publico em ordem desc
+- service_desk/listar_comentarios_publicos_gerente — lista sem interacao legado
+- service_desk/validar_save_tratativa_chamado — salva alterações combinadas
+- service_desk/validar_save_tratativa_chamado — salva sem diferença
+- service_desk/validar_save_tratativa_chamado — preserva categoria inativa sem troca
+- service_desk/validar_save_tratativa_chamado — rejeita categoria inativa na troca
+- service_desk/validar_save_tratativa_chamado — rejeita comentário ausente
+- service_desk/validar_save_tratativa_chamado — rejeita versão desatualizada
+- service_desk/validar_save_tratativa_chamado — falha ao persistir chamado
+- service_desk/validar_save_tratativa_chamado — falha ao criar comentário de status
+- service_desk/validar_save_tratativa_chamado — falha ao criar auditoria
+- service_desk/validar_save_tratativa_chamado — encerra manualmente com alterações
+- service_desk/validar_save_tratativa_chamado — cancela com alterações combinadas
+- service_desk/validar_save_tratativa_chamado — rejeita aguardando terceiro
+- service_desk/validar_save_tratativa_chamado — rejeita terminal
+- service_desk/validar_save_tratativa_chamado — libera responsável
+- service_desk/obter_preferencia_fila_tecnica — legado converte escalares
+- service_desk/obter_preferencia_fila_tecnica — snapshot vazio vence legado
+- service_desk/obter_preferencia_fila_tecnica — json invalido nao restaura legado
+- service_desk/obter_preferencia_fila_tecnica — sem preferencia retorna vazio
+- service_desk/salvar_preferencia_fila_tecnica — limpar grava snapshot vazio
+- service_desk/salvar_preferencia_fila_tecnica — normaliza multiplos status
+- service_desk/salvar_preferencia_fila_tecnica — rejeita status invalido
+- service_desk/salvar_preferencia_fila_tecnica — upsert de outro usuario falha fechado
+- service_desk/obter_preferencia_filtros_gerente — legado converte escalares
+- service_desk/obter_preferencia_filtros_gerente — snapshot vazio vence legado
+- service_desk/obter_preferencia_filtros_gerente — json invalido nao restaura legado
+- service_desk/obter_preferencia_filtros_gerente — sem preferencia retorna vazio
+- service_desk/salvar_preferencia_filtros_gerente — limpar grava snapshot vazio
+- service_desk/salvar_preferencia_filtros_gerente — normaliza multiplos status
+- service_desk/salvar_preferencia_filtros_gerente — rejeita status invalido
+- service_desk/salvar_preferencia_filtros_gerente — upsert de outro usuario falha fechado

@@ -438,7 +438,7 @@ function "service_desk/assumir_chamado_tecnico" {
                 // A validação ocorre antes do evento, para que uma escrita que
                 // não tenha removido o responsável provoque rollback completo.
                 precondition ($chamado_liberado != null && $chamado_liberado.tecnico_id == null && $chamado_liberado.atribuido_em == null) {
-                  error_type = "internal"
+                  error_type = "standard"
                   error = "Não foi possível persistir a liberação do responsável."
                 }
               }
@@ -467,7 +467,6 @@ function "service_desk/assumir_chamado_tecnico" {
                 chamados_id: $verificacao.id,
                 usuarios_id: $usuario.id,
                 criado_em: $instante,
-                visibilidade: "interna",
                 tecnico_anterior_id: $tecnico_anterior_id,
                 tecnico_novo_id: $tecnico_novo_id
               }

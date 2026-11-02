@@ -3,15 +3,16 @@ function "service_desk/listar_chamados_tecnico" {
   input {
     int usuarios_id { table = "usuarios" }
     text numero? filters=trim
-    text status? filters=trim
-    text ativo_id? filters=trim
+    text[] status?
+    int[] ativo_ids?
     timestamp data_inicio?
     timestamp data_fim?
     timestamp ultima_atualizacao_inicio?
     timestamp ultima_atualizacao_fim?
-    text loja_id? filters=trim
-    text prioridade? filters=trim
-    text responsavel_id? filters=trim
+    int[] loja_ids?
+    text[] prioridades?
+    int[] responsavel_ids?
+    bool incluir_nao_atribuido?
     text ordenar_por? filters=trim
     text direcao? filters=trim
     bool somente_atribuidos_a_mim?
@@ -21,6 +22,9 @@ function "service_desk/listar_chamados_tecnico" {
     function.run "autorizacao/exigir_perfil" {
       input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
       mock = {
+        "multiplos status usam OR": {id: 12, role: "tecnico"}
+        "filtros diferentes usam AND": {id: 12, role: "tecnico"}
+        "responsavel inclui nao atribuido": {id: 12, role: "tecnico"}
         "consulta padrão preserva query base": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
@@ -65,90 +69,170 @@ function "service_desk/listar_chamados_tecnico" {
       }
     }
 
-    var $aplicar_ativo { value = $input.ativo_id != null && $input.ativo_id != "" }
-    var $ativo_convertido { value = ($input.ativo_id|to_int) }
-    var $ativo_valido { value = !$aplicar_ativo || ($ativo_convertido > 0 && ($ativo_convertido|to_text) == $input.ativo_id) }
-    var $ativo_normalizado { value = null }
-    conditional {
-      if ($aplicar_ativo && $ativo_valido) {
-        var.update $ativo_normalizado {
-          value = $ativo_convertido
+    var $status_normalizados { value = [] }
+    foreach ($input.status ?? []) {
+      each as $s {
+        var $chave { value = ($s|trim|to_lower) }
+        var $canonico { value = null }
+        conditional {
+        if ($chave == "novo") {
+          var.update $canonico { value = "Novo" }
+        }
+        elseif ($chave == "em atendimento") {
+          var.update $canonico { value = "Em Atendimento" }
+        }
+        elseif ($chave == "aguardando solicitante") {
+          var.update $canonico { value = "Aguardando Solicitante" }
+        }
+        elseif ($chave == "aguardando mudança") {
+          var.update $canonico { value = "Aguardando Mudança" }
+        }
+        elseif ($chave == "resolvido") {
+          var.update $canonico { value = "Resolvido" }
+        }
+        elseif ($chave == "solução rejeitada") {
+          var.update $canonico { value = "Solução Rejeitada" }
+        }
+        elseif ($chave == "encerrado") {
+          var.update $canonico { value = "Encerrado" }
+        }
+        elseif ($chave == "cancelado") {
+          var.update $canonico { value = "Cancelado" }
+        }
+        }
+        conditional {
+          if (!($canonico != null)) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Status inválido."
+            }
+          }
+        }
+        array.push $status_normalizados { value = $canonico }
+      }
+    }
+    var.update $status_normalizados { value = $status_normalizados|unique }
+    var $ativo_ids { value = ($input.ativo_ids ?? [])|unique }
+    foreach ($ativo_ids) {
+      each as $id {
+        conditional {
+          if (!($id > 0)) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Totem inválido."
+            }
+          }
+        }
+        db.get ativos_referencia {
+          field_name = "id"
+          field_value = $id
+        } as $ativo
+        conditional {
+          if (!($ativo != null)) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Totem inválido."
+            }
+          }
         }
       }
     }
-
-    var $aplicar_status { value = $input.status != null && $input.status != "" }
-    // O filtro chega livre do cliente, mas é comparado/persistido no literal canônico.
-    var $status_chave { value = $input.status|to_lower }
-    var $status_normalizado { value = null }
-    conditional {
-      if ($status_chave == "novo") {
-        var.update $status_normalizado {
-          value = "Novo"
+    var $loja_ids { value = ($input.loja_ids ?? [])|unique }
+    foreach ($loja_ids) {
+      each as $id {
+        conditional {
+          if (!($id > 0)) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Loja inválida."
+            }
+          }
         }
-      }
-      elseif ($status_chave == "em atendimento") {
-        var.update $status_normalizado {
-          value = "Em Atendimento"
-        }
-      }
-      elseif ($status_chave == "aguardando solicitante") {
-        var.update $status_normalizado {
-          value = "Aguardando Solicitante"
-        }
-      }
-      elseif ($status_chave == "aguardando mudança") {
-        var.update $status_normalizado {
-          value = "Aguardando Mudança"
-        }
-      }
-      elseif ($status_chave == "resolvido") {
-        var.update $status_normalizado {
-          value = "Resolvido"
-        }
-      }
-      elseif ($status_chave == "solução rejeitada") {
-        var.update $status_normalizado {
-          value = "Solução Rejeitada"
-        }
-      }
-      elseif ($status_chave == "encerrado") {
-        var.update $status_normalizado {
-          value = "Encerrado"
-        }
-      }
-      elseif ($status_chave == "cancelado") {
-        var.update $status_normalizado {
-          value = "Cancelado"
+        db.get lojas {
+          field_name = "id"
+          field_value = $id
+        } as $loja
+        conditional {
+          if (!($loja != null)) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Loja inválida."
+            }
+          }
         }
       }
     }
-    var $aplicar_prioridade { value = $input.prioridade != null && $input.prioridade != "" }
-    var $prioridade_normalizada { value = $aplicar_prioridade ? $input.prioridade : null }
-    var $aplicar_responsavel { value = $input.responsavel_id != null && $input.responsavel_id != "" }
-    var $responsavel_convertido { value = $input.responsavel_id|to_int }
-    var $responsavel_formato_valido { value = !$aplicar_responsavel || ($responsavel_convertido >= 0 && ($responsavel_convertido|to_text) == $input.responsavel_id) }
-    var $responsavel_id_normalizado { value = null }
-    var $filtrar_sem_responsavel { value = false }
-    var $responsavel_valido { value = !$aplicar_responsavel }
-    conditional {
-      if ($aplicar_responsavel && $responsavel_formato_valido && $responsavel_convertido == 0) {
-        var.update $filtrar_sem_responsavel { value = true }
-        var.update $responsavel_valido { value = true }
-      }
-      elseif ($aplicar_responsavel && $responsavel_formato_valido) {
-        var.update $responsavel_id_normalizado { value = $responsavel_convertido }
+    var $responsavel_ids { value = ($input.responsavel_ids ?? [])|unique }
+    foreach ($responsavel_ids) {
+      each as $id {
+        conditional {
+          if (!($id > 0)) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Responsável inválido."
+            }
+          }
+        }
         db.get usuarios {
           field_name = "id"
-          field_value = $responsavel_convertido
+          field_value = $id
           mock = {
-            "combina prioridade e responsável após query ordenada": {id: 10, role: "tecnico"}
-            "filtra responsável sem predicado search dinâmico": {id: 10, role: "tecnico"}
-          }
+        "combina prioridade e responsável após query ordenada": {id: 10, role: "tecnico"}
+        "responsavel inclui nao atribuido": {id: 10, role: "tecnico"}
+        "filtra responsável sem predicado search dinâmico": {id: 10, role: "tecnico"}
+      }
         } as $responsavel
         conditional {
-          if ($responsavel != null && $responsavel.role == "tecnico") {
-            var.update $responsavel_valido { value = true }
+          if (!($responsavel != null && $responsavel.role == "tecnico")) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Responsável inválido."
+            }
+          }
+        }
+      }
+    }
+    var $prioridades { value = ($input.prioridades ?? [])|unique }
+    foreach ($prioridades) {
+      each as $prioridade {
+        conditional {
+          if (!($prioridade == "Baixa" || $prioridade == "Média" || $prioridade == "Alta" || $prioridade == "Urgente")) {
+            util.set_header {
+              value = "HTTP/1.1 422 Unprocessable Entity"
+              duplicates = "replace"
+            }
+            precondition (false) {
+              error_type = "inputerror"
+              error = "Prioridade inválida."
+            }
           }
         }
       }
@@ -159,31 +243,10 @@ function "service_desk/listar_chamados_tecnico" {
     var $aplicar_data_fim { value = $input.data_fim != null && $input.data_fim != "" }
     var $aplicar_ultima_atualizacao_inicio { value = $input.ultima_atualizacao_inicio != null && $input.ultima_atualizacao_inicio != "" }
     var $aplicar_ultima_atualizacao_fim { value = $input.ultima_atualizacao_fim != null && $input.ultima_atualizacao_fim != "" }
-    var $aplicar_loja { value = $input.loja_id != null && $input.loja_id != "" }
-    var $loja_convertida { value = $input.loja_id|to_int }
-    var $loja_valida { value = !$aplicar_loja || ($loja_convertida > 0 && ($loja_convertida|to_text) == $input.loja_id) }
-    var $loja_id_normalizada { value = $aplicar_loja && $loja_valida ? $loja_convertida : null }
-    conditional {
-      if ($aplicar_loja && $loja_valida) {
-        db.get lojas {
-          field_name = "id"
-          field_value = $loja_id_normalizada
-        } as $loja
-        conditional {
-          if ($loja == null) {
-            var.update $loja_valida {
-              value = false
-            }
-          }
-        }
-      }
-    }
-    var $status_valido { value = !$aplicar_status || $status_normalizado != null }
-    var $prioridade_valida { value = !$aplicar_prioridade || $prioridade_normalizada == "Baixa" || $prioridade_normalizada == "Média" || $prioridade_normalizada == "Alta" || $prioridade_normalizada == "Urgente" }
     var $ordenacao_valida { value = ($ordenar_por == "numero" || $ordenar_por == "titulo" || $ordenar_por == "status" || $ordenar_por == "prioridade" || $ordenar_por == "totem" || $ordenar_por == "loja" || $ordenar_por == "categoria" || $ordenar_por == "aberto_por" || $ordenar_por == "responsavel" || $ordenar_por == "criado_em" || $ordenar_por == "ultima_atualizacao_em") && ($direcao == "ASC" || $direcao == "DESC") }
 
     conditional {
-      if (!$numero_valido || !$ativo_valido || !$loja_valida || !$status_valido || !$prioridade_valida || !$responsavel_valido || !$ordenacao_valida || ($aplicar_data_inicio && $aplicar_data_fim && $input.data_inicio >= $input.data_fim) || ($aplicar_ultima_atualizacao_inicio && $aplicar_ultima_atualizacao_fim && $input.ultima_atualizacao_inicio >= $input.ultima_atualizacao_fim)) {
+      if (!$numero_valido || !$ordenacao_valida || ($aplicar_data_inicio && $aplicar_data_fim && $input.data_inicio >= $input.data_fim) || ($aplicar_ultima_atualizacao_inicio && $aplicar_ultima_atualizacao_fim && $input.ultima_atualizacao_inicio >= $input.ultima_atualizacao_fim)) {
         util.set_header {
           value = "HTTP/1.1 422 Unprocessable Entity"
           duplicates = "replace"
@@ -247,7 +310,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -301,10 +364,13 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.id: "desc"}
           return = {type: "list"}
           mock = {
+            "multiplos status usam OR": [{id: 4, status: "Novo", prioridade: "Alta", tecnico_id: 10}, {id: 3, status: "Resolvido", prioridade: "Média", tecnico_id: 11}, {id: 2, status: "Novo", prioridade: "Alta", tecnico_id: null}, {id: 1, status: "Encerrado", prioridade: "Baixa", tecnico_id: 11}]
+            "filtros diferentes usam AND": [{id: 4, status: "Novo", prioridade: "Alta", tecnico_id: 10}, {id: 3, status: "Resolvido", prioridade: "Média", tecnico_id: 11}, {id: 2, status: "Novo", prioridade: "Alta", tecnico_id: null}, {id: 1, status: "Encerrado", prioridade: "Baixa", tecnico_id: 11}]
+            "responsavel inclui nao atribuido": [{id: 4, status: "Novo", prioridade: "Alta", tecnico_id: 10}, {id: 3, status: "Resolvido", prioridade: "Média", tecnico_id: 11}, {id: 2, status: "Novo", prioridade: "Alta", tecnico_id: null}, {id: 1, status: "Encerrado", prioridade: "Baixa", tecnico_id: 11}]
             "consulta padrão preserva query base": ```
               [{id: 102, prioridade: "Alta"}, {id: 101, prioridade: "Média"}]
               ```
@@ -372,7 +438,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {titulo_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -426,7 +492,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {titulo_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -480,7 +546,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {status_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -534,7 +600,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {status_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -588,7 +654,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {prioridade_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -642,7 +708,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {prioridade_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -696,7 +762,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {totem_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -750,7 +816,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {totem_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -780,7 +846,7 @@ function "service_desk/listar_chamados_tecnico" {
             tecnico_ordenavel: $db.tecnico.nome|to_lower, criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {loja_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -807,7 +873,7 @@ function "service_desk/listar_chamados_tecnico" {
             tecnico_ordenavel: $db.tecnico.nome|to_lower, criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {loja_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -858,7 +924,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {categoria_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -912,7 +978,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {categoria_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -946,7 +1012,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.id: "asc"}
           return = {type: "list"}
           mock = {
@@ -988,7 +1054,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.id: "desc"}
           return = {type: "list"}
           mock = {
@@ -1030,7 +1096,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -1081,7 +1147,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.criado_em: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -1135,7 +1201,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.criado_em: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -1189,7 +1255,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.ultima_atualizacao_em: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -1243,7 +1309,7 @@ function "service_desk/listar_chamados_tecnico" {
             criado_em: $db.chamados.criado_em,
             ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em
           }
-          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.status ==? $status_normalizado) && ($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $input.data_inicio) && ($db.chamados.criado_em <? $input.data_fim) && ($db.chamados.tecnico_id ==? $tecnico_id_normalizado)
           sort = {chamados.ultima_atualizacao_em: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -1293,31 +1359,36 @@ function "service_desk/listar_chamados_tecnico" {
       }
     }
 
-    // Prioridade e responsável continuam no backend, após a consulta já
-    // ordenada; array.filter preserva a ordem obtida no Xano.
-    var $chamados_filtrados {
-      value = $chamados
-    }
+    // Filtragem no backend após ordenação preserva o desempate original.
+    var $chamados_filtrados { value = $chamados }
     conditional {
-      if ($aplicar_prioridade) {
-        array.filter ($chamados_filtrados) if ($this.prioridade == $prioridade_normalizada) as $resultado_filtrado
-        var.update $chamados_filtrados {
-          value = $resultado_filtrado
-        }
+      if (($status_normalizados|count) > 0) {
+        array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
       }
     }
     conditional {
-      if ($aplicar_responsavel && $filtrar_sem_responsavel) {
-        array.filter ($chamados_filtrados) if ($this.tecnico_id == null || $this.tecnico_id == 0) as $resultado_filtrado
-        var.update $chamados_filtrados {
-          value = $resultado_filtrado
-        }
+      if (($ativo_ids|count) > 0) {
+        array.filter ($chamados_filtrados) if ($ativo_ids|in:$this.ativo_id) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
       }
-      elseif ($aplicar_responsavel) {
-        array.filter ($chamados_filtrados) if ($this.tecnico_id == $responsavel_id_normalizado) as $resultado_filtrado
-        var.update $chamados_filtrados {
-          value = $resultado_filtrado
-        }
+    }
+    conditional {
+      if (($prioridades|count) > 0) {
+        array.filter ($chamados_filtrados) if ($prioridades|in:$this.prioridade) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
+      }
+    }
+    conditional {
+      if (($responsavel_ids|count) > 0 || $input.incluir_nao_atribuido == true) {
+        array.filter ($chamados_filtrados) if (($responsavel_ids|in:$this.tecnico_id) || ($input.incluir_nao_atribuido == true && ($this.tecnico_id == null || $this.tecnico_id == 0))) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
+      }
+    }
+    conditional {
+      if (($loja_ids|count) > 0) {
+        array.filter ($chamados_filtrados) if ($loja_ids|in:$this.loja_id) as $resultado_filtrado
+        var.update $chamados_filtrados { value = $resultado_filtrado }
       }
     }
     conditional {
@@ -1332,13 +1403,6 @@ function "service_desk/listar_chamados_tecnico" {
         var.update $chamados_filtrados { value = $resultado_filtrado }
       }
     }
-    conditional {
-      if ($aplicar_loja) {
-        array.filter ($chamados_filtrados) if ($this.loja_id == $loja_id_normalizada) as $resultado_filtrado
-        var.update $chamados_filtrados { value = $resultado_filtrado }
-      }
-    }
-
     var $items {
       value = $chamados_filtrados|map:{
         id: $$.id, titulo: $$.titulo, descricao: $$.descricao, status: $$.status,
@@ -1365,14 +1429,14 @@ function "service_desk/listar_chamados_tecnico" {
   }
 
   test "filtra prioridade após query base" {
-    input = {usuarios_id: 12, prioridade: "Alta"}
+    input = {usuarios_id: 12, prioridades: ["Alta"]}
     expect.to_equal ($response.total) {
       value = 1
     }
   }
 
   test "combina prioridade e responsável após query ordenada" {
-    input = {usuarios_id: 12, prioridade: "Alta", responsavel_id: "10"}
+    input = {usuarios_id: 12, prioridades: ["Alta"], responsavel_ids: [10]}
     expect.to_equal ($response.total) {
       value = 1
     }
@@ -1405,18 +1469,30 @@ function "service_desk/listar_chamados_tecnico" {
   }
 
   test "filtra responsável sem predicado search dinâmico" {
-    input = {usuarios_id: 12, responsavel_id: "10"}
+    input = {usuarios_id: 12, responsavel_ids: [10]}
     expect.to_equal ($response.total) {
       value = 1
     }
   }
 
   test "filtra não atribuído sem predicado search dinâmico" {
-    input = {usuarios_id: 12, responsavel_id: "0"}
+    input = {usuarios_id: 12, incluir_nao_atribuido: true}
     expect.to_equal ($response.total) {
       value = 2
     }
   }
 
+  test "multiplos status usam OR" {
+    input = {usuarios_id: 12, status: ["Novo", "Resolvido"]}
+    expect.to_equal ($response.total) { value = 3 }
+  }
+  test "filtros diferentes usam AND" {
+    input = {usuarios_id: 12, status: ["Novo", "Resolvido"], prioridades: ["Alta"]}
+    expect.to_equal ($response.total) { value = 2 }
+  }
+  test "responsavel inclui nao atribuido" {
+    input = {usuarios_id: 12, responsavel_ids: [10], incluir_nao_atribuido: true}
+    expect.to_equal ($response.total) { value = 2 }
+  }
   guid = "miraFilaTecnico01"
 }

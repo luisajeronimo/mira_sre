@@ -27,7 +27,7 @@ function "service_desk/listar_comentarios_publicos_gerente" {
       eval = {
         autor_nome: $db.autor.nome
       }
-      where = $db.interacoes_chamado.chamados_id == $chamado.id && $db.interacoes_chamado.visibilidade == "publica" && $db.interacoes_chamado.mensagem != null && $db.interacoes_chamado.mensagem != ""
+      where = $db.interacoes_chamado.chamados_id == $chamado.id && ($db.interacoes_chamado.tipo_evento == "comentario" || $db.interacoes_chamado.tipo_evento == null || $db.interacoes_chamado.tipo_evento == "") && $db.interacoes_chamado.visibilidade == "publica" && $db.interacoes_chamado.mensagem != null && $db.interacoes_chamado.mensagem != ""
       sort = {interacoes_chamado.criado_em: "desc"}
       return = {type: "list"}
       mock = {

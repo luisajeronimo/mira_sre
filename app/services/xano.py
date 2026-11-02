@@ -152,7 +152,7 @@ class XanoCliente:
         *,
         token: str | None = None,
         json: dict[str, Any] | None = None,
-        params: dict[str, str | int] | None = None,
+        params: httpx.QueryParamTypes | None = None,
         login: bool = False,
         erro_400_como_entrada: bool = False,
     ) -> dict[str, Any]:

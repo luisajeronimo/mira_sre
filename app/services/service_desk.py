@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -170,25 +171,25 @@ class PreferenciaFilaTecnica:
 
     escopo: str
     numero: int | None
-    status: str | None
-    ativo_id: int | None
+    status: list[str]
+    ativo_ids: list[int]
     data_inicio: int | None
     data_fim: int | None
-    prioridade: str | None
+    prioridades: list[str]
     ordenar_por: str
     direcao: str
-    responsavel_id: int | None = None
-    somente_nao_atribuido: bool = False
+    responsavel_ids: list[int] = field(default_factory=list)
+    incluir_nao_atribuido: bool = False
     ultima_atualizacao_inicio: int | None = None
     ultima_atualizacao_fim: int | None = None
-    loja_id: int | None = None
+    loja_ids: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
 class PreferenciaFiltrosGerente:
     numero: int | None
-    status: str | None
-    ativo_id: int | None
+    status: list[str]
+    ativo_ids: list[int]
     data_inicio: int | None
     data_fim: int | None
     ultima_atualizacao_inicio: int | None
@@ -230,7 +231,7 @@ class EventoTimelineChamado:
     id: int
     tipo: str
     conteudo: str | None
-    visibilidade: str
+    visibilidade: str | None
     criado_em: int
     autor: ReferenciaUsuario | None
     tecnico_anterior: ReferenciaUsuario | None
@@ -569,59 +570,78 @@ def _lista_chamados_gerente(dados: dict[str, Any]) -> ListaChamadosGerente:
     )
 
 
-def _preferencia_fila_tecnica(dados: dict[str, Any]) -> PreferenciaFilaTecnica:
-    """Valida a preferência já normalizada pelo contrato autenticado do Xano."""
+def _lista_preferencia(valor: Any, campo: str, *, ids: bool = False) -> list:
+    if not isinstance(valor, list):
+        raise XanoContratoInvalido(f"Campo inválido na resposta: preferencia.{campo}.")
+    resultado = []
+    for item in valor:
+        if ids:
+            if isinstance(item, bool) or not isinstance(item, int) or item <= 0:
+                raise XanoContratoInvalido(f"Campo inválido na resposta: preferencia.{campo}.")
+        elif not isinstance(item, str) or not item:
+            raise XanoContratoInvalido(f"Campo inválido na resposta: preferencia.{campo}.")
+        elif campo == "status" and item not in {"Novo", "Em Atendimento", "Aguardando Solicitante", "Aguardando Mudança", "Resolvido", "Solução Rejeitada", "Encerrado", "Cancelado"}:
+            raise XanoContratoInvalido("Campo inválido na resposta: preferencia.status.")
+        elif campo == "prioridades" and item not in PRIORIDADES_CHAMADO:
+            raise XanoContratoInvalido("Campo inválido na resposta: preferencia.prioridades.")
+        if item not in resultado:
+            resultado.append(item)
+    return resultado
 
-    campos = {
-        "escopo", "numero", "status", "ativo_id", "data_inicio", "data_fim",
-        "prioridade", "responsavel_id", "somente_nao_atribuido", "ordenar_por", "direcao",
-        "ultima_atualizacao_inicio", "ultima_atualizacao_fim", "loja_id",
-    }
-    dados = _objeto(dados, "preferencia")
-    if not set(dados).issubset(campos) or not {"escopo", "numero", "status", "ativo_id", "data_inicio", "data_fim", "prioridade", "responsavel_id", "somente_nao_atribuido", "ordenar_por", "direcao"}.issubset(dados):
+
+def _normalizar_preferencia_legada(dados: dict[str, Any], *, global_: bool) -> dict[str, Any]:
+    # A forma legada somente é reconhecida por seus nomes escalares. Um objeto
+    # canônico malformado jamais deve fazer fallback para esses campos.
+    dados = dict(dados)
+    if "ativo_id" not in dados:
+        return dados
+    if "ativo_ids" in dados:
         raise XanoContratoInvalido("Campo inválido na resposta: preferencia.")
-    escopo = dados.get("escopo")
-    ordenar_por = dados.get("ordenar_por")
-    direcao = dados.get("direcao")
-    if escopo not in {"todos", "atribuidos_a_mim"}:
-        raise XanoContratoInvalido("Campo inválido na resposta: preferencia.escopo.")
-    if ordenar_por not in {
-        "numero", "titulo", "status", "prioridade", "totem", "loja", "categoria", "aberto_por", "responsavel",
-        "criado_em", "ultima_atualizacao_em",
-    } or direcao not in {"ASC", "DESC"}:
-        raise XanoContratoInvalido("Campo inválido na resposta: preferencia.ordenacao.")
+    def lista(valor):
+        return [] if valor is None or valor == "" else [valor]
+    dados["status"] = lista(dados.get("status"))
+    dados["ativo_ids"] = lista(dados.pop("ativo_id"))
+    if global_:
+        dados.setdefault("ultima_atualizacao_inicio", None)
+        dados.setdefault("ultima_atualizacao_fim", None)
+        dados["loja_ids"] = lista(dados.pop("loja_id", None))
+        dados["prioridades"] = lista(dados.pop("prioridade", None))
+        dados["responsavel_ids"] = lista(dados.pop("responsavel_id", None))
+        dados["incluir_nao_atribuido"] = dados.pop("somente_nao_atribuido", False)
+    return dados
+
+
+def _preferencia_fila_tecnica(dados: dict[str, Any]) -> PreferenciaFilaTecnica:
+    dados = _normalizar_preferencia_legada(_objeto(dados, "preferencia"), global_=True)
+    campos = {"escopo", "numero", "status", "ativo_ids", "data_inicio", "data_fim", "ultima_atualizacao_inicio", "ultima_atualizacao_fim", "loja_ids", "prioridades", "responsavel_ids", "incluir_nao_atribuido", "ordenar_por", "direcao"}
+    dados = _objeto_exato(dados, "preferencia", campos)
+    if not isinstance(dados["escopo"], str) or not isinstance(dados["ordenar_por"], str) or not isinstance(dados["direcao"], str) or dados["escopo"] not in {"todos", "atribuidos_a_mim"} or dados["ordenar_por"] not in {"numero", "titulo", "status", "prioridade", "totem", "loja", "categoria", "aberto_por", "responsavel", "criado_em", "ultima_atualizacao_em"} or dados["direcao"] not in {"ASC", "DESC"} or not isinstance(dados["incluir_nao_atribuido"], bool):
+        raise XanoContratoInvalido("Campo inválido na resposta: preferencia.")
+    def inteiro_opcional(nome):
+        return _inteiro(dados[nome], f"preferencia.{nome}") if dados[nome] is not None else None
     return PreferenciaFilaTecnica(
-        escopo=escopo,
-        numero=_inteiro(dados["numero"], "preferencia.numero") if dados["numero"] is not None else None,
-        status=_texto(dados["status"], "preferencia.status") if dados["status"] is not None else None,
-        ativo_id=_inteiro(dados["ativo_id"], "preferencia.ativo_id") if dados["ativo_id"] is not None else None,
-        data_inicio=_inteiro(dados["data_inicio"], "preferencia.data_inicio") if dados["data_inicio"] is not None else None,
-        data_fim=_inteiro(dados["data_fim"], "preferencia.data_fim") if dados["data_fim"] is not None else None,
-        ultima_atualizacao_inicio=_inteiro(dados["ultima_atualizacao_inicio"], "preferencia.ultima_atualizacao_inicio") if dados.get("ultima_atualizacao_inicio") is not None else None,
-        ultima_atualizacao_fim=_inteiro(dados["ultima_atualizacao_fim"], "preferencia.ultima_atualizacao_fim") if dados.get("ultima_atualizacao_fim") is not None else None,
-        loja_id=_inteiro(dados["loja_id"], "preferencia.loja_id") if dados.get("loja_id") is not None else None,
-        prioridade=_texto(dados["prioridade"], "preferencia.prioridade") if dados["prioridade"] is not None else None,
-        responsavel_id=_inteiro(dados["responsavel_id"], "preferencia.responsavel_id") if dados["responsavel_id"] is not None else None,
-        somente_nao_atribuido=dados["somente_nao_atribuido"] is True,
-        ordenar_por=ordenar_por,
-        direcao=direcao,
+        escopo=dados["escopo"], numero=inteiro_opcional("numero"),
+        status=_lista_preferencia(dados["status"], "status"),
+        ativo_ids=_lista_preferencia(dados["ativo_ids"], "ativo_ids", ids=True),
+        data_inicio=inteiro_opcional("data_inicio"), data_fim=inteiro_opcional("data_fim"),
+        ultima_atualizacao_inicio=inteiro_opcional("ultima_atualizacao_inicio"), ultima_atualizacao_fim=inteiro_opcional("ultima_atualizacao_fim"),
+        loja_ids=_lista_preferencia(dados["loja_ids"], "loja_ids", ids=True),
+        prioridades=_lista_preferencia(dados["prioridades"], "prioridades"),
+        responsavel_ids=_lista_preferencia(dados["responsavel_ids"], "responsavel_ids", ids=True),
+        incluir_nao_atribuido=dados["incluir_nao_atribuido"], ordenar_por=dados["ordenar_por"], direcao=dados["direcao"],
     )
 
 
 def _preferencia_filtros_gerente(dados: dict[str, Any]) -> PreferenciaFiltrosGerente:
-    dados = _objeto_exato(
-        dados,
-        "preferencia",
-        {"numero", "status", "ativo_id", "data_inicio", "data_fim", "ultima_atualizacao_inicio", "ultima_atualizacao_fim"},
-    )
+    dados = _normalizar_preferencia_legada(_objeto(dados, "preferencia"), global_=False)
+    dados = _objeto_exato(dados, "preferencia", {"numero", "status", "ativo_ids", "data_inicio", "data_fim", "ultima_atualizacao_inicio", "ultima_atualizacao_fim"})
+    def inteiro_opcional(nome):
+        return _inteiro(dados[nome], f"preferencia.{nome}") if dados[nome] is not None else None
     return PreferenciaFiltrosGerente(
-        numero=_inteiro(dados["numero"], "preferencia.numero") if dados["numero"] is not None else None,
-        status=_texto(dados["status"], "preferencia.status") if dados["status"] is not None else None,
-        ativo_id=_inteiro(dados["ativo_id"], "preferencia.ativo_id") if dados["ativo_id"] is not None else None,
-        data_inicio=_inteiro(dados["data_inicio"], "preferencia.data_inicio") if dados["data_inicio"] is not None else None,
-        data_fim=_inteiro(dados["data_fim"], "preferencia.data_fim") if dados["data_fim"] is not None else None,
-        ultima_atualizacao_inicio=_inteiro(dados["ultima_atualizacao_inicio"], "preferencia.ultima_atualizacao_inicio") if dados["ultima_atualizacao_inicio"] is not None else None,
-        ultima_atualizacao_fim=_inteiro(dados["ultima_atualizacao_fim"], "preferencia.ultima_atualizacao_fim") if dados["ultima_atualizacao_fim"] is not None else None,
+        numero=inteiro_opcional("numero"), status=_lista_preferencia(dados["status"], "status"),
+        ativo_ids=_lista_preferencia(dados["ativo_ids"], "ativo_ids", ids=True),
+        data_inicio=inteiro_opcional("data_inicio"), data_fim=inteiro_opcional("data_fim"),
+        ultima_atualizacao_inicio=inteiro_opcional("ultima_atualizacao_inicio"), ultima_atualizacao_fim=inteiro_opcional("ultima_atualizacao_fim"),
     )
 
 
@@ -720,11 +740,17 @@ def _evento_timeline(dados: Any) -> EventoTimelineChamado:
         raise XanoContratoInvalido(
             "Campo inválido na resposta: timeline.alteracoes."
         )
+    visibilidade = evento.get("visibilidade")
+    if tipo == "comentario":
+        if not isinstance(visibilidade, str) or visibilidade not in {"publica", "interna"}:
+            raise XanoContratoInvalido("Campo inválido na resposta: timeline.visibilidade.")
+    else:
+        visibilidade = None
     return EventoTimelineChamado(
         id=_inteiro(evento.get("id"), "timeline.id"),
         tipo=tipo,
         conteudo=conteudo_normalizado,
-        visibilidade=_texto(evento.get("visibilidade"), "timeline.visibilidade"),
+        visibilidade=visibilidade,
         criado_em=_inteiro(evento.get("criado_em"), "timeline.criado_em"),
         autor=_referencia_usuario(evento.get("autor"), "timeline.autor"),
         tecnico_anterior=_referencia_usuario(
@@ -866,6 +892,19 @@ class XanoServiceDeskCliente(XanoCliente):
             for item in _colecao(dados)
         ]
 
+    async def listar_tecnicos_fila(self, token: str) -> list[ReferenciaUsuario]:
+        dados = await self._requisitar("GET", "/tecnico/ativos", token=token)
+        tecnicos = dados.get("tecnicos")
+        if not isinstance(tecnicos, list):
+            raise XanoContratoInvalido("O Xano retornou um catálogo de Técnicos incompatível.")
+        resultado = []
+        for item in tecnicos:
+            tecnico = _referencia_usuario(item, "tecnicos")
+            if tecnico is None:
+                raise XanoContratoInvalido("O Xano retornou um Técnico inválido no catálogo.")
+            resultado.append(tecnico)
+        return resultado
+
     async def listar_categorias(
         self,
         token: str,
@@ -937,40 +976,19 @@ class XanoServiceDeskCliente(XanoCliente):
         return _detalhe_gerente(_objeto(dados.get("chamado"), "chamado"))
 
     async def listar_chamados(
-        self,
-        token: str,
-        *,
-        numero: int | None = None,
-        status: str | None = None,
-        ativo_id: int | None = None,
-        data_inicio: int | None = None,
-        data_fim: int | None = None,
-        ultima_atualizacao_inicio: int | None = None,
-        ultima_atualizacao_fim: int | None = None,
-        ordenar_por: str = "criado_em",
-        direcao: str = "DESC",
+        self, token: str, *, numero: int | None = None,
+        status: list[str] | None = None, ativo_ids: list[int] | None = None,
+        data_inicio: int | None = None, data_fim: int | None = None,
+        ultima_atualizacao_inicio: int | None = None, ultima_atualizacao_fim: int | None = None,
+        ordenar_por: str = "criado_em", direcao: str = "DESC",
     ) -> ListaChamadosGerente:
-        params: dict[str, str | int] = {
-            "ordenar_por": ordenar_por,
-            "direcao": direcao,
-        }
-        for campo, valor in (
-            ("numero", numero),
-            ("status", status),
-            ("ativo_id", ativo_id),
-            ("data_inicio", data_inicio),
-            ("data_fim", data_fim),
-            ("ultima_atualizacao_inicio", ultima_atualizacao_inicio),
-            ("ultima_atualizacao_fim", ultima_atualizacao_fim),
-        ):
-            if valor is not None and valor != "":
-                params[campo] = valor
-        dados = await self._requisitar(
-            "GET",
-            "/gerente/chamados",
-            token=token,
-            params=params,
-        )
+        params = {"ordenar_por": ordenar_por, "direcao": direcao}
+        for campo, valor in (("numero", numero), ("data_inicio", data_inicio), ("data_fim", data_fim),
+                             ("ultima_atualizacao_inicio", ultima_atualizacao_inicio), ("ultima_atualizacao_fim", ultima_atualizacao_fim),
+                             ("status", status), ("ativo_ids", ativo_ids)):
+            if valor is not None and valor != "" and valor != []:
+                params[campo] = json.dumps(valor, ensure_ascii=False) if isinstance(valor, list) else valor
+        dados = await self._requisitar("GET", "/gerente/chamados", token=token, params=params)
         return _lista_chamados_gerente(dados)
 
     async def obter_preferencia_filtros_gerente(
@@ -1029,54 +1047,30 @@ class XanoServiceDeskCliente(XanoCliente):
         return _comentario_publico(dados.get("comentario"))
 
     async def listar_chamados_tecnico(
-        self,
-        token: str,
-        *,
-        numero: int | None = None,
-        status: str | None = None,
-        ativo_id: int | None = None,
-        data_inicio: int | None = None,
-        data_fim: int | None = None,
-        ultima_atualizacao_inicio: int | None = None,
-        ultima_atualizacao_fim: int | None = None,
-        loja_id: int | None = None,
-        prioridade: str | None = None,
-        responsavel_id: int | None = None,
-        ordenar_por: str = "numero",
-        direcao: str = "DESC",
-        somente_atribuidos_a_mim: bool = False,
+        self, token: str, *, numero: int | None = None,
+        status: list[str] | None = None, ativo_ids: list[int] | None = None,
+        data_inicio: int | None = None, data_fim: int | None = None,
+        ultima_atualizacao_inicio: int | None = None, ultima_atualizacao_fim: int | None = None,
+        loja_ids: list[int] | None = None, prioridades: list[str] | None = None,
+        responsavel_ids: list[int] | None = None, incluir_nao_atribuido: bool = False,
+        ordenar_por: str = "numero", direcao: str = "DESC", somente_atribuidos_a_mim: bool = False,
     ) -> ListaChamadosGerente:
-        """Lista global com o mesmo envelope e filtros da lista do Gerente."""
-
-        params: dict[str, str | int] = {}
-        for campo, valor in (
-            ("numero", numero),
-            ("status", status),
-            ("ativo_id", ativo_id),
-            ("data_inicio", data_inicio),
-            ("data_fim", data_fim),
-            ("ultima_atualizacao_inicio", ultima_atualizacao_inicio),
-            ("ultima_atualizacao_fim", ultima_atualizacao_fim),
-            ("loja_id", loja_id),
-            ("prioridade", prioridade),
-            ("responsavel_id", responsavel_id),
-        ):
-            if valor is not None and valor != "":
-                params[campo] = valor
+        params = {}
+        for campo, valor in (("numero", numero), ("status", status), ("ativo_ids", ativo_ids),
+                             ("data_inicio", data_inicio), ("data_fim", data_fim),
+                             ("ultima_atualizacao_inicio", ultima_atualizacao_inicio), ("ultima_atualizacao_fim", ultima_atualizacao_fim),
+                             ("loja_ids", loja_ids), ("prioridades", prioridades), ("responsavel_ids", responsavel_ids)):
+            if valor is not None and valor != "" and valor != []:
+                params[campo] = json.dumps(valor, ensure_ascii=False) if isinstance(valor, list) else valor
+        if incluir_nao_atribuido:
+            params["incluir_nao_atribuido"] = True
         if somente_atribuidos_a_mim:
             params["somente_atribuidos_a_mim"] = True
-        # O contrato possui o mesmo padrão inicial; omiti-lo preserva URLs
-        # concisas sem deixar o frontend decidir a ordenação no servidor.
         if ordenar_por != "numero":
             params["ordenar_por"] = ordenar_por
         if direcao != "DESC":
             params["direcao"] = direcao
-        dados = await self._requisitar(
-            "GET",
-            "/tecnico/chamados",
-            token=token,
-            params=params,
-        )
+        dados = await self._requisitar("GET", "/tecnico/chamados", token=token, params=params)
         return _lista_chamados_gerente(dados)
 
     async def obter_preferencia_fila_tecnica(
@@ -1089,37 +1083,19 @@ class XanoServiceDeskCliente(XanoCliente):
         return _preferencia_fila_tecnica(dados.get("preferencia"))
 
     async def salvar_preferencia_fila_tecnica(
-        self,
-        token: str,
-        *,
-        escopo: str,
-        numero: int | None,
-        status: str | None,
-        ativo_id: int | None,
-        data_inicio: int | None,
-        data_fim: int | None,
-        prioridade: str | None,
-        responsavel_id: int | None,
-        somente_nao_atribuido: bool,
-        ordenar_por: str,
-        direcao: str,
-        ultima_atualizacao_inicio: int | None = None,
-        ultima_atualizacao_fim: int | None = None,
-        loja_id: int | None = None,
+        self, token: str, *, escopo: str, numero: int | None,
+        status: list[str], ativo_ids: list[int], data_inicio: int | None, data_fim: int | None,
+        prioridades: list[str], responsavel_ids: list[int], incluir_nao_atribuido: bool,
+        ordenar_por: str, direcao: str, ultima_atualizacao_inicio: int | None = None,
+        ultima_atualizacao_fim: int | None = None, loja_ids: list[int] | None = None,
     ) -> PreferenciaFilaTecnica:
         dados = await self._requisitar(
             "PUT", "/tecnico/preferencias-fila", token=token,
-            json={
-                "escopo": escopo, "numero": numero, "status": status,
-                "ativo_id": ativo_id, "data_inicio": data_inicio,
-                "data_fim": data_fim, "prioridade": prioridade,
-                "ultima_atualizacao_inicio": ultima_atualizacao_inicio,
-                "ultima_atualizacao_fim": ultima_atualizacao_fim,
-                "loja_id": loja_id,
-                "responsavel_id": responsavel_id,
-                "somente_nao_atribuido": somente_nao_atribuido,
-                "ordenar_por": ordenar_por, "direcao": direcao,
-            },
+            json={"escopo": escopo, "numero": numero, "status": status, "ativo_ids": ativo_ids,
+                  "data_inicio": data_inicio, "data_fim": data_fim,
+                  "ultima_atualizacao_inicio": ultima_atualizacao_inicio, "ultima_atualizacao_fim": ultima_atualizacao_fim,
+                  "loja_ids": loja_ids or [], "prioridades": prioridades, "responsavel_ids": responsavel_ids,
+                  "incluir_nao_atribuido": incluir_nao_atribuido, "ordenar_por": ordenar_por, "direcao": direcao},
             erro_400_como_entrada=True,
         )
         return _preferencia_fila_tecnica(dados.get("preferencia"))

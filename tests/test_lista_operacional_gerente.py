@@ -466,16 +466,19 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     assert "$db.ativo.lojas_id == $usuario.lojas_id" in fonte
     assert 'sort = {status_ordenavel: "asc", chamados.id: "asc"}' in fonte
     assert "total: ($items|count)" in fonte
-    assert "timestamp data_inicio?" in endpoint
-    assert "timestamp data_fim?" in endpoint
+    assert "timestamp? data_inicio?" in endpoint
+    assert "timestamp? data_fim?" in endpoint
     assert "text numero? filters=trim" in endpoint
-    assert "text ativo_id? filters=trim" in endpoint
+    assert "int[] ativo_ids?" in endpoint
     assert "text numero? filters=trim" in fonte
-    assert "text ativo_id? filters=trim" in fonte
+    assert "int[] ativo_ids?" in fonte
     assert "($input.numero|to_int)" in fonte
-    assert "($input.ativo_id|to_int)" in fonte
+    assert "foreach ($ativo_ids)" in fonte
+    assert "if (!($id > 0))" in fonte
     assert "($numero_convertido|to_text) == $input.numero" in fonte
-    assert "($ativo_convertido|to_text) == $input.ativo_id" in fonte
+    assert "$ativo.lojas_id == $usuario.lojas_id" in fonte
+    assert "array.filter ($chamados_filtrados) if ($ativo_ids|in:$this.ativo_id)" in fonte
+    assert "array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status)" in fonte
     assert "where = $db.ativo.lojas_id == $usuario.lojas_id && ($input.numero" not in fonte
     assert "where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado)" in fonte
     assert "where = $db.ativo.lojas_id == $usuario.lojas_id && (!$aplicar_numero" not in fonte

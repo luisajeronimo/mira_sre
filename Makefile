@@ -61,15 +61,20 @@ fiscal:
 
 mock: SHELL := /bin/bash
 mock:
-	@simulator_pid=""; fiscal_pid=""; \
+	@simulator_pid=""; fiscal_pid=""; ready_file="$$(mktemp)"; \
 	cleanup() { \
 		trap - INT TERM EXIT; \
 		[[ -z "$$simulator_pid" ]] || kill -INT -- "-$$simulator_pid" 2>/dev/null || true; \
 		[[ -z "$$fiscal_pid" ]] || kill -INT -- "-$$fiscal_pid" 2>/dev/null || true; \
 		wait "$$simulator_pid" "$$fiscal_pid" 2>/dev/null || true; \
+		rm -f "$$ready_file"; \
 	}; \
 	trap cleanup INT TERM EXIT; \
-	setsid /bin/bash -o pipefail -c 'PYTHONUNBUFFERED=1 $(MAKE) --no-print-directory simulator 2>&1 | sed -u "s/^/[simulator] /"' & simulator_pid=$$!; \
+	MIRA_MOCK_READY_FILE="$$ready_file" setsid /bin/bash -o pipefail -c 'PYTHONUNBUFFERED=1 $(MAKE) --no-print-directory simulator 2>&1 | tee "$$MIRA_MOCK_READY_FILE" | sed -u "s/^/[simulator] /"' & simulator_pid=$$!; \
+	while ! grep -Fq "Ciclo concluído." "$$ready_file"; do \
+		if ! kill -0 "$$simulator_pid" 2>/dev/null; then wait "$$simulator_pid"; exit $$?; fi; \
+		sleep 0.1; \
+	done; \
 	setsid /bin/bash -o pipefail -c 'PYTHONUNBUFFERED=1 $(MAKE) --no-print-directory fiscal 2>&1 | sed -u "s/^/[fiscal] /"' & fiscal_pid=$$!; \
 	wait -n "$$simulator_pid" "$$fiscal_pid"
 

@@ -11,7 +11,7 @@ else
 endif
 
 
-.PHONY: setup install xano-install openspec-install simulator fiscal
+.PHONY: setup install xano-install openspec-install simulator fiscal mock
 
 
 setup:
@@ -58,6 +58,20 @@ simulator:
 fiscal:
 	@echo "Iniciando Fiscal..."
 	@$(VENV_PYTHON) fiscal/fiscal.py
+
+mock: SHELL := /bin/bash
+mock:
+	@simulator_pid=""; fiscal_pid=""; \
+	cleanup() { \
+		trap - INT TERM EXIT; \
+		[[ -z "$$simulator_pid" ]] || kill -INT -- "-$$simulator_pid" 2>/dev/null || true; \
+		[[ -z "$$fiscal_pid" ]] || kill -INT -- "-$$fiscal_pid" 2>/dev/null || true; \
+		wait "$$simulator_pid" "$$fiscal_pid" 2>/dev/null || true; \
+	}; \
+	trap cleanup INT TERM EXIT; \
+	setsid /bin/bash -o pipefail -c 'PYTHONUNBUFFERED=1 $(MAKE) --no-print-directory simulator 2>&1 | sed -u "s/^/[simulator] /"' & simulator_pid=$$!; \
+	setsid /bin/bash -o pipefail -c 'PYTHONUNBUFFERED=1 $(MAKE) --no-print-directory fiscal 2>&1 | sed -u "s/^/[fiscal] /"' & fiscal_pid=$$!; \
+	wait -n "$$simulator_pid" "$$fiscal_pid"
 
 py_test:
 	@PYTHONPATH=. .venv/bin/python -m pytest -q

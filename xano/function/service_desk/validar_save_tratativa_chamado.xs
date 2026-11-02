@@ -342,7 +342,7 @@ function "service_desk/validar_save_tratativa_chamado" {
 
             // Um Save efetivo gera uma única auditoria, mesmo se vários campos mudarem.
             db.add interacoes_chamado {
-              data = {tipo_evento: "alteracao_chamado", alteracoes: $alteracoes, criado_em: $instante, visibilidade: "interna", chamados_id: $chamado.id, usuarios_id: $usuario.id}
+              data = {tipo_evento: "alteracao_chamado", alteracoes: $alteracoes, criado_em: $instante, chamados_id: $chamado.id, usuarios_id: $usuario.id}
               mock = {
                 "salva alterações combinadas": {id: 202, tipo_evento: "alteracao_chamado", alteracoes: {responsavel: {anterior: 12, resultante: 10}, status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}, categoria: {anterior: 2, resultante: 3}, sla_horas_aplicado: {anterior: 8, resultante: 4}}, criado_em: 1780000002000, visibilidade: "interna", chamados_id: 101, usuarios_id: 12}
                 "preserva categoria inativa sem troca": {id: 202, tipo_evento: "alteracao_chamado", alteracoes: {prioridade: {anterior: "Média", resultante: "Alta"}}, criado_em: 1780000002000, visibilidade: "interna", chamados_id: 101, usuarios_id: 12}

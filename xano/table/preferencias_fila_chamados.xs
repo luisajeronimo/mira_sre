@@ -24,6 +24,7 @@ table preferencias_fila_chamados {
     text ordenar_por?="numero" filters=trim
     text direcao?="DESC" filters=trim
     timestamp atualizado_em?
+    json? filtros_multiplos?
   }
 
   index = [

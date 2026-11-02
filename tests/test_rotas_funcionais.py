@@ -64,11 +64,15 @@ class _ClienteFilaRastreado:
     async def listar_ativos_tecnico(self, _token):
         return []
 
+    async def listar_tecnicos_fila(self, _token):
+        return []
+
     async def obter_preferencia_fila_tecnica(self, _token, *, escopo):
         return SimpleNamespace(
-            escopo=escopo, numero=None, status=None, ativo_id=None,
-            data_inicio=None, data_fim=None, prioridade=None,
-            responsavel_id=None, somente_nao_atribuido=False,
+            escopo=escopo, numero=None, status=[], ativo_ids=[], loja_ids=[],
+            data_inicio=None, data_fim=None, prioridades=[],
+            responsavel_ids=[], incluir_nao_atribuido=False,
+            ultima_atualizacao_inicio=None, ultima_atualizacao_fim=None,
             ordenar_por="numero", direcao="DESC",
         )
 
@@ -272,8 +276,8 @@ def test_troca_real_de_sessao_nao_reutiliza_contexto_tecnico_nas_rotas_canonicas
                 f"token-{perfil}",
                 {
                     "numero": numero_esperado,
-                    "status": None,
-                    "ativo_id": None,
+                    "status": [],
+                    "ativo_ids": [], "loja_ids": [], "prioridades": [], "responsavel_ids": [], "incluir_nao_atribuido": False,
                     "data_inicio": None,
                     "data_fim": None,
                     "somente_atribuidos_a_mim": False,

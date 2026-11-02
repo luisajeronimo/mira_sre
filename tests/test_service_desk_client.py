@@ -107,6 +107,16 @@ def test_catalogo_tecnico_usa_rota_do_service_desk():
     assert requisicoes[0].headers["Authorization"] == "Bearer token"
 
 
+def test_catalogo_tecnicos_fila_independe_de_chamados():
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(
+        lambda requisicao: httpx.Response(200, json={"items": [], "tecnicos": [
+            {"id": 1, "nome": "Com chamados"}, {"id": 2, "nome": "Sem chamados"}
+        ]})
+    ))
+    tecnicos = executar(cliente.listar_tecnicos_fila("token"))
+    assert [(item.id, item.nome) for item in tecnicos] == [(1, "Com chamados"), (2, "Sem chamados")]
+
+
 def test_cinco_contratos_usam_base_token_rotas_e_payload_exatos():
     requisicoes = []
 
@@ -422,7 +432,7 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
                             "id": 12,
                             "tipo": "atribuicao",
                             "conteudo": "",
-                            "visibilidade": "interna",
+                            "visibilidade": None,
                             "criado_em": 1780000002000,
                             "autor": {"id": 12, "nome": "Técnico"},
                             "tecnico_anterior": None,
@@ -452,7 +462,7 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
         transport=httpx.MockTransport(responder),
     )
     fila = executar(cliente.listar_chamados_tecnico("token"))
-    busca = executar(cliente.listar_chamados_tecnico("token", numero=102, status="Novo", ativo_id=1, data_inicio=1780000000000, data_fim=1780100000000))
+    busca = executar(cliente.listar_chamados_tecnico("token", numero=102, status=["Novo", "Resolvido"], ativo_ids=[1, 2], data_inicio=1780000000000, data_fim=1780100000000))
     meus = executar(cliente.listar_chamados_tecnico("token", somente_atribuidos_a_mim=True))
     por_aberto = executar(
         cliente.listar_chamados_tecnico(
@@ -474,11 +484,15 @@ def test_contratos_tecnicos_enviam_filtros_explicitos_e_pesquisa_por_numero():
     ]
     assert detalhe.timeline[0].criado_em > detalhe.timeline[1].criado_em
     assert detalhe.timeline[0].conteudo is None
+    assert detalhe.timeline[0].visibilidade is None
+    assert detalhe.timeline[1].visibilidade == "publica"
     assert detalhe.tecnicos[0].id == 12
     assert assumido.atribuido_em == 1780000001000
     assert requisicoes[0].url.path.endswith("/tecnico/chamados")
     assert dict(requisicoes[0].url.params) == {}
-    assert dict(requisicoes[1].url.params) == {"numero": "102", "status": "Novo", "ativo_id": "1", "data_inicio": "1780000000000", "data_fim": "1780100000000"}
+    assert json.loads(requisicoes[1].url.params["status"]) == ["Novo", "Resolvido"]
+    assert json.loads(requisicoes[1].url.params["ativo_ids"]) == [1, 2]
+    assert requisicoes[1].url.params["numero"] == "102"
     assert dict(requisicoes[2].url.params) == {"somente_atribuidos_a_mim": "true"}
     assert dict(requisicoes[3].url.params) == {
         "ordenar_por": "aberto_por", "direcao": "ASC"
@@ -531,9 +545,9 @@ def test_preferencia_fila_tecnica_nao_envia_usuario_e_valida_retorno_canonico():
     cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(responder))
     lida = executar(cliente.obter_preferencia_fila_tecnica("token", escopo="todos"))
     salva = executar(cliente.salvar_preferencia_fila_tecnica(
-        "token", escopo="todos", numero=None, status="Novo", ativo_id=None,
-        data_inicio=None, data_fim=None, prioridade="Alta",
-        responsavel_id=None, somente_nao_atribuido=False,
+        "token", escopo="todos", numero=None, status=["Novo"], ativo_ids=[],
+        data_inicio=None, data_fim=None, prioridades=["Alta"],
+        responsavel_ids=[], incluir_nao_atribuido=False,
         ordenar_por="aberto_por", direcao="ASC",
     ))
 
@@ -543,6 +557,10 @@ def test_preferencia_fila_tecnica_nao_envia_usuario_e_valida_retorno_canonico():
     payload = json.loads(requisicoes[1].read())
     assert "usuarios_id" not in payload
     assert payload["ordenar_por"] == "aberto_por"
+    assert payload["status"] == ["Novo"]
+    assert payload["ativo_ids"] == []
+    assert lida.status == ["Novo"]
+    assert lida.prioridades == ["Alta"]
 
 
 @pytest.mark.parametrize("direcao", ["ASC", "DESC"])
@@ -562,9 +580,9 @@ def test_preferencia_fila_tecnica_aceita_ordenacao_persistida_por_loja(direcao):
 
     resultado = executar(cliente.obter_preferencia_fila_tecnica("token", escopo="todos"))
     salva = executar(cliente.salvar_preferencia_fila_tecnica(
-        "token", escopo="todos", numero=None, status=None, ativo_id=None,
-        data_inicio=None, data_fim=None, prioridade=None, responsavel_id=None,
-        somente_nao_atribuido=False, ordenar_por="loja", direcao=direcao,
+        "token", escopo="todos", numero=None, status=[], ativo_ids=[],
+        data_inicio=None, data_fim=None, prioridades=[], responsavel_ids=[],
+        incluir_nao_atribuido=False, ordenar_por="loja", direcao=direcao,
     ))
 
     assert (resultado.ordenar_por, resultado.direcao) == ("loja", direcao)
@@ -591,13 +609,13 @@ def test_save_preferencia_classifica_erros_de_sessao_escopo_e_entrada(status, er
                 "token",
                 escopo="todos",
                 numero=None,
-                status=None,
-                ativo_id=None,
+                status=[],
+                ativo_ids=[],
                 data_inicio=None,
                 data_fim=None,
-                prioridade=None,
-                responsavel_id=None,
-                somente_nao_atribuido=False,
+                prioridades=[],
+                responsavel_ids=[],
+                incluir_nao_atribuido=False,
                 ordenar_por="numero",
                 direcao="DESC",
             )
@@ -651,6 +669,8 @@ def test_detalhe_tecnico_aceita_evento_estruturado_de_alteracao_sem_afetar_legad
     detalhe = executar(cliente.obter_chamado_tecnico("token", 36))
 
     evento, legado = detalhe.timeline
+    assert evento.visibilidade is None
+    assert legado.visibilidade is None
     assert evento.tipo == "alteracao_chamado"
     assert evento.conteudo is None
     assert evento.alteracoes == {
@@ -987,3 +1007,90 @@ def test_base_dedicada_e_obrigatoria_sem_fallback(monkeypatch):
     monkeypatch.setenv("XANO_SERVICE_DESK_BASE_URL", BASE_URL)
     cliente = criar_cliente_service_desk()
     assert cliente._base_url == BASE_URL
+
+
+def test_preferencia_multipla_preserva_listas_e_envia_payload_completo():
+    requisicoes = []
+    pref = {
+        "escopo": "todos", "numero": None, "status": ["Novo", "Resolvido"],
+        "ativo_ids": [1, 2], "data_inicio": None, "data_fim": None,
+        "ultima_atualizacao_inicio": None, "ultima_atualizacao_fim": None,
+        "loja_ids": [3], "prioridades": ["Alta"], "responsavel_ids": [12, 15],
+        "incluir_nao_atribuido": True, "ordenar_por": "numero", "direcao": "DESC",
+    }
+    def responder(req):
+        requisicoes.append(req)
+        return httpx.Response(200, json={"preferencia": pref})
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(responder))
+    resultado = executar(cliente.salvar_preferencia_fila_tecnica("token", **pref))
+    assert json.loads(requisicoes[0].read()) == pref
+    assert resultado.responsavel_ids == [12, 15]
+    assert resultado.incluir_nao_atribuido is True
+
+
+def test_preferencia_multipla_invalida_falha_sem_fallback():
+    pref = {
+        "escopo": "todos", "numero": None, "status": [], "ativo_ids": [0],
+        "data_inicio": None, "data_fim": None, "ultima_atualizacao_inicio": None,
+        "ultima_atualizacao_fim": None, "loja_ids": [], "prioridades": [],
+        "responsavel_ids": [], "incluir_nao_atribuido": False,
+        "ordenar_por": "numero", "direcao": "DESC",
+    }
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(
+        lambda _: httpx.Response(200, json={"preferencia": pref})
+    ))
+    with pytest.raises(XanoContratoInvalido):
+        executar(cliente.obter_preferencia_fila_tecnica("token", escopo="todos"))
+
+
+def test_gerente_parametros_multiplos_json_e_preferencia_vazia():
+    requisicoes = []
+    preferencia = {"numero": None, "status": [], "ativo_ids": [], "data_inicio": None,
+                   "data_fim": None, "ultima_atualizacao_inicio": None,
+                   "ultima_atualizacao_fim": None}
+    def responder(req):
+        requisicoes.append(req)
+        if req.url.path.endswith("/preferencias-fila"):
+            return httpx.Response(200, json={"preferencia": preferencia})
+        return httpx.Response(200, json={"items": [], "total": 0})
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(responder))
+    executar(cliente.listar_chamados("token", status=["Novo", "Resolvido"], ativo_ids=[1, 2]))
+    salva = executar(cliente.salvar_preferencia_filtros_gerente("token", **preferencia))
+    assert json.loads(requisicoes[0].url.params["status"]) == ["Novo", "Resolvido"]
+    assert json.loads(requisicoes[0].url.params["ativo_ids"]) == [1, 2]
+    assert json.loads(requisicoes[1].read()) == preferencia
+    assert salva.status == [] and salva.ativo_ids == []
+
+
+def test_consulta_multipla_preserva_uniao_e_intersecao_no_transporte():
+    registros = [
+        (1, "Novo", "Média", 2), (2, "Em Atendimento", "Baixa", 3),
+        (3, "Novo", "Alta", 3), (4, "Resolvido", "Baixa", 2),
+    ]
+    consultas = []
+    def responder(req):
+        filtros = {campo: json.loads(req.url.params[campo]) for campo in ("status", "prioridades", "ativo_ids") if campo in req.url.params}
+        consultas.append(filtros)
+        ids = [identificador for identificador, status, prioridade, ativo in registros
+               if (not filtros.get("status") or status in filtros["status"])
+               and (not filtros.get("prioridades") or prioridade in filtros["prioridades"])
+               and (not filtros.get("ativo_ids") or ativo in filtros["ativo_ids"])]
+        items = [detalhe_valido(id=identificador)["chamado"] for identificador in ids]
+        return httpx.Response(200, json={"items": items, "total": len(items)})
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(responder))
+    assert executar(cliente.listar_chamados_tecnico("token", status=["Novo", "Em Atendimento"])).total == 3
+    assert executar(cliente.listar_chamados_tecnico("token", status=["Novo", "Em Atendimento"], prioridades=["Média", "Baixa"])).total == 2
+    assert executar(cliente.listar_chamados_tecnico("token", ativo_ids=[2, 3])).total == 4
+    assert consultas[-1]["ativo_ids"] == [2, 3]
+
+
+@pytest.mark.parametrize("visibilidade", [None, "", "secreta", []])
+def test_comentario_exige_visibilidade_reconhecida(visibilidade):
+    evento = {"id": 1, "tipo": "comentario", "conteudo": "Atualização",
+              "visibilidade": visibilidade, "criado_em": 1780000000000,
+              "autor": None, "tecnico_anterior": None, "tecnico_novo": None}
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(
+        lambda _: httpx.Response(200, json=detalhe_tecnico_valido(timeline=[evento]))
+    ))
+    with pytest.raises(XanoContratoInvalido, match="timeline.visibilidade"):
+        executar(cliente.obter_chamado_tecnico("token", 101))

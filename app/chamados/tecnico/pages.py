@@ -24,6 +24,7 @@ from app.components.visual import (
     campo_info,
     campo_rotulado,
     composicao_detalhe_chamado,
+    dropdown_multisselecao,
     painel_filtros,
     periodo_rotulado,
     rotulo_campo,
@@ -83,53 +84,52 @@ def _fila_tecnico() -> rx.Component:
                     ),
                     campo_rotulado(
                         "Status",
-                        rx.select(
+                        dropdown_multisselecao(
                             ChamadosTecnicoState.status_filtros(),
-                            value=ChamadosTecnicoState.filtro_status,
-                            on_change=ChamadosTecnicoState.alterar_filtro_status,
-                            placeholder="Status",
-                            width="100%",
-                            text_transform="uppercase",
+                            ChamadosTecnicoState.filtro_status,
+                            ChamadosTecnicoState.alterar_filtro_status,
+                            "Status",
+                            ChamadosTecnicoState.carregando_fila,
                         ),
                     ),
                     campo_rotulado(
                         "Prioridade",
-                        rx.select(
+                        dropdown_multisselecao(
                             ChamadosTecnicoState.prioridades_tratativa(),
-                            value=ChamadosTecnicoState.filtro_prioridade,
-                            on_change=ChamadosTecnicoState.alterar_filtro_prioridade,
-                            placeholder="Prioridade",
-                            width="100%",
+                            ChamadosTecnicoState.filtro_prioridade,
+                            ChamadosTecnicoState.alterar_filtro_prioridade,
+                            "Prioridade",
+                            ChamadosTecnicoState.carregando_fila,
                         ),
                     ),
                     campo_rotulado(
                         "Responsável",
-                        rx.select(
+                        dropdown_multisselecao(
                             ChamadosTecnicoState.responsaveis_filtro,
-                            value=ChamadosTecnicoState.filtro_responsavel,
-                            on_change=ChamadosTecnicoState.alterar_filtro_responsavel,
-                            placeholder="Responsável",
-                            width="100%",
+                            ChamadosTecnicoState.filtro_responsavel,
+                            ChamadosTecnicoState.alterar_filtro_responsavel,
+                            "Responsável",
+                            ChamadosTecnicoState.carregando_fila,
                         ),
                     ),
                     campo_rotulado(
                         "Totem",
-                        rx.select(
+                        dropdown_multisselecao(
                             ChamadosTecnicoState.ativos,
-                            value=ChamadosTecnicoState.filtro_ativo,
-                            on_change=ChamadosTecnicoState.alterar_filtro_ativo,
-                            placeholder="Totem",
-                            width="100%",
+                            ChamadosTecnicoState.filtro_ativo,
+                            ChamadosTecnicoState.alterar_filtro_ativo,
+                            "Totem",
+                            ChamadosTecnicoState.carregando_fila,
                         ),
                     ),
                     campo_rotulado(
                         "Loja",
-                        rx.select(
+                        dropdown_multisselecao(
                             ChamadosTecnicoState.lojas,
-                            value=ChamadosTecnicoState.filtro_loja,
-                            on_change=ChamadosTecnicoState.alterar_filtro_loja,
-                            placeholder="Loja",
-                            width="100%",
+                            ChamadosTecnicoState.filtro_loja,
+                            ChamadosTecnicoState.alterar_filtro_loja,
+                            "Loja",
+                            ChamadosTecnicoState.carregando_fila,
                         ),
                     ),
                     periodo_rotulado(
@@ -501,9 +501,18 @@ def _detalhe_tecnico() -> rx.Component:
                                         ),
                                         rx.vstack(
                                             rx.text(item["criado_em_texto"], size="1", color=TEXTO_SECUNDARIO),
-                                            badge_visibilidade(item["visibilidade_texto"]),
+                                            rx.cond(
+                                                item["tipo"] == "comentario",
+                                                badge_visibilidade(item["visibilidade_texto"]),
+                                                rx.cond(
+                                                    item["comentario_conteudo"] != "",
+                                                    badge_visibilidade(item["comentario_visibilidade_texto"]),
+                                                    rx.fragment(),
+                                                ),
+                                            ),
                                             align="end",
                                             spacing="2",
+                                            flex_shrink="0",
                                         ),
                                         justify="between",
                                         align="start",
@@ -517,10 +526,11 @@ def _detalhe_tecnico() -> rx.Component:
                                     rx.cond(
                                         item["comentario_conteudo"] != "",
                                         rx.vstack(
-                                            rx.hstack(
+                                            rx.vstack(
                                                 rx.text("Comentário", weight="bold"),
-                                                badge_visibilidade(item["comentario_visibilidade_texto"]),
-                                                spacing="2",
+                                                rx.text("Por: " + item["comentario_autor_nome"], size="1", color=TEXTO_SECUNDARIO),
+                                                align="start",
+                                                spacing="1",
                                             ),
                                             rx.text(item["comentario_conteudo"], white_space="pre-wrap"),
                                             align="start",

@@ -118,10 +118,12 @@ def test_preferencias_autorizam_sessao_validam_escopo_e_normalizam_status():
         assert 'error = "Escopo inválido."' in funcao
         assert 'error_type = "accessdenied"' in funcao
         assert 'error = "Acesso não autorizado."' in funcao
-    assert "$input.status|to_lower" in PREFERENCIA_SALVAR
+    assert "foreach ($input.status ?? [])" in PREFERENCIA_SALVAR
+    assert "$s|trim|to_lower" in PREFERENCIA_SALVAR
     assert 'value = "Em Atendimento"' in PREFERENCIA_SALVAR
     assert 'value = "Solução Rejeitada"' in PREFERENCIA_SALVAR
-    assert '($input.status == null || $input.status == "" || $status != null)' in PREFERENCIA_SALVAR
+    assert 'if (!($canonico != null))' in PREFERENCIA_SALVAR
+    assert '$status_normalizados|unique' in PREFERENCIA_SALVAR
     assert '$input.ordenar_por == "aberto_por"' in PREFERENCIA_SALVAR
 
 
@@ -202,8 +204,6 @@ def test_listagem_restaura_where_da_consulta_base_e_filtra_apos_ordenar():
     wheres = re.findall(r"^\s*where = (.+)$", LISTAGEM, flags=re.MULTILINE)
     where_base = (
         "($db.chamados.id ==? $numero_normalizado) && "
-        "($db.chamados.status ==? $status_normalizado) && "
-        "($db.chamados.ativos_referencia_id ==? $ativo_normalizado) && "
         "($db.chamados.criado_em >=? $input.data_inicio) && "
         "($db.chamados.criado_em <? $input.data_fim) && "
         "($db.chamados.tecnico_id ==? $tecnico_id_normalizado)"
@@ -216,9 +216,9 @@ def test_listagem_restaura_where_da_consulta_base_e_filtra_apos_ordenar():
     assert all("$responsavel_id_normalizado" not in where for where in wheres)
     assert all("$aplicar_prioridade" not in where for where in wheres)
     assert all("$prioridade_normalizada" not in where for where in wheres)
-    assert "array.filter ($chamados_filtrados) if ($this.prioridade == $prioridade_normalizada)" in LISTAGEM
-    assert "array.filter ($chamados_filtrados) if ($this.tecnico_id == null || $this.tecnico_id == 0)" in LISTAGEM
-    assert "array.filter ($chamados_filtrados) if ($this.tecnico_id == $responsavel_id_normalizado)" in LISTAGEM
+    assert "array.filter ($chamados_filtrados) if ($prioridades|in:$this.prioridade)" in LISTAGEM
+    assert "($input.incluir_nao_atribuido == true && ($this.tecnico_id == null || $this.tecnico_id == 0))" in LISTAGEM
+    assert "array.filter ($chamados_filtrados) if (($responsavel_ids|in:$this.tecnico_id) ||" in LISTAGEM
     # Os filtros de coleção recebem a saída da query; não há ordenação local
     # posterior que possa invalidar o desempate já resolvido pelo Xano.
     inicio_pos_filtro = LISTAGEM.index("var $chamados_filtrados")

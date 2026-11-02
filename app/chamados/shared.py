@@ -174,9 +174,9 @@ def evento_timeline_para_dict(
         "tipo": evento.tipo,
         "titulo": titulos[evento.tipo],
         "conteudo": evento.conteudo or "",
-        "visibilidade": evento.visibilidade,
+        "visibilidade": (evento.visibilidade or "") if evento.tipo == "comentario" else "",
         "visibilidade_texto": (
-            "Público" if evento.visibilidade == "publica" else "Interno"
+            "Público" if evento.visibilidade == "publica" and evento.tipo == "comentario" else ("Interno" if evento.visibilidade == "interna" and evento.tipo == "comentario" else "")
         ),
         "criado_em_texto": _timestamp_funcional_para_texto(evento.criado_em),
         "autor_nome": (
@@ -199,6 +199,8 @@ def evento_timeline_para_dict(
         ),
         "comentario_conteudo": "",
         "comentario_visibilidade_texto": "",
+        "comentario_autor_nome": "",
+        "comentario_criado_em_texto": "",
     }
 
 
@@ -320,6 +322,8 @@ class TimelineView(TypedDict):
     comentario_interacao_id: int | None
     comentario_conteudo: str
     comentario_visibilidade_texto: str
+    comentario_autor_nome: str
+    comentario_criado_em_texto: str
 
 
 class TecnicoOpcaoView(TypedDict):

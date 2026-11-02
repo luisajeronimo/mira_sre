@@ -53,6 +53,43 @@ class SeletorPeriodoCalendario(NoSSRComponent):
 seletor_periodo_calendario = SeletorPeriodoCalendario.create
 
 
+def dropdown_multisselecao(opcoes, selecionados, ao_alternar, rotulo: str, disabled=False) -> rx.Component:
+    """Seleção controlada; marcar opções não confirma os filtros da página."""
+    return rx.popover.root(
+        rx.popover.trigger(
+            rx.button(
+                rx.cond(selecionados.length() == 0, rotulo, selecionados.length().to_string() + " selecionado(s)"),
+                rx.icon("chevron-down", size=16),
+                variant="outline",
+                color_scheme="gray",
+                disabled=disabled,
+                width="100%",
+                justify="between",
+                aria_label=rotulo,
+                _focus_visible=FOCO_VISIVEL,
+            )
+        ),
+        rx.popover.content(
+            rx.vstack(
+                rx.foreach(
+                    opcoes,
+                    lambda opcao: rx.checkbox(
+                        opcao,
+                        checked=selecionados.contains(opcao),
+                        on_change=lambda _: ao_alternar(opcao),
+                        disabled=disabled,
+                        _focus_visible=FOCO_VISIVEL,
+                    ),
+                ),
+                align="start",
+                spacing="2",
+            ),
+            max_height="20rem",
+            overflow_y="auto",
+        ),
+    )
+
+
 def rotulo_campo(texto: str) -> rx.Component:
     """Rótulo compacto e persistente para filtros e informações."""
     return rx.text(

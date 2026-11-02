@@ -26,6 +26,7 @@ from app.components.visual import (
     campo_info,
     campo_rotulado,
     composicao_detalhe_chamado,
+    dropdown_multisselecao,
     painel_filtros,
     periodo_rotulado,
     rotulo_campo,
@@ -63,23 +64,22 @@ def _lista() -> rx.Component:
                     ),
                     campo_rotulado(
                         "Status",
-                        rx.select(
+                        dropdown_multisselecao(
                             ChamadosGerenteState.status_filtros(),
-                            value=ChamadosGerenteState.filtro_status,
-                            on_change=ChamadosGerenteState.alterar_filtro_status,
-                            placeholder="Status",
-                            width="100%",
-                            text_transform="uppercase",
+                            ChamadosGerenteState.filtro_status,
+                            ChamadosGerenteState.alterar_filtro_status,
+                            "Status",
+                            ChamadosGerenteState.carregando_chamados,
                         ),
                     ),
                     campo_rotulado(
                         "Totem",
-                        rx.select(
+                        dropdown_multisselecao(
                             ChamadosGerenteState.ativos,
-                            value=ChamadosGerenteState.filtro_ativo,
-                            on_change=ChamadosGerenteState.alterar_filtro_ativo,
-                            placeholder="Totem",
-                            width="100%",
+                            ChamadosGerenteState.filtro_ativo,
+                            ChamadosGerenteState.alterar_filtro_ativo,
+                            "Totem",
+                            ChamadosGerenteState.carregando_chamados,
                         ),
                     ),
                     periodo_rotulado(

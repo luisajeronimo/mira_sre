@@ -125,9 +125,9 @@ def test_lista_aplica_consulta_server_side_e_mantem_total(monkeypatch):
     monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado()
     estado.filtro_numero = "7"
-    estado.filtro_status = "Novo"
-    estado.filtro_status_confirmado = "Novo"
-    estado.filtro_ativo = "1 — Totem 01"
+    estado.filtro_status = ['Novo']
+    estado.filtro_status_confirmado = ['Novo']
+    estado.filtro_ativo = ['1 — Totem 01']
     estado.filtro_data_inicio = "2026-10-01"
     estado.filtro_data_fim = "2026-10-02"
 
@@ -144,8 +144,8 @@ def test_lista_aplica_consulta_server_side_e_mantem_total(monkeypatch):
     ]
     _, consulta = cliente.consultas[-1]
     assert consulta["numero"] == 7
-    assert consulta["status"] == "Novo"
-    assert consulta["ativo_id"] == 1
+    assert consulta["status"] == ["Novo"]
+    assert consulta["ativo_ids"] == [1]
     assert consulta["data_inicio"] < consulta["data_fim"]
     assert consulta["ordenar_por"] == "criado_em"
     assert consulta["direcao"] == "DESC"
@@ -158,30 +158,30 @@ def test_limpar_preserva_ordenacao_e_reconsulta(monkeypatch):
     estado = novo_estado()
     estado.ordenar_por = "prioridade"
     estado.direcao = "ASC"
-    estado.filtro_status = "Novo"
-    estado.status_aplicado = "Novo"
-    estado.filtro_status_confirmado = "Novo"
+    estado.filtro_status = ['Novo']
+    estado.status_aplicado = ['Novo']
+    estado.filtro_status_confirmado = ['Novo']
     estado.filtros_aplicados = ["Status: Novo"]
 
     executar_evento(ChamadosGerenteState.limpar_filtros_lista, estado)
 
     assert estado.filtros_aplicados == []
-    assert estado.filtro_status == ""
+    assert estado.filtro_status == []
     assert estado.ordenar_por == "prioridade"
     assert estado.direcao == "ASC"
-    assert cliente.consultas[-1][1]["status"] is None
+    assert cliente.consultas[-1][1]["status"] == []
 
 
 def test_preferencia_gerente_restaura_totem_e_criterios_confirmados():
     estado = novo_estado()
     estado.ativos = ["1 — Totem 01"]
     estado._aplicar_preferencia(SimpleNamespace(
-        numero=7, status="Novo", ativo_id=1,
+        numero=7, status=["Novo"], ativo_ids=[1],
         data_inicio=1790823600000, data_fim=1790910000000,
         ultima_atualizacao_inicio=None, ultima_atualizacao_fim=None,
     ))
 
-    assert estado.filtro_ativo == "1 — Totem 01"
+    assert estado.filtro_ativo == ['1 — Totem 01']
     assert "Totem: Totem 01" in estado.filtros_aplicados
 
 
@@ -215,16 +215,16 @@ def test_falha_ao_salvar_preferencia_gerente_restaura_confirmados(monkeypatch):
     cliente = ClienteComFalhaSave()
     monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado()
-    estado.filtro_status = "Novo"
-    estado.status_aplicado = "Novo"
-    estado.filtro_status_confirmado = "Novo"
+    estado.filtro_status = ['Novo']
+    estado.status_aplicado = ['Novo']
+    estado.filtro_status_confirmado = ['Novo']
     estado.filtros_aplicados = ["Status: Novo"]
-    estado.filtro_status = "Encerrado"
+    estado.filtro_status = ['Encerrado']
 
     executar_evento(ChamadosGerenteState.aplicar_filtros, estado)
 
-    assert estado.filtro_status == "Novo"
-    assert estado.status_aplicado == "Novo"
+    assert estado.filtro_status == ['Novo']
+    assert estado.status_aplicado == ['Novo']
     assert estado.filtros_aplicados == ["Status: Novo"]
 
 
@@ -272,7 +272,7 @@ def test_sessao_confirmada_sobrevive_a_filtros_e_limpezas_repetidos(monkeypatch)
     estado = novo_estado()
 
     for _ in range(2):
-        estado.filtro_status = "Novo"
+        estado.filtro_status = ['Novo']
         executar_evento(ChamadosGerenteState.aplicar_filtros, estado)
         executar_evento(ChamadosGerenteState.limpar_filtros_lista, estado)
 
@@ -720,3 +720,35 @@ def test_fluxo_completo_select_evento_clique_e_payload(monkeypatch):
     assert cliente.criacoes[-1][1]["categorias_servico_id"] == 2
     assert cliente.criacoes[-1][1]["titulo"] == "Totem travado"
 
+
+
+def test_gerente_multiplos_rascunho_nao_consulta_e_aplicar_preserva_colecoes(monkeypatch):
+    liberar_validacao(monkeypatch)
+    cliente = ClienteListaFalso()
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado()
+    for status in ["Novo", "Resolvido"]:
+        ChamadosGerenteState.alterar_filtro_status.fn(estado, status)
+    for ativo in ["1 — Totem 01", "2 — Totem 02"]:
+        ChamadosGerenteState.alterar_filtro_ativo.fn(estado, ativo)
+    assert cliente.consultas == []
+    assert estado.status_aplicado == []
+    executar_evento(ChamadosGerenteState.aplicar_filtros, estado)
+    assert cliente.consultas[-1][1]["status"] == ["Novo", "Resolvido"]
+    assert cliente.consultas[-1][1]["ativo_ids"] == [1, 2]
+    ChamadosGerenteState.alterar_filtro_status.fn(estado, "Novo")
+    assert estado.status_aplicado == ["Novo", "Resolvido"]
+    executar_evento(ChamadosGerenteState.limpar_filtros_lista, estado)
+    assert estado.status_aplicado == estado.filtro_status == []
+    assert cliente.consultas[-1][1]["ativo_ids"] == []
+
+
+def test_dropdown_multisselecao_controlado_preserva_foco_e_desabilitacao():
+    fonte = inspect.getsource(visual.dropdown_multisselecao)
+    assert "rx.popover.trigger" in fonte
+    assert "rx.checkbox" in fonte
+    assert "checked=selecionados.contains(opcao)" in fonte
+    assert "ao_alternar(opcao)" in fonte
+    assert fonte.count("disabled=disabled") == 2
+    assert fonte.count("_focus_visible=FOCO_VISIVEL") == 2
+    assert "aria_label=rotulo" in fonte

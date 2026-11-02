@@ -20,7 +20,7 @@ function "service_desk/obter_chamado_tecnico" {
         "retorna detalhe automático": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
-        "retorna timeline cronológica com legado": ```
+        "retorna timeline cronológica decrescente com legado": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
         "retorna detalhe Diretoria": ```
@@ -82,19 +82,19 @@ function "service_desk/obter_chamado_tecnico" {
           {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: 3, loja_nome: "Loja Centro", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "retorna detalhe legado": ```
-          {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+          {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "retorna detalhe automático": ```
-          {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 1, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+          {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 1, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
           ```
-        "retorna timeline cronológica com legado": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Em Atendimento", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000002000, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: 12, tecnico_nome: "Técnico"}
+        "retorna timeline cronológica decrescente com legado": ```
+          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Em Atendimento", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000002000, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: 12, tecnico_nome: "Técnico"}
           ```
         "retorna detalhe Diretoria": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "retorna detalhe Administrador": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
           ```
         "rejeita inexistente": null
       }
@@ -140,7 +140,7 @@ function "service_desk/obter_chamado_tecnico" {
         "retorna detalhe": []
         "retorna detalhe legado": []
         "retorna detalhe automático": []
-        "retorna timeline cronológica com legado": ```
+        "retorna timeline cronológica decrescente com legado": ```
           [
             {id: 11, mensagem: "Comentário legado", criado_em: null, created_at: 1780000001000, tipo_evento: null, alteracoes: null, visibilidade: "publica", chamados_id: 101, usuarios_id: 8, autor_id: 8, autor_nome: "Gerente", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null},
             {id: 12, mensagem: "Comentário recente", criado_em: 1780000004000, created_at: 1780000004001, tipo_evento: "comentario", alteracoes: null, visibilidade: "interna", chamados_id: 101, usuarios_id: 12, autor_id: 12, autor_nome: "Técnico", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null},
@@ -160,7 +160,7 @@ function "service_desk/obter_chamado_tecnico" {
         tipo: ($$.tipo_evento == null || $$.tipo_evento == "") ? "comentario" : $$.tipo_evento,
         conteudo: $$.mensagem,
         alteracoes: $$.alteracoes,
-        visibilidade: $$.visibilidade,
+        visibilidade: ($$.tipo_evento == null || $$.tipo_evento == "" || $$.tipo_evento == "comentario") ? $$.visibilidade : null,
         criado_em: ($$.criado_em ?? $$.created_at),
         ordenacao: (($$.criado_em ?? $$.created_at)|to_text) ~ "-" ~ ($$.id|to_text),
         autor: ($$.autor_id != null && $$.autor_id != 0) ? {id: $$.autor_id, nome: $$.autor_nome} : null,
@@ -197,7 +197,7 @@ function "service_desk/obter_chamado_tecnico" {
         "retorna detalhe": [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}]
         "retorna detalhe legado": []
         "retorna detalhe automático": []
-        "retorna timeline cronológica com legado": [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}]
+        "retorna timeline cronológica decrescente com legado": [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}]
         "retorna detalhe Diretoria": [{id: 12, nome: "Técnico"}]
         "retorna detalhe Administrador": [{id: 12, nome: "Técnico"}]
       }
@@ -241,10 +241,10 @@ function "service_desk/obter_chamado_tecnico" {
     input = {usuarios_id: 12, chamados_id: 101}
     expect.to_equal ($response.timeline) {
       value = [
-        {id: 15, tipo: "alteracao_chamado", conteudo: null, alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}}, visibilidade: "interna", criado_em: 1780000005000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
+        {id: 15, tipo: "alteracao_chamado", conteudo: null, alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}}, visibilidade: null, criado_em: 1780000005000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
         {id: 12, tipo: "comentario", conteudo: "Comentário recente", alteracoes: null, visibilidade: "interna", criado_em: 1780000004000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
-        {id: 14, tipo: "reatribuicao", conteudo: null, alteracoes: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 4, nome: "Diretoria"}, tecnico_anterior: {id: 12, nome: "Técnico"}, tecnico_novo: {id: 10, nome: "Outro Técnico"}},
-        {id: 13, tipo: "atribuicao", conteudo: null, alteracoes: null, visibilidade: "interna", criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}},
+        {id: 14, tipo: "reatribuicao", conteudo: null, alteracoes: null, visibilidade: null, criado_em: 1780000002000, autor: {id: 4, nome: "Diretoria"}, tecnico_anterior: {id: 12, nome: "Técnico"}, tecnico_novo: {id: 10, nome: "Outro Técnico"}},
+        {id: 13, tipo: "atribuicao", conteudo: null, alteracoes: null, visibilidade: null, criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}},
         {id: 11, tipo: "comentario", conteudo: "Comentário legado", alteracoes: null, visibilidade: "publica", criado_em: 1780000001000, autor: {id: 8, nome: "Gerente"}, tecnico_anterior: null, tecnico_novo: null}
       ]
     }

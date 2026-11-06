@@ -759,7 +759,7 @@ def _protegida(conteudo: rx.Component, evento) -> rx.Component:
         estado_carregamento(),
         rx.cond(
             AuthState.sessao_confirmada & (AuthState.role == "gerente"),
-            casca_conteudo(conteudo, "/inicio"),
+            casca_conteudo(conteudo, "/inicio", evento_sair=ChamadosGerenteState.sair_gerente),
             estado_revalidacao(evento),
         ),
     )

@@ -5,6 +5,8 @@ query "verificar-falhas" verb=GET {
   }
 
   stack {
+    var $resultado { value = {error: "Não autenticado."} }
+
     var $chave_fiscal_recebida {
       value = $env.$http_headers|get:"X-Mira-Fiscal-Key"
     }
@@ -16,15 +18,11 @@ query "verificar-falhas" verb=GET {
     conditional {
       if (!($chave_fiscal_configurada != null && $chave_fiscal_configurada != "" && $chave_fiscal_recebida != null && $chave_fiscal_recebida != "" && $chave_fiscal_recebida === $chave_fiscal_configurada)) {
         util.set_header {
-          value = "HTTP/1.1 401 Unauthorized\nContent-Type: application/json"
+          value = "HTTP/1.1 401 Unauthorized"
           duplicates = "replace"
         }
-
-        return {
-          value = {error: "Não autenticado."}
-        }
       }
-    }
+      else {
 
     var $limite_heartbeat {
       value = "now"|add_secs_to_timestamp:-900
@@ -227,18 +225,24 @@ query "verificar-falhas" verb=GET {
         }
       }
     }
+
+        var.update $resultado {
+          value = {
+            success           : true
+            message           : "Verificação de heartbeat concluída."
+            heartbeat_minutos : 15
+            total_ativos      : $ativos|count
+            online            : $total_online
+            offline           : $total_offline
+            sem_telemetria    : $total_sem_telemetria
+            incidentes_criados: $incidentes_criados
+          }
+        }
+      }
+    }
   }
 
-  response = {
-    success           : true
-    message           : "Verificação de heartbeat concluída."
-    heartbeat_minutos : 15
-    total_ativos      : $ativos|count
-    online            : $total_online
-    offline           : $total_offline
-    sem_telemetria    : $total_sem_telemetria
-    incidentes_criados: $incidentes_criados
-  }
+  response = $resultado
 
   guid = "U33I__ejEljqO945VD7PyFI7Ypc"
 }

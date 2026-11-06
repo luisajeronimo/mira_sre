@@ -7,7 +7,7 @@ Definir o acompanhamento público e seguro de chamados pelo Gerente, com coment�
 ## Requirements
 
 ### Requirement: Última atualização representa alteração observável pelo Gerente
-Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. Na criação manual ou automática, o Xano DEVE (MUST) definir ambos com o mesmo instante funcional, calculado uma única vez; `criado_em` permanece imutável. A atribuição efetiva, mudança de status e comentário público DEVEM (MUST) atualizar somente `ultima_atualizacao_em`; leitura e eventos internos não visíveis NÃO DEVEM (MUST NOT) atualizá-lo.
+Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. Na criação manual ou automática, o Xano DEVE (MUST) definir ambos com o mesmo instante funcional, calculado uma única vez; `criado_em` permanece imutável. Atribuição efetiva, mudança de status e comentário Público ou Interno autorizado DEVEM (MUST) atualizar somente `ultima_atualizacao_em`; leitura e eventos internos sem comentário ou consequência funcional NÃO DEVEM (MUST NOT) atualizá-lo.
 
 #### Scenario: Criação inicializa os timestamps funcionais
 - **WHEN** um fluxo funcional cria chamado válido
@@ -18,7 +18,7 @@ Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. 
 - **THEN** `ultima_atualizacao_em` recebe o mesmo instante funcional de `criado_em`
 
 #### Scenario: Evento observável posterior
-- **WHEN** atribuição efetiva, mudança de status ou comentário público ocorre
+- **WHEN** atribuição efetiva, mudança de status ou comentário Público autorizado ocorre
 - **THEN** `criado_em` permanece imutável e o Xano atualiza `ultima_atualizacao_em` no mesmo ato
 
 #### Scenario: Atribuição efetiva atualiza a data
@@ -29,8 +29,12 @@ Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. 
 - **WHEN** um fluxo funcional autorizado altera o status de um chamado
 - **THEN** o Xano atualiza somente `ultima_atualizacao_em` no mesmo ato da alteração de status
 
+#### Scenario: Comentário interno operacional
+- **WHEN** um perfil operacional publica comentário Interno autorizado
+- **THEN** o Xano atualiza `ultima_atualizacao_em` sem tornar o conteúdo do comentário visível ao Gerente
+
 #### Scenario: Evento interno não visível
-- **WHEN** ocorre nota interna, work log, diagnóstico ou outra operação sem consequência visível ao Gerente
+- **WHEN** ocorre diagnóstico ou outra operação interna sem comentário nem consequência funcional
 - **THEN** o evento não altera `ultima_atualizacao_em`
 
 ### Requirement: Dados legados permanecem sem última atualização inferida

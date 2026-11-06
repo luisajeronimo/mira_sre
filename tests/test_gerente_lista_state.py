@@ -28,7 +28,7 @@ from app.services.xano import (
     XanoNaoAutenticado,
     XanoRateLimitado,
 )
-from app.states.auth import MENSAGEM_EXPIRADA, MENSAGEM_INDISPONIVEL
+from app.states.auth import AuthState, MENSAGEM_EXPIRADA, MENSAGEM_INDISPONIVEL
 
 
 def executar_evento(handler, estado, *args):
@@ -104,12 +104,133 @@ class ClienteListaComFalha(ClienteListaFalso):
 
 
 def novo_estado():
-    estado = ChamadosGerenteState(_reflex_internal_init=True)
-    object.__setattr__(estado, "_auth_token", "token-de-teste")
-    object.__setattr__(estado, "sessao_confirmada", True)
-    object.__setattr__(estado, "usuario_id", 8)
-    object.__setattr__(estado, "role", "gerente")
+    raiz = AuthState(_reflex_internal_init=True)
+    estado = ChamadosGerenteState(parent_state=raiz, _reflex_internal_init=True)
+    raiz._auth_token = "token-de-teste"
+    raiz.sessao_confirmada = True
+    raiz.usuario_id = 8
+    raiz.role = "gerente"
     return estado
+
+
+def test_logout_gerente_descarta_dados_e_preferencias_locais():
+    estado = novo_estado()
+    estado._sincronizar_contexto_gerente()
+    estado.chamados = [{"id": 7}]
+    estado.chamado = {"id": 7}
+    estado.comentarios = [{"id": 3}]
+    estado.rascunho_comentario = "Rascunho"
+    estado.ativos = ["1 — Totem 01"]
+    estado.numero_aplicado = 7
+    estado.filtro_numero = "7"
+    estado.preferencia_filtros_carregada = True
+
+    ChamadosGerenteState.sair_gerente.fn(estado)
+
+    assert estado.sessao_confirmada is False
+    assert estado._auth_token == ""
+    assert estado.usuario_id is None
+    assert estado.chamados == []
+    assert estado.chamado == {}
+    assert estado.comentarios == []
+    assert estado.rascunho_comentario == ""
+    assert estado.ativos == []
+    assert estado.numero_aplicado is None
+    assert estado.filtro_numero == ""
+    assert estado.preferencia_filtros_carregada is False
+
+
+@pytest.mark.parametrize("novo_usuario_id", [8, 9])
+def test_nova_sessao_gerente_nao_reutiliza_estado_anterior(novo_usuario_id):
+    estado = novo_estado()
+    estado._sincronizar_contexto_gerente()
+    estado.chamados = [{"id": 7}]
+    estado.rascunho_comentario = "Anterior"
+    estado.numero_aplicado = 7
+    estado.preferencia_filtros_carregada = True
+    estado._auth_token = "outra-sessao"
+    estado._versao_sessao += 1
+    estado.usuario_id = novo_usuario_id
+
+    estado._sincronizar_contexto_gerente()
+
+    assert estado.chamados == []
+    assert estado.rascunho_comentario == ""
+    assert estado.numero_aplicado is None
+    assert estado.preferencia_filtros_carregada is False
+    assert estado.usuario_id_contexto_gerente == novo_usuario_id
+
+
+def test_resposta_tardia_da_lista_nao_repovoa_nova_sessao(monkeypatch):
+    class ClienteLento(ClienteListaFalso):
+        def __init__(self):
+            super().__init__()
+            self.iniciada = asyncio.Event()
+            self.liberar = asyncio.Event()
+
+        async def listar_chamados(self, token, **kwargs):
+            self.iniciada.set()
+            await self.liberar.wait()
+            return ListaChamadosGerente(items=[resumo()], total=1)
+
+    cliente = ClienteLento()
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado()
+
+    async def executar():
+        carga = ChamadosGerenteState.carregar_lista.fn(estado)
+        assert await carga.__anext__() is None
+        resposta = asyncio.create_task(carga.__anext__())
+        await cliente.iniciada.wait()
+        ChamadosGerenteState.sair_gerente.fn(estado)
+        estado._auth_token = "token-novo"
+        estado.usuario_id = 9
+        estado.role = "gerente"
+        estado.sessao_confirmada = True
+        cliente.liberar.set()
+        with pytest.raises(StopAsyncIteration):
+            await resposta
+
+    asyncio.run(executar())
+
+    assert estado.chamados == []
+    assert estado.total_chamados == 0
+    assert estado.preferencia_filtros_carregada is False
+
+
+def test_nova_sessao_rele_preferencia_do_gerente(monkeypatch):
+    class ClienteComPreferencia(ClienteListaFalso):
+        def __init__(self):
+            super().__init__()
+            self.leituras = []
+
+        async def obter_preferencia_filtros_gerente(self, token):
+            self.leituras.append(token)
+            return SimpleNamespace(
+                numero=7,
+                status=[],
+                ativo_ids=[],
+                data_inicio=None,
+                data_fim=None,
+                ultima_atualizacao_inicio=None,
+                ultima_atualizacao_fim=None,
+            )
+
+    cliente = ClienteComPreferencia()
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado()
+
+    executar_evento(ChamadosGerenteState.carregar_lista, estado)
+    assert cliente.leituras == ["token-de-teste"]
+    assert estado.numero_aplicado == 7
+
+    estado._auth_token = "token-novo"
+    estado._versao_sessao += 1
+    executar_evento(ChamadosGerenteState.carregar_lista, estado)
+
+    assert cliente.leituras == ["token-de-teste", "token-novo"]
+    assert estado.numero_aplicado == 7
+    assert estado.preferencia_filtros_carregada is True
 
 
 def liberar_validacao(monkeypatch):
@@ -394,10 +515,6 @@ def test_falha_de_autenticacao_no_catalogo_secundario_redireciona(monkeypatch):
     monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado()
     estado.ativos = []
-    def limpar_sessao(_estado, _mensagem):
-        object.__setattr__(_estado, "sessao_confirmada", False)
-        object.__setattr__(_estado, "_auth_token", "")
-    monkeypatch.setattr(ChamadosGerenteState, "_limpar_sessao", limpar_sessao)
 
     eventos = executar_evento(ChamadosGerenteState.carregar_lista, estado)
 

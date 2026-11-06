@@ -24,13 +24,22 @@ query "tecnico/chamados" verb=GET {
     var $loja_ids { value = $input.loja_ids == null ? [] : ($input.loja_ids|json_decode) }
     var $prioridades { value = $input.prioridades == null ? [] : ($input.prioridades|json_decode) }
     var $responsavel_ids { value = $input.responsavel_ids == null ? [] : ($input.responsavel_ids|json_decode) }
-    precondition (($status|is_array) && ($ativo_ids|is_array) && ($loja_ids|is_array) && ($prioridades|is_array) && ($responsavel_ids|is_array)) {
-      error_type = "inputerror"
-      error = "Filtros múltiplos inválidos."
+    var $resultado { value = null }
+    conditional {
+      if (!(($status|is_array) && ($ativo_ids|is_array) && ($loja_ids|is_array) && ($prioridades|is_array) && ($responsavel_ids|is_array))) {
+        util.set_header {
+          value = "HTTP/1.1 422 Unprocessable Entity"
+          duplicates = "replace"
+        }
+        var.update $resultado { value = {code: "ERROR_CODE_INPUT_ERROR", message: "Filtros múltiplos inválidos.", payload: {}} }
+      }
+      else {
+        function.run "service_desk/listar_chamados_tecnico" {
+          input = {usuarios_id: $auth.id, numero: $input.numero, status: $status, ativo_ids: $ativo_ids, data_inicio: $input.data_inicio, data_fim: $input.data_fim, ultima_atualizacao_inicio: $input.ultima_atualizacao_inicio, ultima_atualizacao_fim: $input.ultima_atualizacao_fim, loja_ids: $loja_ids, prioridades: $prioridades, responsavel_ids: $responsavel_ids, incluir_nao_atribuido: $input.incluir_nao_atribuido, ordenar_por: $input.ordenar_por, direcao: $input.direcao, somente_atribuidos_a_mim: $input.somente_atribuidos_a_mim}
+        } as $lista
+        var.update $resultado { value = $lista }
+      }
     }
-    function.run "service_desk/listar_chamados_tecnico" {
-      input = {usuarios_id: $auth.id, numero: $input.numero, status: $status, ativo_ids: $ativo_ids, data_inicio: $input.data_inicio, data_fim: $input.data_fim, ultima_atualizacao_inicio: $input.ultima_atualizacao_inicio, ultima_atualizacao_fim: $input.ultima_atualizacao_fim, loja_ids: $loja_ids, prioridades: $prioridades, responsavel_ids: $responsavel_ids, incluir_nao_atribuido: $input.incluir_nao_atribuido, ordenar_por: $input.ordenar_por, direcao: $input.direcao, somente_atribuidos_a_mim: $input.somente_atribuidos_a_mim}
-    } as $resultado
   }
   response = $resultado
   guid = "miraFilaTecnicoApi01"

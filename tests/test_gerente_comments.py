@@ -288,3 +288,26 @@ def test_xanoscript_preserva_timestamps_e_visibilidade_fechada():
     assert "db.transaction" in criar
     assert 'visibilidade: "publica"' in criar
     assert "ultima_atualizacao_em: $criado_em" in criar
+
+
+def test_gets_genericos_de_interacoes_negam_gerente_sem_alterar_consulta_publica():
+    colecao = (
+        ROOT / "xano/api/apis_from_table_interacoes_chamado/interacoes_chamado_GET.xs"
+    ).read_text()
+    detalhe = (
+        ROOT
+        / "xano/api/apis_from_table_interacoes_chamado/interacoes_chamado/interacoes_chamado_id_GET.xs"
+    ).read_text()
+    publico = (
+        ROOT / "xano/function/service_desk/listar_comentarios_publicos_gerente.xs"
+    ).read_text()
+
+    autorizacao_colecao = colecao.split('function.run "autorizacao/exigir_perfil"', 1)[1].split('} as $usuario', 1)[0]
+    assert "tecnico: true" in autorizacao_colecao
+    assert "gerente: true" not in autorizacao_colecao
+    assert "diretoria: true" not in autorizacao_colecao
+    assert "administrador: true" not in autorizacao_colecao
+    assert 'function.run "autorizacao/exigir_escopo_loja"' in detalhe
+    assert 'tecnico: true' in detalhe
+    assert 'precondition ($usuario.role == "tecnico")' in detalhe
+    assert '$db.interacoes_chamado.visibilidade == "publica"' in publico

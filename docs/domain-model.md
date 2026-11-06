@@ -96,7 +96,7 @@ Identificar quem acessa o sistema, seu papel e o escopo de atuação permitido.
 - abre chamados manuais sobre Totens da própria Loja;
 - consulta todos os chamados da própria Loja, inclusive históricos;
 - não acessa chamados de outras Lojas;
-- pode comentar nos próprios chamados e rejeitar uma resolução, mas não altera diretamente o status.
+- pode comentar nos chamados da própria Loja, inclusive terminais, mas não altera diretamente o status; aceite e rejeição pelo solicitante permanecem na visão futura.
 
 #### Técnico
 
@@ -415,16 +415,16 @@ Os status aprovados para o domínio são:
 - `Aguardando Solicitante` é definido por Técnico, Diretoria ou Administrador; o solicitante visualiza o novo status, mas não recebe notificação obrigatória pelo domínio;
 - comentário posterior do solicitante não altera automaticamente `Aguardando Solicitante`; Técnico, Diretoria ou Administrador decide quando retornar a `Em Atendimento`;
 - `Aguardando Mudança` é definido por Técnico, Diretoria ou Administrador e somente sai desse estado por nova alteração manual de um desses papéis;
-- `Cancelado` é terminal: não pode ser reaberto nem receber novas edições ou interações;
-- `Encerrado` é terminal: não pode ser reaberto nem receber novas edições ou interações;
+- `Cancelado` é terminal: não pode ser reaberto nem receber novas edições funcionais; comentários autorizados continuam possíveis;
+- `Encerrado` é terminal: não pode ser reaberto nem receber novas edições funcionais; comentários autorizados continuam possíveis;
 - `Resolvido` significa que a solução técnica foi aplicada e o serviço foi considerado restaurado;
 - enquanto `Resolvido`, o solicitante pode aceitar ou rejeitar a solução;
 - a aceitação leva o sistema a `Encerrado`;
 - se não houver rejeição durante três dias em `Resolvido`, o sistema deve alterar automaticamente o Chamado para `Encerrado`;
 - um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade e efetiva o encerramento;
 - o retorno de telemetria não participa do encerramento automático;
-- para rejeitar uma resolução, o solicitante deve registrar comentário obrigatório; o sistema altera então o status para `Solução Rejeitada`;
-- a rejeição não altera atribuição, prioridade, Categoria ou demais dados funcionais do Chamado; o comentário e a última atualização são registrados;
+- Técnico, Diretoria e Administrador podem selecionar `Solução Rejeitada` no Save de chamado não terminal, com comentário humano obrigatório de visibilidade Pública ou Interna; aceite e rejeição pelo solicitante são fluxos futuros;
+- essa transição operacional segue as regras gerais do Save: outras diferenças funcionais só são persistidas quando também forem informadas e autorizadas; o comentário e a última atualização são registrados;
 - se um problema reaparecer depois de `Encerrado` ou `Cancelado`, deve ser aberto um novo Chamado.
 
 O domínio não impõe uma matriz rígida de transições intermediárias além das restrições acima. Técnico, Diretoria e Administrador podem escolher o status operacional adequado para Chamados não terminais.
@@ -464,7 +464,7 @@ Preservar comunicação, contexto e histórico auditável da tratativa.
 - comentário privado é visível somente para Técnico, Diretoria e Administrador;
 - eventos de status, atribuição, reatribuição e liberação devem aparecer na mesma linha do tempo, mas manter dados estruturados suficientes para auditoria;
 - alterações para `Resolvido`, `Aguardando Solicitante` e `Cancelado` não permitem comentário privado;
-- Chamados `Encerrado` e `Cancelado` possuem histórico bloqueado para novas interações.
+- Chamados `Encerrado` e `Cancelado` não recebem novas edições funcionais, mas preservam a possibilidade de comentários autorizados sem reabertura.
 
 ## 12. SLA
 

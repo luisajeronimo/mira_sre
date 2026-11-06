@@ -19,10 +19,7 @@ load_dotenv()
 # Configuração
 # ============================================================
 
-XANO_BASE_URL = os.getenv(
-    "XANO_BASE_URL",
-    "https://x8ki-letl-twmt.n7.xano.io/api:dcGrLbR1",
-).rstrip("/")
+XANO_BASE_URL = os.getenv("XANO_BASE_URL", "").strip().rstrip("/")
 
 INTERVALO_EXECUCAO_SEGUNDOS = int(os.getenv("FISCAL_INTERVAL_SECONDS", "300"))
 
@@ -64,6 +61,9 @@ def obter_chave_fiscal() -> str:
 
 def verificar_falhas() -> bool:
     """Chama o endpoint do Xano uma vez e registra o resultado."""
+
+    if not XANO_BASE_URL:
+        raise RuntimeError("XANO_BASE_URL não configurado")
 
     chave = obter_chave_fiscal()
     url = f"{XANO_BASE_URL}/verificar-falhas"

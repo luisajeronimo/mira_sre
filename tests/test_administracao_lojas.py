@@ -8,7 +8,7 @@ from importlib import import_module
 import pytest
 
 import app.states.auth as auth_module
-from app.pages.administracao import AdministracaoState, administracao
+from app.pages.administracao import AdministracaoState, administracao, primeiro_acesso
 from app.services.xano import (
     IdentidadeXano,
     LojaOpcaoAdministracaoXano,
@@ -101,6 +101,32 @@ def percorrer_componentes(componente):
             for filho in getattr(atual, "children", [])
             if hasattr(filho, "children")
         )
+
+
+@pytest.mark.parametrize(
+    ("pagina", "ids"),
+    [
+        (
+            administracao,
+            {
+                "nome-usuario", "email-usuario", "perfil-usuario", "loja-usuario",
+                "senha-temporaria", "confirmacao-senha-temporaria",
+            },
+        ),
+        (primeiro_acesso, {"nova-senha", "confirmacao-nova-senha"}),
+    ],
+)
+def test_campos_administrativos_tem_rotulos_persistentes_associados(pagina, ids):
+    componentes = list(percorrer_componentes(pagina()))
+    controles = {item.id for item in componentes if getattr(item, "id", None)}
+    rotulos = {
+        str(item.html_for).strip('"')
+        for item in componentes
+        if item.__class__.__name__ == "Label"
+    }
+
+    assert ids <= controles
+    assert ids <= rotulos
 
 
 def test_entrada_na_administracao_revalida_e_carrega_opcoes_uma_vez(monkeypatch):

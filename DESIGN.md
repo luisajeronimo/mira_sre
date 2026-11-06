@@ -79,9 +79,9 @@ gradientes decorativos e efeitos chamativos.
 ## Estrutura e navegação
 
 a sidebar desktop organiza áreas principais com item ativo claro e ícone
-opcional. A topbar concentra contexto de página,
-ações globais e elementos de sessão quando existentes. Não deduza itens de
-navegação, perfis ou permissões dos PNGs.
+opcional. O contexto da página aparece na navegação e no conteúdo; a topbar
+concentra ações globais e elementos de sessão, sem repetir o título da rota.
+Não deduza itens de navegação, perfis ou permissões dos PNGs.
 
 Pesquisa e filtros ficam próximos ao conjunto de dados que afetam, com estado
 ativo visível, rótulo compreensível e ação para limpar quando o contrato

@@ -469,7 +469,12 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     assert "timestamp? data_inicio?" in endpoint
     assert "timestamp? data_fim?" in endpoint
     assert "text numero? filters=trim" in endpoint
-    assert "int[] ativo_ids?" in endpoint
+    assert "text ativo_ids?" in endpoint
+    assert 'var $ativo_ids { value = $input.ativo_ids == null ? [] : ($input.ativo_ids|json_decode) }' in endpoint
+    assert 'if (!(($status|is_array) && ($ativo_ids|is_array)))' in endpoint
+    assert 'value = "HTTP/1.1 422 Unprocessable Entity"' in endpoint
+    assert endpoint.index('else {\n        function.run "service_desk/listar_chamados_gerente"') > endpoint.index('if (!(($status|is_array) && ($ativo_ids|is_array)))')
+    assert "response = $resultado" in endpoint
     assert "text numero? filters=trim" in fonte
     assert "int[] ativo_ids?" in fonte
     assert "($input.numero|to_int)" in fonte

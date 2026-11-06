@@ -12,6 +12,8 @@ query telemetria_equipamentos verb=POST {
   }
 
   stack {
+    var $resultado { value = {error: "Não autenticado."} }
+
     var $chave_simulator_recebida {
       value = $env.$http_headers|get:"X-Mira-Simulator-Key"
     }
@@ -23,15 +25,11 @@ query telemetria_equipamentos verb=POST {
     conditional {
       if (!($chave_simulator_configurada != null && $chave_simulator_configurada != "" && $chave_simulator_recebida != null && $chave_simulator_recebida != "" && $chave_simulator_recebida === $chave_simulator_configurada)) {
         util.set_header {
-          value = "HTTP/1.1 401 Unauthorized\nContent-Type: application/json"
+          value = "HTTP/1.1 401 Unauthorized"
           duplicates = "replace"
         }
-
-        return {
-          value = {error: "Não autenticado."}
-        }
       }
-    }
+      else {
 
     precondition ($input.ativos_referencia_id != null && $input.uso_cpu != null && $input.uso_memoria != null && $input.temperatura != null && $input.status_rede != null && $input.status_rede != "" && $input.evento_timestamp != null) {
       error_type = "inputerror"
@@ -66,15 +64,21 @@ query telemetria_equipamentos verb=POST {
         } as $telemetria_equipamentos
       }
     }
+
+        var.update $resultado {
+          value = {
+            success             : true
+            message             : "Telemetria registrada com sucesso."
+            telemetria_id       : $telemetria_equipamentos.id
+            ativos_referencia_id: $telemetria_equipamentos.ativos_referencia_id
+            evento_timestamp    : $telemetria_equipamentos.evento_timestamp
+          }
+        }
+      }
+    }
   }
 
-  response = {
-    success             : true
-    message             : "Telemetria registrada com sucesso."
-    telemetria_id       : $telemetria_equipamentos.id
-    ativos_referencia_id: $telemetria_equipamentos.ativos_referencia_id
-    evento_timestamp    : $telemetria_equipamentos.evento_timestamp
-  }
+  response = $resultado
 
   guid = "rv26AQvmgM-PHWCz53dBj3OjUHA"
 }

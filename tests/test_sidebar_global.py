@@ -83,7 +83,8 @@ def test_casca_reutiliza_asset_oficial_em_sidebar_desktop_sem_drawer():
     app_fonte = (ROOT / "app/app.py").read_text(encoding="utf-8")
 
     assert 'src="/mira-logo.svg"' in fonte
-    assert "on_click=AuthState.logout" in fonte
+    assert "_topbar_desktop(evento_sair or AuthState.logout)" in fonte
+    assert "on_click=evento_sair" in fonte
     assert "_focus_visible" in fonte
     assert "_sidebar_desktop" in fonte
     assert "rx.drawer" not in fonte

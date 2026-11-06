@@ -158,9 +158,19 @@ class AdministracaoState(AuthState):
             self.enviando_usuario = False
 
 
+def _campo_rotulado(rotulo: str, identificador: str, controle: rx.Component) -> rx.Component:
+    return rx.vstack(
+        rx.el.label(rotulo, html_for=identificador),
+        controle,
+        spacing="2",
+        align="start",
+        width="100%",
+    )
+
+
 def administracao() -> rx.Component:
     seletor_loja = rx.select.root(
-        rx.select.trigger(placeholder="Selecione uma Loja", width="100%"),
+        rx.select.trigger(id="loja-usuario", placeholder="Selecione uma Loja", width="100%"),
         rx.select.content(
             rx.select.group(
                 rx.foreach(
@@ -195,21 +205,21 @@ def administracao() -> rx.Component:
             rx.cond(
                 AdministracaoState.opcoes_lojas.length() == 0,
                 rx.callout("Nenhuma Loja disponível para associação.", icon="info"),
-                seletor_loja,
+                _campo_rotulado("Loja", "loja-usuario", seletor_loja),
             ),
         ),
     )
     formulario = rx.form(
         rx.vstack(
-            rx.input(name="nome", placeholder="Nome", required=True, width="100%"),
-            rx.input(name="email", type="email", placeholder="E-mail", required=True, width="100%"),
-            rx.select(AdministracaoState.perfis_criaveis(), name="role", placeholder="Perfil", required=True, on_change=AdministracaoState.selecionar_perfil, width="100%"),
+            _campo_rotulado("Nome", "nome-usuario", rx.input(id="nome-usuario", name="nome", placeholder="Nome", required=True, width="100%")),
+            _campo_rotulado("E-mail", "email-usuario", rx.input(id="email-usuario", name="email", type="email", placeholder="E-mail", required=True, width="100%")),
+            _campo_rotulado("Perfil", "perfil-usuario", rx.select(AdministracaoState.perfis_criaveis(), id="perfil-usuario", name="role", placeholder="Perfil", required=True, on_change=AdministracaoState.selecionar_perfil, width="100%")),
             rx.cond(
                 AdministracaoState.perfil_selecionado == "gerente",
                 seletor_condicional,
             ),
-            rx.input(name="senha_temporaria", type="password", placeholder="Senha temporária", min_length=8, required=True, width="100%"),
-            rx.input(name="confirmacao", type="password", placeholder="Confirme a senha temporária", min_length=8, required=True, width="100%"),
+            _campo_rotulado("Senha temporária", "senha-temporaria", rx.input(id="senha-temporaria", name="senha_temporaria", type="password", placeholder="Senha temporária", min_length=8, required=True, width="100%")),
+            _campo_rotulado("Confirme a senha temporária", "confirmacao-senha-temporaria", rx.input(id="confirmacao-senha-temporaria", name="confirmacao", type="password", placeholder="Confirme a senha temporária", min_length=8, required=True, width="100%")),
             rx.cond(AdministracaoState.mensagem_usuario != "", rx.callout(AdministracaoState.mensagem_usuario, color_scheme="red", width="100%")),
             rx.cond(AdministracaoState.sucesso_usuario != "", rx.callout(AdministracaoState.sucesso_usuario, color_scheme="green", width="100%")),
             rx.button(rx.cond(AdministracaoState.enviando_usuario, "Criando...", "Criar usuário"), type="submit", disabled=AdministracaoState.enviando_usuario),
@@ -231,8 +241,8 @@ def administracao() -> rx.Component:
 def primeiro_acesso() -> rx.Component:
     formulario = rx.form(
         rx.vstack(
-            rx.input(name="nova_senha", type="password", placeholder="Nova senha", min_length=8, required=True, width="100%"),
-            rx.input(name="confirmacao", type="password", placeholder="Confirme a nova senha", min_length=8, required=True, width="100%"),
+            _campo_rotulado("Nova senha", "nova-senha", rx.input(id="nova-senha", name="nova_senha", type="password", placeholder="Nova senha", min_length=8, required=True, width="100%")),
+            _campo_rotulado("Confirme a nova senha", "confirmacao-nova-senha", rx.input(id="confirmacao-nova-senha", name="confirmacao", type="password", placeholder="Confirme a nova senha", min_length=8, required=True, width="100%")),
             rx.cond(AuthState.mensagem_erro != "", rx.callout(AuthState.mensagem_erro, color_scheme="red", width="100%")),
             rx.button(rx.cond(AuthState.carregando, "Salvando...", "Salvar nova senha"), type="submit", disabled=AuthState.carregando),
             width="100%", spacing="3",

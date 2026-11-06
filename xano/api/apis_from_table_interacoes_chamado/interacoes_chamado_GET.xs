@@ -10,7 +10,6 @@ query interacoes_chamado verb=GET {
     function.run "autorizacao/exigir_perfil" {
       input = {
         usuarios_id: $auth.id,
-        gerente: true,
         tecnico: true
       }
     } as $usuario

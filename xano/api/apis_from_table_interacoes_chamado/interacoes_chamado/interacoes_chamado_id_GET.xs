@@ -30,6 +30,11 @@ query "interacoes_chamado/{interacoes_chamado_id}" verb=GET {
         tecnico: true
       }
     } as $usuario
+
+    precondition ($usuario.role == "tecnico") {
+      error_type = "accessdenied"
+      error = "Acesso não autorizado."
+    }
   
     precondition ($interacoes_chamado != null) {
       error_type = "notfound"

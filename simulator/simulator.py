@@ -338,18 +338,19 @@ def executar_simulador():
     imprimir_configuracao()
 
     while True:
+        inicio_ciclo = time.monotonic()
         executar_ciclo()
+        espera = max(0, inicio_ciclo + INTERVALO_CICLO_SEGUNDOS - time.monotonic())
 
         print()
         print(
             f"Ciclo concluído. "
             f"Aguardando "
-            f"{INTERVALO_CICLO_SEGUNDOS} segundos..."
+            f"{espera:g} segundos..."
         )
 
-        time.sleep(
-            INTERVALO_CICLO_SEGUNDOS
-        )
+        if espera:
+            time.sleep(espera)
 
 
 if __name__ == "__main__":

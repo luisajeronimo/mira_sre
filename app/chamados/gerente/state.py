@@ -13,10 +13,13 @@ from app.chamados.shared import (
     ChamadoView,
     ComentarioView,
     DetalheView,
+    TransicaoStatusView,
     _detalhe_para_dict,
     _resumo_para_dict,
     comentario_publico_para_dict,
+    transicao_status_para_dict,
 )
+from app.components.navegacao import acompanhamento_solicitante_publicado
 from app.services.service_desk import PRIORIDADES_CHAMADO, criar_cliente_service_desk
 from app.services.xano import (
     XanoContratoInvalido,
@@ -45,6 +48,7 @@ class ChamadosGerenteState(AuthState):
     categorias_formulario: list[dict[str, Any]] = []
     chamado: DetalheView = {}
     comentarios: list[ComentarioView] = []
+    historico: list[TransicaoStatusView] = []
     rascunho_comentario: str = ""
 
     filtro_numero: str = ""
@@ -86,6 +90,8 @@ class ChamadosGerenteState(AuthState):
     carregando_formulario: bool = False
     carregando_detalhe: bool = False
     carregando_comentarios: bool = False
+    carregando_historico: bool = False
+    historico_habilitado: bool = False
     detalhe_carregado: bool = False
     enviando: bool = False
     enviando_comentario: bool = False
@@ -93,6 +99,9 @@ class ChamadosGerenteState(AuthState):
     mensagem_formulario: str = ""
     mensagem_detalhe: str = ""
     mensagem_comentarios: str = ""
+    mensagem_historico: str = ""
+    confirmacao_comentario: str = ""
+    aviso_atualizacao_detalhe: str = ""
     mensagem_sucesso: str = ""
 
     usuario_id_contexto_gerente: int | None = None
@@ -138,6 +147,8 @@ class ChamadosGerenteState(AuthState):
         self.carregando_formulario = False
         self.carregando_detalhe = False
         self.carregando_comentarios = False
+        self.historico = []
+        self.carregando_historico = False
         self.detalhe_carregado = False
         self.enviando = False
         self.enviando_comentario = False
@@ -208,6 +219,9 @@ class ChamadosGerenteState(AuthState):
         self.mensagem_formulario = ""
         self.mensagem_detalhe = ""
         self.mensagem_comentarios = ""
+        self.mensagem_historico = ""
+        self.confirmacao_comentario = ""
+        self.aviso_atualizacao_detalhe = ""
         self.mensagem_sucesso = ""
 
     def _registrar_erro(self, erro: Exception, destino: str) -> str | None:
@@ -806,6 +820,9 @@ class ChamadosGerenteState(AuthState):
         self.detalhe_carregado = False
         self.chamado = {}
         self.comentarios = []
+        self.historico = []
+        self.mensagem_historico = ""
+        self.historico_habilitado = acompanhamento_solicitante_publicado()
         self.rascunho_comentario = ""
         self._limpar_mensagens_funcionais()
         yield
@@ -856,6 +873,29 @@ class ChamadosGerenteState(AuthState):
             finally:
                 if self._contexto_sessao_gerente() == contexto:
                     self.carregando_comentarios = False
+            # Histórico em seção própria: falha isolada, detalhe e comentários permanecem.
+            # Sem liberação (K-B), o contrato não é consultado.
+            if self.historico_habilitado:
+                self.carregando_historico = True
+                try:
+                    historico = await cliente.listar_historico_status_gerente(
+                        self._auth_token,
+                        chamado_id,
+                    )
+                    if not self._contexto_gerente_atual(contexto):
+                        return
+                    self.historico = [transicao_status_para_dict(item) for item in historico]
+                except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+                    if not self._contexto_gerente_atual(contexto):
+                        return
+                    destino = self._registrar_erro(erro, "mensagem_historico")
+                    if destino is not None:
+                        self.carregando_detalhe = False
+                        yield rx.redirect(destino)
+                        return
+                finally:
+                    if self._contexto_sessao_gerente() == contexto:
+                        self.carregando_historico = False
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             if not self._contexto_gerente_atual(contexto):
                 return
@@ -874,6 +914,8 @@ class ChamadosGerenteState(AuthState):
             return
         self.enviando_comentario = True
         self.mensagem_comentarios = ""
+        self.confirmacao_comentario = ""
+        self.aviso_atualizacao_detalhe = ""
         yield
         destino = await self._garantir_gerente()
         if destino is not None:
@@ -892,17 +934,29 @@ class ChamadosGerenteState(AuthState):
             self.mensagem_comentarios = "Chamado não encontrado."
             self.enviando_comentario = False
             return
+        cliente = criar_cliente_service_desk()
         try:
-            cliente = criar_cliente_service_desk()
             comentario = await cliente.criar_comentario_publico(
                 self._auth_token,
                 chamado_id,
                 conteudo=self.rascunho_comentario,
             )
+        except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             if not self._contexto_gerente_atual(contexto):
                 return
-            self.comentarios = [comentario_publico_para_dict(comentario)] + self.comentarios
-            self.rascunho_comentario = ""
+            destino = self._registrar_erro(erro, "mensagem_comentarios")
+            self.enviando_comentario = False
+            if destino is not None:
+                yield rx.redirect(destino)
+            return
+        if not self._contexto_gerente_atual(contexto):
+            return
+        # A publicação já foi confirmada pelo Xano; a recarga do detalhe é
+        # tratada à parte para não ser apresentada como falha da publicação.
+        self.comentarios = [comentario_publico_para_dict(comentario)] + self.comentarios
+        self.rascunho_comentario = ""
+        self.confirmacao_comentario = "Comentário publicado."
+        try:
             resultado = await cliente.obter_chamado(self._auth_token, chamado_id)
             if not self._contexto_gerente_atual(contexto):
                 return
@@ -910,11 +964,15 @@ class ChamadosGerenteState(AuthState):
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             if not self._contexto_gerente_atual(contexto):
                 return
-            destino = self._registrar_erro(erro, "mensagem_comentarios")
+            destino = self._registrar_erro(erro, "aviso_atualizacao_detalhe")
             if destino is not None:
                 self.enviando_comentario = False
                 yield rx.redirect(destino)
                 return
+            self.aviso_atualizacao_detalhe = (
+                "Não foi possível atualizar os dados do chamado. "
+                "Recarregue a página para ver a última atualização."
+            )
         if self._contexto_sessao_gerente() == contexto:
             self.enviando_comentario = False
 

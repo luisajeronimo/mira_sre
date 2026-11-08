@@ -27,21 +27,38 @@ def novo_estado() -> MonitoramentoState:
 @pytest.mark.parametrize(
     ("perfil", "rotas", "rotulos"),
     [
-        ("gerente", ["/inicio"], ["Início"]),
-        ("tecnico", ["/inicio", "/monitoramento"], ["Início", "Monitoramento"]),
-        ("diretoria", ["/inicio", "/monitoramento"], ["Início", "Monitoramento"]),
+        ("gerente", ["/inicio", "/chamados/solicitados"], ["Início", "Chamados solicitados"]),
+        (
+            "tecnico",
+            ["/inicio", "/chamados/solicitados", "/monitoramento"],
+            ["Início", "Chamados solicitados", "Monitoramento"],
+        ),
+        (
+            "diretoria",
+            ["/inicio", "/chamados/solicitados", "/monitoramento"],
+            ["Início", "Chamados solicitados", "Monitoramento"],
+        ),
         (
             "administrador",
-            ["/inicio", "/monitoramento", "/administracao/gestao"],
-            ["Início", "Monitoramento", "Administração"],
+            ["/inicio", "/chamados/solicitados", "/monitoramento", "/administracao/gestao"],
+            ["Início", "Chamados solicitados", "Monitoramento", "Administração"],
         ),
     ],
 )
-def test_matriz_central_de_navegacao_por_perfil(perfil, rotas, rotulos):
+def test_matriz_central_de_navegacao_por_perfil(monkeypatch, perfil, rotas, rotulos):
+    monkeypatch.setenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "true")
     itens = itens_visiveis(perfil)
 
     assert [item.rota for item in itens] == rotas
     assert [item.rotulo for item in itens] == rotulos
+
+
+@pytest.mark.parametrize("perfil", ["gerente", "tecnico", "diretoria", "administrador"])
+def test_chamados_solicitados_oculto_ate_a_liberacao(monkeypatch, perfil):
+    monkeypatch.delenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", raising=False)
+
+    assert "/chamados/solicitados" not in [item.rota for item in itens_visiveis(perfil)]
+    assert "/inicio" in [item.rota for item in itens_visiveis(perfil)]
 
 
 def test_perfil_nao_oficial_nao_recebe_destinos_de_navegacao():
@@ -55,13 +72,14 @@ def test_inicio_permanece_ativo_na_jornada_canonica_de_chamados():
     assert "/chamados" not in rotas
     assert "/chamados/novo" not in rotas
     assert "/chamados/[chamado_id]" not in rotas
+    assert "/chamados/solicitados/[chamado_id]" not in rotas
     inicio = next(item for item in ITENS_NAVEGACAO if item.rota == "/inicio")
     for rota in ("/inicio", "/chamados", "/chamados/novo", "/chamados/[chamado_id]"):
         assert item_esta_ativo(inicio, rota) is True
 
 
 def test_monitoramento_e_administracao_so_ativam_nas_rotas_configuradas():
-    inicio, monitoramento, administracao = ITENS_NAVEGACAO
+    inicio, solicitados, monitoramento, administracao = ITENS_NAVEGACAO
 
     assert item_esta_ativo(monitoramento, "/monitoramento") is True
     assert item_esta_ativo(administracao, "/administracao/gestao") is True
@@ -70,6 +88,20 @@ def test_monitoramento_e_administracao_so_ativam_nas_rotas_configuradas():
         assert item_esta_ativo(administracao, rota) is False
     assert item_esta_ativo(inicio, "/monitoramento") is False
     assert item_esta_ativo(inicio, "/administracao/gestao") is False
+
+
+def test_chamados_solicitados_ativo_somente_nas_proprias_rotas():
+    inicio, solicitados, monitoramento, administracao = ITENS_NAVEGACAO
+    rotas_proprias = ("/chamados/solicitados", "/chamados/solicitados/[chamado_id]")
+
+    assert solicitados.rotulo == "Chamados solicitados"
+    assert solicitados.rota == "/chamados/solicitados"
+    for rota in rotas_proprias:
+        assert item_esta_ativo(solicitados, rota) is True
+        for outro in (inicio, monitoramento, administracao):
+            assert item_esta_ativo(outro, rota) is False
+    for rota in ("/inicio", "/chamados", "/chamados/novo", "/chamados/[chamado_id]", "/monitoramento"):
+        assert item_esta_ativo(solicitados, rota) is False
 
 
 def test_asset_do_logo_corresponde_exatamente_a_referencia_oficial():

@@ -141,12 +141,15 @@ def test_dto_comentario_falha_fechado_para_campos_nao_publicos(payload):
 
 
 class ClienteComentariosFalso:
-    def __init__(self, *, status="Novo", erro=None):
+    def __init__(self, *, status="Novo", erro=None, erro_detalhe=None):
         self.status = status
         self.erro = erro
+        self.erro_detalhe = erro_detalhe
         self.criacoes = []
 
     async def obter_chamado(self, token, chamado_id):
+        if self.erro_detalhe is not None and self.criacoes:
+            raise self.erro_detalhe
         return detalhe(ultima_atualizacao_em=1780000002000, status=self.status)
 
     async def listar_comentarios_publicos(self, token, chamado_id):
@@ -212,6 +215,47 @@ def test_erro_de_comentario_e_sanitizado_sem_limpar_rascunho(monkeypatch):
 
     assert estado.rascunho_comentario == "   "
     assert estado.mensagem_comentarios == "Os dados informados são inválidos."
+    assert estado.confirmacao_comentario == ""
+    assert estado.aviso_atualizacao_detalhe == ""
+    assert estado.enviando_comentario is False
+
+
+def test_publicacao_confirmada_apresenta_confirmacao_explicita(monkeypatch):
+    liberar_validacao(monkeypatch)
+    cliente = ClienteComentariosFalso()
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado()
+    estado.rascunho_comentario = "Novo comentário"
+
+    executar_evento(ChamadosGerenteState.publicar_comentario, estado)
+
+    assert estado.confirmacao_comentario == "Comentário publicado."
+    assert estado.mensagem_comentarios == ""
+    assert estado.aviso_atualizacao_detalhe == ""
+
+
+def test_falha_na_recarga_do_detalhe_nao_desfaz_publicacao_confirmada(monkeypatch):
+    liberar_validacao(monkeypatch)
+    cliente = ClienteComentariosFalso(erro_detalhe=XanoNaoEncontrado("interno"))
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado()
+    estado.rascunho_comentario = "Novo comentário"
+
+    executar_evento(ChamadosGerenteState.publicar_comentario, estado)
+
+    assert estado.comentarios[0]["conteudo"] == "Novo comentário"
+    assert estado.rascunho_comentario == ""
+    assert estado.confirmacao_comentario == "Comentário publicado."
+    assert estado.mensagem_comentarios == ""
+    assert estado.aviso_atualizacao_detalhe.startswith("Não foi possível atualizar os dados do chamado.")
+    assert "interno" not in estado.aviso_atualizacao_detalhe
+    assert estado.enviando_comentario is False
+
+
+def test_pagina_apresenta_confirmacao_e_aviso_separados_do_erro():
+    pagina = Path(paginas.__file__).read_text(encoding="utf-8")
+    assert "ChamadosGerenteState.confirmacao_comentario" in pagina
+    assert "ChamadosGerenteState.aviso_atualizacao_detalhe" in pagina
 
 
 def test_troca_de_rota_com_erro_limpa_detalhe_e_comentarios_residuais(monkeypatch):

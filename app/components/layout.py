@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import reflex as rx
 
-from app.components.navegacao import ITENS_NAVEGACAO, ItemNavegacao
+from app.components.navegacao import ITENS_NAVEGACAO, ItemNavegacao, item_liberado
 from app.components.visual import (
     BORDA,
     CANVAS,
@@ -120,7 +120,7 @@ def _marca() -> rx.Component:
 
 def _itens_navegacao() -> rx.Component:
     return rx.vstack(
-        *[_link_navegacao(item) for item in ITENS_NAVEGACAO],
+        *[_link_navegacao(item) for item in ITENS_NAVEGACAO if item_liberado(item)],
         width="100%",
         spacing="1",
         align="start",

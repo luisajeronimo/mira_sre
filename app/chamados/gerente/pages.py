@@ -3,7 +3,13 @@
 import reflex as rx
 
 from app.chamados.gerente.state import ChamadosGerenteState
-from app.chamados.shared import botao_criar_chamado, cabecalho, cabecalho_lista_chamados, erro
+from app.chamados.shared import (
+    botao_criar_chamado,
+    cabecalho,
+    cabecalho_lista_chamados,
+    erro,
+    secao_historico_status,
+)
 from app.components.layout import casca_conteudo, estado_carregamento, estado_revalidacao
 from app.components.visual import (
     BORDA,
@@ -662,6 +668,22 @@ def _detalhe() -> rx.Component:
                 rx.heading("Comentários", size="5"),
                 erro(ChamadosGerenteState.mensagem_comentarios),
                 rx.cond(
+                    ChamadosGerenteState.confirmacao_comentario != "",
+                    rx.callout(
+                        ChamadosGerenteState.confirmacao_comentario,
+                        icon="check",
+                        color_scheme="green",
+                    ),
+                ),
+                rx.cond(
+                    ChamadosGerenteState.aviso_atualizacao_detalhe != "",
+                    rx.callout(
+                        ChamadosGerenteState.aviso_atualizacao_detalhe,
+                        icon="info",
+                        color_scheme="amber",
+                    ),
+                ),
+                rx.cond(
                     ChamadosGerenteState.carregando_comentarios,
                     rx.spinner(size="2"),
                     rx.cond(
@@ -736,6 +758,14 @@ def _detalhe() -> rx.Component:
                 ),
                 width="100%",
                 spacing="3",
+            ),
+        ),
+        rx.cond(
+            ChamadosGerenteState.detalhe_carregado & ChamadosGerenteState.historico_habilitado,
+            secao_historico_status(
+                ChamadosGerenteState.historico,
+                ChamadosGerenteState.carregando_historico,
+                ChamadosGerenteState.mensagem_historico,
             ),
         ),
         rx.link("Voltar aos chamados", href="/inicio"),

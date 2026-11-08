@@ -825,6 +825,177 @@ def _comentario_publico(dados: Any) -> ComentarioPublico:
     )
 
 
+PERFIS_AUTOR_HISTORICO = frozenset({"Gerente", "Técnico", "Diretoria", "Administrador"})
+CAMPOS_ITEM_LISTA_SOLICITANTE = frozenset(
+    {
+        "id",
+        "titulo",
+        "descricao",
+        "status",
+        "prioridade",
+        "origem",
+        "criado_em",
+        "ultima_atualizacao_em",
+        "ativo",
+        "categoria",
+    }
+)
+CAMPOS_DETALHE_SOLICITANTE = frozenset(
+    {
+        "id",
+        "titulo",
+        "descricao",
+        "status",
+        "prioridade",
+        "origem",
+        "criador_sistema",
+        "criado_em",
+        "ultima_atualizacao_em",
+        "sla_horas_aplicado",
+        "ativo",
+        "categoria",
+        "solicitante",
+        "tecnico",
+        "loja",
+        "resumo_totem",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenciaNome:
+    """Pessoa identificada somente pelo nome, sem identificador de usuário."""
+
+    nome: str
+
+
+@dataclass(frozen=True, slots=True)
+class ChamadoDetalheSolicitante:
+    """Detalhe somente leitura do solicitante: sem telemetria nem ids de usuário."""
+
+    id: int
+    titulo: str
+    descricao: str | None
+    status: str
+    prioridade: str
+    origem: str | None
+    criado_em: int
+    ultima_atualizacao_em: int
+    sla_horas_aplicado: float | None
+    ativo: ReferenciaAtivo
+    categoria: ReferenciaCategoria
+    solicitante: ReferenciaNome | None
+    tecnico: ReferenciaNome | None
+    criador_sistema: str | None = None
+    loja: ReferenciaLoja | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AutorTransicaoStatus:
+    nome: str
+    perfil: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class TransicaoStatus:
+    """Entrada do histórico público de status projetado pelo Xano (H-1)."""
+
+    id: int
+    status_anterior: str
+    status_resultante: str
+    criado_em: int
+    autor: AutorTransicaoStatus | None
+
+
+def _envelope_items(dados: dict[str, Any]) -> list[dict[str, Any]]:
+    if set(dados) != {"items"}:
+        raise XanoContratoInvalido("O Xano retornou uma coleção incompatível.")
+    return _colecao(dados)
+
+
+def _lista_chamados_solicitante(dados: dict[str, Any]) -> list[ChamadoResumo]:
+    items = _envelope_items(dados)
+    for item in items:
+        if set(item) != CAMPOS_ITEM_LISTA_SOLICITANTE:
+            raise XanoContratoInvalido(
+                "O Xano retornou um resumo de chamado incompatível."
+            )
+    return [_resumo(item) for item in items]
+
+
+def _referencia_nome(valor: Any, campo: str) -> ReferenciaNome | None:
+    if valor is None:
+        return None
+    dados = _objeto_exato(valor, campo, {"nome"})
+    return ReferenciaNome(nome=_texto(dados["nome"], f"{campo}.nome"))
+
+
+def _detalhe_solicitante(valor: Any) -> ChamadoDetalheSolicitante:
+    dados = _objeto(valor, "chamado")
+    if set(dados) != CAMPOS_DETALHE_SOLICITANTE:
+        raise XanoContratoInvalido(
+            "O Xano retornou um detalhe de chamado incompatível."
+        )
+    if dados["resumo_totem"] is not None:
+        raise XanoContratoInvalido("Campo inválido na resposta: resumo_totem.")
+    return ChamadoDetalheSolicitante(
+        id=_inteiro(dados["id"], "id"),
+        titulo=_texto(dados["titulo"], "titulo"),
+        descricao=_texto_opcional(dados["descricao"], "descricao"),
+        status=_texto(dados["status"], "status"),
+        prioridade=_texto(dados["prioridade"], "prioridade"),
+        origem=_origem(dados["origem"]),
+        criado_em=_inteiro(dados["criado_em"], "criado_em"),
+        ultima_atualizacao_em=_inteiro(
+            dados["ultima_atualizacao_em"],
+            "ultima_atualizacao_em",
+        ),
+        sla_horas_aplicado=_numero_opcional(
+            dados["sla_horas_aplicado"],
+            "sla_horas_aplicado",
+        ),
+        ativo=_referencia_ativo(dados["ativo"]),
+        categoria=_referencia_categoria(dados["categoria"]),
+        solicitante=_referencia_nome(dados["solicitante"], "solicitante"),
+        tecnico=_referencia_nome(dados["tecnico"], "tecnico"),
+        criador_sistema=_criador_sistema(dados["criador_sistema"]),
+        loja=_referencia_loja(dados["loja"]),
+    )
+
+
+def _transicao_status(valor: Any) -> TransicaoStatus:
+    dados = _objeto_exato(
+        valor,
+        "historico",
+        {"id", "status_anterior", "status_resultante", "criado_em", "autor"},
+    )
+    anterior = _texto(dados["status_anterior"], "historico.status_anterior")
+    resultante = _texto(dados["status_resultante"], "historico.status_resultante")
+    if anterior == resultante:
+        raise XanoContratoInvalido("Campo inválido na resposta: historico.status_resultante.")
+    autor = None
+    if dados["autor"] is not None:
+        autor_dados = _objeto_exato(dados["autor"], "historico.autor", {"nome", "perfil"})
+        perfil = autor_dados["perfil"]
+        if perfil is not None and perfil not in PERFIS_AUTOR_HISTORICO:
+            raise XanoContratoInvalido("Campo inválido na resposta: historico.autor.perfil.")
+        autor = AutorTransicaoStatus(
+            nome=_texto(autor_dados["nome"], "historico.autor.nome"),
+            perfil=perfil,
+        )
+    return TransicaoStatus(
+        id=_inteiro(dados["id"], "historico.id"),
+        status_anterior=anterior,
+        status_resultante=resultante,
+        criado_em=_inteiro(dados["criado_em"], "historico.criado_em"),
+        autor=autor,
+    )
+
+
+def _historico_status(dados: dict[str, Any]) -> list[TransicaoStatus]:
+    return [_transicao_status(item) for item in _envelope_items(dados)]
+
+
 class XanoServiceDeskCliente(XanoCliente):
     """Adaptador tipado dos contratos funcionais do Service Desk."""
 
@@ -1041,6 +1212,61 @@ class XanoServiceDeskCliente(XanoCliente):
             token=token,
         )
         return [_comentario_publico(item) for item in _colecao(dados)]
+
+    async def listar_historico_status_gerente(
+        self,
+        token: str,
+        chamado_id: int,
+    ) -> list[TransicaoStatus]:
+        dados = await self._requisitar(
+            "GET",
+            f"/gerente/chamados/{chamado_id}/historico-status",
+            token=token,
+        )
+        return _historico_status(dados)
+
+    async def listar_chamados_solicitante(self, token: str) -> list[ChamadoResumo]:
+        """Chamados em que a sessão é solicitante; o vínculo é aplicado pelo Xano."""
+        dados = await self._requisitar("GET", "/solicitante/chamados", token=token)
+        return _lista_chamados_solicitante(dados)
+
+    async def obter_chamado_solicitante(
+        self,
+        token: str,
+        chamado_id: int,
+    ) -> ChamadoDetalheSolicitante:
+        dados = await self._requisitar(
+            "GET",
+            f"/solicitante/chamados/{chamado_id}",
+            token=token,
+        )
+        if set(dados) != {"chamado"}:
+            raise XanoContratoInvalido("O Xano retornou um detalhe de chamado incompatível.")
+        return _detalhe_solicitante(dados["chamado"])
+
+    async def listar_comentarios_publicos_solicitante(
+        self,
+        token: str,
+        chamado_id: int,
+    ) -> list[ComentarioPublico]:
+        dados = await self._requisitar(
+            "GET",
+            f"/solicitante/chamados/{chamado_id}/comentarios",
+            token=token,
+        )
+        return [_comentario_publico(item) for item in _envelope_items(dados)]
+
+    async def listar_historico_status_solicitante(
+        self,
+        token: str,
+        chamado_id: int,
+    ) -> list[TransicaoStatus]:
+        dados = await self._requisitar(
+            "GET",
+            f"/solicitante/chamados/{chamado_id}/historico-status",
+            token=token,
+        )
+        return _historico_status(dados)
 
     async def criar_comentario_publico(
         self,

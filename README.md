@@ -21,7 +21,7 @@ O comportamento aprovado e vigente está em [`openspec/specs/`](openspec/specs/)
 
 ## Funcionalidades planejadas (ainda não implementadas)
 
-- Acompanhamento somente leitura dos chamados pelo solicitante e histórico público de status (Sprint 3: contratos publicados no Xano em 07/11; interface Reflex implementada localmente, fora do repositório até a liberação condicionada K-B; ver tabela abaixo).
+- Acompanhamento somente leitura dos chamados pelo solicitante e histórico público de status (Sprint 3: contratos publicados no Xano em 07/11 e validados por HTTP autenticado em 08/11; interface Reflex integrada ao repositório em 08/11, desligada por `MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO=false` até a liberação K-B; ver tabela abaixo).
 - Rejeição de solução pelo Gerente da loja e encerramento automático após 72 horas corridas em `Resolvido` (Sprint 3, em especificação; dependem de prova de segurança transacional).
 - Contagem de SLA em tempo corrido (Sprint 3: cálculo publicado no Xano em 08/11 como função interna, sem endpoint nem exibição; exposição por perfil decidida na DE-8 em 08/11 e ainda não implementada) e indicadores de consumo.
 - Aceitação explícita da solução (sem regra definida).
@@ -43,12 +43,12 @@ Categorias de evidência (não se misturam):
 | Item | Implementado localmente | Teste local | Validação MCP | Teste com mock | Runtime | Persistência/rollback | Publicado |
 |---|---|---|---|---|---|---|---|
 | GETs genéricos de interações negam o Gerente | Sim | Sim (mutação contra o `HEAD`) | Válido | — | HTTP: Gerente, Diretoria e Administrador 403; Técnico 200/404 | Não se aplica | **Sim** (Pacote A, 07/11) |
-| Contratos do solicitante e do histórico de status | Sim (Xano) | Sim | Válido | Testes nativos 14/14 PASS | HTTP parcial: 404 uniforme e 403; caminho com chamado próprio não executado (sem dados) | Não se aplica (somente leitura) | **Sim** (Pacote B, 07/11) |
-| Interface do solicitante e seção de histórico | Somente local (Reflex), fora do repositório até K-B | Sim, localmente | Não se aplica | Sim, localmente (cliente, State, rotas, navegação) | Não se aplica | Não se aplica | Não; o código entra no repositório, com a flag de liberação, depois da validação dos contratos (task 5.8) |
+| Contratos do solicitante e do histórico de status | Sim (Xano) | Sim | Válido | Testes nativos 14/14 PASS | HTTP autenticado (2026-11-08, contas de teste `e2e.*`, somente login e GET): 11/11 PASS, inclusive detalhe, comentários e histórico do próprio chamado | Não se aplica (somente leitura) | **Sim** (Pacote B, 07/11) |
+| Interface do solicitante e seção de histórico | Sim (Reflex, integrada em 08/11) | Sim | Não se aplica | Sim (cliente, State, rotas, navegação) | Contratos consumidos validados por HTTP (Pacote B, 11/11) | Não se aplica | Desligada por `MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO=false`; ligar depende da task 5.8 (K-B) |
 | Confirmação de publicação de comentário do Gerente | Sim (Reflex) | — | Não se aplica | Sim | Não se aplica | Não se aplica | Não |
 | Consumo de SLA (`calcular_consumo_sla_chamado`), **interna**, sem endpoint (DE-8 decidida, exposição não implementada) | Sim (Xano) | Sim (modelo de referência e mutação) | Válido (versão de 07/11) | Testes nativos 20/20 PASS (08/11), incluindo troca de Categoria e instante padrão | Sem HTTP (não há endpoint) | Não se aplica (somente leitura) | **Sim** (função interna, atualizada em 08/11) |
 | Prova E0.3 (atomicidade) | Pacote de prova preparado | Sim (coerência da matriz) | Válido | Não se aplica | Não executado | **Não comprovado** | Nunca no workspace compartilhado |
-| GETs genéricos de `chamados` pela Loja histórica (correção C-1) | Sim (Xano; change `corrigir-gerente-gets-genericos-loja-historica`) | Sim (contrato, modelo de referência e mutação) | Bloqueada (MCP indisponível na sessão) | Testes nativos 7/7 PASS (função nova) e 4/4 PASS (autorizador do detalhe) | HTTP anônimo e token inválido: 401; E2E autenticado não executado (sem credenciais `MIRA_E2E_*`) | Não se aplica (somente leitura) | **Sim** (08/11) |
+| GETs genéricos de `chamados` pela Loja histórica (correção C-1) | Sim (Xano; change `corrigir-gerente-gets-genericos-loja-historica`) | Sim (contrato, modelo de referência e mutação) | Bloqueada (MCP indisponível na sessão) | Testes nativos 7/7 PASS (função nova) e 4/4 PASS (autorizador do detalhe) | HTTP autenticado (2026-11-08, contas de teste `e2e.*`, somente login e GET): 6/6 PASS; anônimo e token inválido 401 | Não se aplica (somente leitura) | **Sim** (08/11) |
 | Rejeição de solução e encerramento automático | Não: dependem da E0.3 (DT-1) e das decisões DE-3a/b e DE-4 a DE-9 | — | — | — | — | — | Não |
 | Loja histórica do Totem (regra já publicada no Xano) | Regularização local em andamento (change `regularizar-loja-historica-totem`) | Sim (contrato e mutação) | Válido | Testes nativos 36/36 PASS (9 funções somente leitura) e 14/14 PASS das escritas com `mock` (`abrir_chamado_manual`, `transferir_totem`, 08/11) | HTTP: Gerente 403 em chamados sem Loja histórica; cenários de escrita não executados | Não se aplica | Já estava publicada; nenhum push nesta change |
 
@@ -79,6 +79,7 @@ Pacote seletivo de publicação, com o pacote A (segurança) e o B (contratos): 
 | `SIMULATOR_ATIVO_*` | Cenários de teste opcionais (deixe vazio para desativar) |
 | `FISCAL_INTERVAL_SECONDS` | Intervalo entre verificações do Fiscal |
 | `FISCAL_REQUEST_TIMEOUT_SECONDS` | Opcional; padrão de 30 segundos |
+| `MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO` | `true` somente depois de publicar e validar os contratos do solicitante e do histórico; padrão `false` |
 
 Variáveis numéricas não podem ficar vazias: para usar o valor padrão, remova a linha em vez de deixá-la sem valor.
 

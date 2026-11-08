@@ -8,13 +8,22 @@ from typing import Any, TypedDict
 
 import reflex as rx
 
-from app.components.visual import TEXTO, TEXTO_SECUNDARIO
+from app.components.visual import (
+    BORDA,
+    RAIO_SUPERFICIE,
+    SUPERFICIE,
+    TEXTO,
+    TEXTO_SECUNDARIO,
+    badge_status,
+)
 
 from app.services.service_desk import (
     ChamadoDetalhe,
+    ChamadoDetalheSolicitante,
     ChamadoResumo,
     ComentarioPublico,
     EventoTimelineChamado,
+    TransicaoStatus,
 )
 
 
@@ -125,6 +134,51 @@ def comentario_publico_para_dict(comentario: ComentarioPublico) -> dict[str, Any
         "conteudo": comentario.conteudo,
         "criado_em_texto": _timestamp_para_texto(comentario.criado_em),
         "autor_nome": comentario.autor.nome if comentario.autor is not None else "Não informado",
+    }
+
+
+def detalhe_solicitante_para_dict(chamado: ChamadoDetalheSolicitante) -> dict[str, Any]:
+    """Projeta somente campos funcionais; o contrato já exclui telemetria e ids."""
+    return {
+        "id": chamado.id,
+        "titulo": chamado.titulo,
+        "descricao": chamado.descricao or "",
+        "status": chamado.status,
+        "prioridade": chamado.prioridade,
+        "origem": chamado.origem or "Não informado",
+        "criado_em_texto": _timestamp_funcional_para_texto(chamado.criado_em),
+        "ultima_atualizacao_em_texto": _timestamp_funcional_para_texto(
+            chamado.ultima_atualizacao_em
+        ),
+        "sla_horas_texto": _numero_para_texto(chamado.sla_horas_aplicado),
+        "ativo_nome": chamado.ativo.nome_ativo,
+        "loja_nome": chamado.loja.nome if chamado.loja is not None else "Não informado",
+        "categoria_nome": chamado.categoria.nome,
+        "solicitante_nome": (
+            chamado.solicitante.nome if chamado.solicitante is not None else "Não informado"
+        ),
+        "tecnico_nome": chamado.tecnico.nome if chamado.tecnico is not None else "Não atribuído",
+        "criador_sistema_nome": (
+            "Bot de Fiscalização" if chamado.criador_sistema == "bot_fiscalizacao" else ""
+        ),
+    }
+
+
+def transicao_status_para_dict(transicao: TransicaoStatus) -> dict[str, Any]:
+    """Apresenta o autor exatamente como o Xano o identificou, sem inferência."""
+    autor = transicao.autor
+    if autor is None:
+        autor_texto = "Autor não informado"
+    elif autor.perfil is None:
+        autor_texto = autor.nome
+    else:
+        autor_texto = f"{autor.nome} · {autor.perfil}"
+    return {
+        "id": transicao.id,
+        "status_anterior": transicao.status_anterior,
+        "status_resultante": transicao.status_resultante,
+        "criado_em_texto": _timestamp_funcional_para_texto(transicao.criado_em),
+        "autor_texto": autor_texto,
     }
 
 
@@ -308,6 +362,32 @@ class ComentarioView(TypedDict):
     autor_nome: str
 
 
+class DetalheSolicitanteView(TypedDict, total=False):
+    id: int
+    titulo: str
+    descricao: str
+    status: str
+    prioridade: str
+    origem: str
+    criado_em_texto: str
+    ultima_atualizacao_em_texto: str
+    sla_horas_texto: str
+    ativo_nome: str
+    loja_nome: str
+    categoria_nome: str
+    solicitante_nome: str
+    tecnico_nome: str
+    criador_sistema_nome: str
+
+
+class TransicaoStatusView(TypedDict):
+    id: int
+    status_anterior: str
+    status_resultante: str
+    criado_em_texto: str
+    autor_texto: str
+
+
 class TimelineView(TypedDict):
     id: int
     tipo: str
@@ -386,4 +466,67 @@ def cabecalho_lista_chamados(
         justify="between",
         align="start",
         width="100%",
+    )
+
+
+MENSAGEM_HISTORICO_VAZIO = (
+    "Nenhuma transição de status registrada. Transições anteriores à "
+    "implantação do Save operacional não são exibidas."
+)
+
+
+def secao_historico_status(itens, carregando, mensagem) -> rx.Component:
+    """Seção própria do histórico público, separada dos comentários (K-B)."""
+    return rx.vstack(
+        rx.heading("Histórico de status", size="5"),
+        erro(mensagem),
+        rx.cond(
+            carregando,
+            rx.spinner(size="2"),
+            rx.cond(
+                mensagem != "",
+                rx.fragment(),
+                rx.cond(
+                    itens.length() == 0,
+                    rx.text(MENSAGEM_HISTORICO_VAZIO, color="gray"),
+                    rx.vstack(
+                        rx.foreach(
+                            itens,
+                            lambda transicao: rx.card(
+                                rx.hstack(
+                                    rx.hstack(
+                                        badge_status(transicao["status_anterior"]),
+                                        rx.icon("arrow_right", size=16, color=TEXTO_SECUNDARIO),
+                                        badge_status(transicao["status_resultante"]),
+                                        align="center",
+                                        spacing="2",
+                                        wrap="wrap",
+                                    ),
+                                    rx.vstack(
+                                        rx.text(transicao["autor_texto"], weight="medium"),
+                                        rx.text(transicao["criado_em_texto"], size="1", color=TEXTO_SECUNDARIO),
+                                        align="end",
+                                        spacing="1",
+                                    ),
+                                    justify="between",
+                                    align="center",
+                                    spacing="4",
+                                    width="100%",
+                                ),
+                                width="100%",
+                                padding="1rem",
+                                border=f"1px solid {BORDA}",
+                                border_radius=RAIO_SUPERFICIE,
+                                box_shadow="none",
+                                background=SUPERFICIE,
+                            ),
+                        ),
+                        width="100%",
+                        spacing="2",
+                    ),
+                ),
+            ),
+        ),
+        width="100%",
+        spacing="3",
     )

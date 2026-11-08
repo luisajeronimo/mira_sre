@@ -1,6 +1,6 @@
-# Pacote de publicação seletiva da C-1 (preparado, não executado)
+# Pacote de publicação seletiva da C-1 (executado em 2026-11-08)
 
-Situação em 2026-11-08: nada foi publicado, nem dry-run executado. A publicação depende de autorização específica. A A1 (`negar-gerente-gets-genericos-chamados`) e a prova E0.3 não fazem parte deste pacote.
+Situação: **publicado em 2026-11-08** com autorização específica, na ordem abaixo, com dry-run individual antes e depois de cada objeto (ver `tasks.md`, 2.2–2.5). Este documento permanece como registro do procedimento e da reversão. A A1 (`negar-gerente-gets-genericos-chamados`) e a prova E0.3 não fazem parte deste pacote.
 
 ## Arquivos e ordem
 

@@ -12,7 +12,7 @@ Preparado em 2026-11-08. Nada aqui foi executado: as operações abaixo gravam r
 | `administracao/totens` (GET, POST, PATCH, DELETE) | `criacao` no POST; exclusão do vínculo `criacao` no DELETE | Sim (cópia do publicado) | Sem testes nativos |
 | `listar_ativos_historicos_gerente` e `gerente/ativos-historicos` | Somente leitura | Sim (cópia do publicado) | Sem testes; DL-4 aberta |
 
-A parte de leitura (resolvedor, autorizador, listas e detalhes) está versionada desde o commit `63f864d`. Em 2026-11-08 as escritas e as rotas acima também passaram a ser versionadas como cópia fiel do publicado, para que o repositório reflita a produção; versionar não as valida. `obter_detalhe_ativo_monitoramento` segue fora (UPDATE de dry-run sem causa confirmada).
+A parte de leitura (resolvedor, autorizador, listas e detalhes) está versionada desde o commit `63f864d`. Em 2026-11-08 as escritas e as rotas acima também passaram a ser versionadas como cópia fiel do publicado, para que o repositório reflita a produção; versionar não as valida. `obter_detalhe_ativo_monitoramento` passou a ser versionada em 2026-11-08, depois de confirmado que o UPDATE do dry-run é artefato do CLI (o export do próprio servidor reproduz o mesmo UPDATE; ver `design.md`).
 
 Tentativa de 2026-11-08: a análise estática mostrou que nenhum dos 14 testes nativos abaixo alcança escrita sem `mock` (os `rejeita` falham antes do `db.transaction`; nos casos de sucesso, o vínculo e o `db.add chamados` são simulados). A execução no workspace compartilhado foi recusada pelo controle de permissões da sessão e não foi realizada.
 

@@ -178,3 +178,18 @@ def test_exclusao_de_totem_remove_somente_vinculo_de_criacao():
     texto = compacto(logica("api/mira_administracao/totens/ativos_referencia_id_DELETE.xs"))
     assert compacto('$vinculos[0].tipo == "criacao"') in texto
     assert compacto("!$tem_chamado") in texto
+
+
+@pytest.mark.parametrize(
+    "caminho",
+    [
+        "function/service_desk/listar_chamados_tecnico.xs",
+        "function/service_desk/obter_chamado_tecnico.xs",
+        "function/service_desk/obter_detalhe_ativo_monitoramento.xs",
+        "function/service_desk/obter_chamado_solicitante.xs",
+    ],
+)
+def test_dtos_informativos_usam_resolucao_historica(caminho):
+    texto = logica(caminho)
+    assert ('function.run "administracao/resolver_loja_totem_no_instante"' in texto
+            or 'function.run "administracao/obter_loja_historica_fato"' in texto)

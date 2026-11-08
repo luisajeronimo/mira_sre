@@ -1,0 +1,71 @@
+# Spec Delta
+
+## ADDED Requirements
+
+### Requirement: Consumo de SLA é calculado por estados a partir de fatos persistidos
+O Xano DEVE (MUST) calcular o tempo de SLA consumido de um chamado, em tempo corrido, somando, a partir de `criado_em`, a duração dos períodos em `Novo`, `Em Atendimento`, `Aguardando Solicitante`, `Aguardando Mudança` e `Solução Rejeitada`, obtidos da linha do tempo de status formada pela criação em `Novo` e pelas transições registradas em `alteracao_chamado`. Períodos em `Resolvido` NÃO DEVEM (MUST NOT) ser contabilizados, e a contagem DEVE (MUST) terminar na entrada em `Encerrado` ou `Cancelado`. A saída de `Resolvido` para estado que conta SLA, inclusive `Solução Rejeitada`, DEVE (MUST) retomar a contagem a partir do saldo acumulado. O consumo DEVE (MUST) ser comparado ao `sla_horas_aplicado` vigente do chamado. O sistema NÃO DEVE (MUST NOT) persistir o consumo como dado agregado nem reescrever dados históricos.
+
+#### Scenario: Rejeição retoma o saldo
+- **WHEN** o chamado consumiu 2 h até `Resolvido`, ficou 3 h em `Resolvido`, passou a `Solução Rejeitada` e consumiu mais 2 h até nova resolução
+- **THEN** o consumo é 4 h e o período em `Resolvido` não é contabilizado
+
+#### Scenario: Múltiplas pausas
+- **WHEN** o chamado entra e sai de `Resolvido` mais de uma vez
+- **THEN** cada período em `Resolvido` é excluído e os demais são somados
+
+#### Scenario: Estado de espera
+- **WHEN** o chamado permanece em `Aguardando Solicitante` ou `Aguardando Mudança`
+- **THEN** o período é contabilizado
+
+#### Scenario: Estado final
+- **WHEN** o chamado está `Encerrado` ou `Cancelado`
+- **THEN** o consumo não aumenta após a entrada nesse estado
+
+### Requirement: Linha do tempo inconsistente torna o SLA não calculável
+Quando a linha do tempo de status não começar em `Novo`, possuir transição cujo status anterior difere do resultante da transição precedente, contiver status fora da lista canônica vigente, ou não terminar no status atual do chamado, o Xano DEVE (MUST) classificar o SLA do chamado como não calculável, informando o motivo, e NÃO DEVE (MUST NOT) estimar períodos ou timestamps ausentes.
+
+#### Scenario: Chamado com mudança de status anterior ao Save
+- **WHEN** o status atual não é reconstruível pelas transições registradas
+- **THEN** o SLA é reportado como não calculável, sem valor de consumo
+
+### Requirement: Encerramento automático é decidido e revalidado pelo Xano
+O sistema DEVE (MUST) encerrar automaticamente chamado `Resolvido` cuja entrada registrada em `Resolvido` ocorreu há pelo menos 72 horas corridas, sem rejeição posterior, desde que essa entrada seja igual ou posterior ao início de vigência do encerramento automático, definido explicitamente na publicação e nunca derivado dos dados. Uma automação DEVE (MUST) apenas disparar a verificação; o Xano DEVE (MUST) selecionar os candidatos, decidir a elegibilidade e, imediatamente antes de gravar, revalidar o status `Resolvido` e o `ultima_atualizacao_em` lido. O encerramento DEVE (MUST) registrar um comentário público de sistema, definir `Encerrado`, atualizar `ultima_atualizacao_em` e registrar `alteracao_chamado` com `Resolvido` → `Encerrado` e referência ao comentário, sem usuário, apresentado como `Sistema` no histórico. Chamado sem entrada em `Resolvido` registrada NÃO DEVE (MUST NOT) ser encerrado automaticamente por timestamp inferido. Retorno de telemetria NÃO DEVE (MUST NOT) participar da decisão.
+
+#### Scenario: Chamado elegível
+- **WHEN** o chamado entrou em `Resolvido` após o início de vigência, há 72 horas ou mais, e a verificação é disparada
+- **THEN** o Xano o encerra, registra o comentário público de sistema e a transição com autor `Sistema`
+
+#### Scenario: Rejeição antes da revalidação
+- **WHEN** o chamado é rejeitado entre a seleção e a gravação do encerramento
+- **THEN** a revalidação falha e o chamado não é encerrado
+
+#### Scenario: Execução repetida
+- **WHEN** a verificação é disparada novamente
+- **THEN** chamados já `Encerrado` não são alterados nem recebem novo registro
+
+#### Scenario: Prazo não vencido
+- **WHEN** o chamado está `Resolvido` há menos de 72 horas corridas
+- **THEN** o chamado permanece `Resolvido`
+
+#### Scenario: Chamado resolvido antes da vigência
+- **WHEN** o chamado já estava `Resolvido` antes do início de vigência, mesmo há mais de 72 horas
+- **THEN** o Xano não o encerra automaticamente, inclusive na primeira execução, e o reporta como fora da vigência
+
+#### Scenario: Nova resolução após a vigência
+- **WHEN** um chamado resolvido antes da vigência é rejeitado e volta a `Resolvido` após o início de vigência
+- **THEN** o prazo de 72 horas conta a partir da nova entrada em `Resolvido`
+
+#### Scenario: Entrada em Resolvido desconhecida
+- **WHEN** o chamado está `Resolvido` sem transição registrada para esse estado
+- **THEN** o Xano não o encerra automaticamente e o reporta como não elegível
+
+#### Scenario: Automação não decide
+- **WHEN** a automação dispara a verificação
+- **THEN** ela não envia identificadores de chamados nem altera chamados diretamente
+
+### Requirement: Estados terminais permanecem bloqueados
+`Encerrado` e `Cancelado` DEVEM (MUST) continuar bloqueando reabertura e edição funcional por qualquer fluxo desta capacidade, inclusive o encerramento automático e a rejeição de solução.
+
+#### Scenario: Rejeição após encerramento
+- **WHEN** a rejeição é tentada em chamado `Encerrado`
+- **THEN** o Xano a recusa como conflito sem alterar o chamado

@@ -59,6 +59,8 @@ fiscal:
 	@echo "Iniciando Fiscal..."
 	@$(VENV_PYTHON) fiscal/fiscal.py
 
+# Limitação: `mock` exige bash, setsid e grupos de processos POSIX (Linux/macOS).
+# No Windows/PowerShell, execute Simulator e Fiscal em terminais separados.
 mock: SHELL := /bin/bash
 mock:
 	@simulator_pid=""; fiscal_pid=""; ready_file="$$(mktemp)"; \

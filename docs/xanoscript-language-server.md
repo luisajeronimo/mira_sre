@@ -58,3 +58,11 @@ que toda versão da extensão ou todo analisador Xano tenha a mesma limitação.
   ser substituída por inferência a partir dos avisos do editor.
 - Não publicar alterações no Xano apenas para testar se os avisos
   desaparecem.
+
+## Exceção registrada: alias `tecnico_usuario` em `obter_chamado_tecnico`
+
+- **O que mudou:** o alias do `JOIN` com `usuarios` passou de `tecnico` para `tecnico_usuario`. A troca foi feita em uma sessão de agente em 2026-11-08 (checkpoint `082bda0`), depois deste documento, sem justificativa registrada, e publicada no Xano com autorização no mesmo dia.
+- **Efeito sobre os avisos:** nenhum. `tecnico_usuario` também não é tabela, e a função usa outros aliases (`ativo`, `autor`, `categoria`, `loja`, `solicitante`, `tecnico_anterior`, `tecnico_novo`) que geram o mesmo aviso.
+- **Contrato:** inalterado. O `eval` continua produzindo `tecnico_usuario_id` e `tecnico_nome`, que `construir_dto_chamado_tecnico` transforma em `tecnico: {id, nome}`; nenhum consumidor depende do nome interno do alias.
+- **Evidência de runtime (2026-11-08):** E2E somente leitura `test_detalhe_tecnico_com_responsavel_preenche_dto_tecnico` aprovado: o detalhe de chamado com Técnico atribuído devolve `tecnico {id, nome}` igual ao da fila.
+- **Decisão:** manter como publicado. Não reverter apenas por causa dos avisos do Language Server nem publicar só para renomear; a regra 3 deste documento continua valendo para novas alterações.

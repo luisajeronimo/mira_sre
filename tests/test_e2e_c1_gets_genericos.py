@@ -72,3 +72,19 @@ def test_tecnico_e_diretoria_mantem_consulta_global(ctx):
 def test_administrador_e_anonimo_continuam_negados(ctx):
     assert ctx["s"].get("administrador", ctx["base"] + "/chamados").status_code == 403
     assert ctx["s"].get("anonimo", ctx["base"] + "/chamados").status_code == 401
+
+
+def test_detalhe_tecnico_com_responsavel_preenche_dto_tecnico(ctx):
+    """Join real com o alias `tecnico_usuario` em `obter_chamado_tecnico` (somente leitura)."""
+    s = ctx["s"]
+    fila = s.get("tecnico", s.service_desk + "/tecnico/chamados")
+    assert fila.status_code == 200
+    atribuido = next((i for i in fila.json()["items"] if i.get("tecnico")), None)
+    if atribuido is None:
+        pytest.skip("nenhum chamado com Técnico atribuído na fila global")
+    detalhe = s.get("tecnico", f"{s.service_desk}/tecnico/chamados/{atribuido['id']}")
+    assert detalhe.status_code == 200
+    tecnico = detalhe.json()["chamado"]["tecnico"]
+    assert isinstance(tecnico, dict) and set(tecnico) == {"id", "nome"}
+    assert tecnico["id"] == atribuido["tecnico"]["id"] and tecnico["nome"]
+    assert tecnico == atribuido["tecnico"]

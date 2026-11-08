@@ -125,6 +125,69 @@ def test_marco_exige_loja_atual_e_nao_faz_fallback():
     assert "loja_destino_id:$ativo_atual.lojas_id" in heartbeat
 
 
+def test_testes_nativos_da_lista_assertam_inclusao_e_exclusoes_pela_resposta():
+    texto = fonte(LISTA_GERENTE)
+
+    assert 'test "lista inclui chamado historicamente autorizado"' in texto
+    assert '$response.items' in texto and "value = [" in texto
+    assert 'test "lista exclui chamado de outra loja historica"' in texto
+    assert 'test "lista exclui chamado sem loja historica"' in texto
+    assert "$response.total" in texto
+
+
+def test_teste_nativo_do_detalhe_compara_loja_historica_com_loja_atual():
+    texto = fonte(DETALHE_GERENTE)
+
+    assert "ativo_lojas_id: 2" in texto
+    assert '"retorna detalhe da loja"                     : {lojas_id: 1}' in texto
+    assert 'value = {id: 1, nome: "Loja Histórica"}' in texto
+    assert "$response.chamado.loja" in texto
+    assert "$response.chamado.resumo_totem.loja" in texto
+
+
+def test_detalhe_do_solicitante_cobre_loja_historica_e_ausencia_de_fallback():
+    texto = fonte(DETALHE_SOLICITANTE)
+    cenarios = {
+        "retorna loja historica diferente da atual": (
+            "2",
+            '"retorna loja historica diferente da atual"         : {lojas_id: 1}',
+            'value = {id: 1, nome: "Loja Centro"}',
+        ),
+        "retorna null sem historico com loja atual": (
+            "1",
+            '"retorna null sem historico com loja atual"         : {lojas_id: null}',
+            "expect.to_be_null ($response.chamado.loja)",
+        ),
+        "retorna null sem historico e sem loja atual": (
+            "null",
+            '"retorna null sem historico e sem loja atual"       : {lojas_id: null}',
+            "expect.to_be_null ($response.chamado.loja)",
+        ),
+    }
+
+    for nome, evidencias in cenarios.items():
+        bloco = re.search(
+            rf'test "{re.escape(nome)}" \{{(.*?)(?=\n  (?:test |guid =))',
+            texto,
+            re.DOTALL,
+        )
+        assert bloco is not None, nome
+        fixture = next(
+            (
+                linha
+                for linha in texto.splitlines()
+                if f'"{nome}"' in linha and "ativo_lojas_id:" in linha
+            ),
+            None,
+        )
+        assert fixture is not None
+        assert f"ativo_lojas_id: {evidencias[0]}" in fixture, nome
+        assert evidencias[1] in texto, nome
+        assert evidencias[2] in bloco.group(1), nome
+
+    assert "$registro.ativo_lojas_id" not in compacto(logica(DETALHE_SOLICITANTE))
+
+
 def test_nao_retroatividade_nenhum_vinculo_com_instante_arbitrario():
     """Todo vínculo gravado usa o instante do próprio fato (now ou criado_em do chamado novo)."""
     gravacoes = []
@@ -157,6 +220,21 @@ def test_detalhe_e_lista_do_gerente_usam_loja_historica():
     assert compacto("if ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id)") in lista
 
 
+@pytest.mark.parametrize(
+    "caminho",
+    [
+        "function/service_desk/listar_chamados_tecnico.xs",
+        "function/service_desk/obter_chamado_tecnico.xs",
+        "function/service_desk/obter_detalhe_ativo_monitoramento.xs",
+        "function/service_desk/obter_chamado_solicitante.xs",
+    ],
+)
+def test_dtos_informativos_usam_resolucao_historica(caminho):
+    texto = logica(caminho)
+    assert ('function.run "administracao/resolver_loja_totem_no_instante"' in texto
+            or 'function.run "administracao/obter_loja_historica_fato"' in texto)
+
+
 def test_fato_historico_projeta_loja_ou_null():
     texto = compacto(logica(FATO))
     assert compacto("var $loja { value = null }") in texto
@@ -178,18 +256,3 @@ def test_exclusao_de_totem_remove_somente_vinculo_de_criacao():
     texto = compacto(logica("api/mira_administracao/totens/ativos_referencia_id_DELETE.xs"))
     assert compacto('$vinculos[0].tipo == "criacao"') in texto
     assert compacto("!$tem_chamado") in texto
-
-
-@pytest.mark.parametrize(
-    "caminho",
-    [
-        "function/service_desk/listar_chamados_tecnico.xs",
-        "function/service_desk/obter_chamado_tecnico.xs",
-        "function/service_desk/obter_detalhe_ativo_monitoramento.xs",
-        "function/service_desk/obter_chamado_solicitante.xs",
-    ],
-)
-def test_dtos_informativos_usam_resolucao_historica(caminho):
-    texto = logica(caminho)
-    assert ('function.run "administracao/resolver_loja_totem_no_instante"' in texto
-            or 'function.run "administracao/obter_loja_historica_fato"' in texto)

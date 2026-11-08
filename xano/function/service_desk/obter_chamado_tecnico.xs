@@ -50,10 +50,10 @@ function "service_desk/obter_chamado_tecnico" {
           type : "left"
           where: $db.chamados.solicitante_id == $db.solicitante.id
         }
-        tecnico    : {
+        tecnico_usuario: {
           table: "usuarios"
           type : "left"
-          where: $db.chamados.tecnico_id == $db.tecnico.id
+          where: $db.chamados.tecnico_id == $db.tecnico_usuario.id
         }
       }
 
@@ -67,8 +67,8 @@ function "service_desk/obter_chamado_tecnico" {
         categoria_nome        : $db.categoria.nome
         solicitante_usuario_id: $db.solicitante.id
         solicitante_nome      : $db.solicitante.nome
-        tecnico_usuario_id    : $db.tecnico.id
-        tecnico_nome          : $db.tecnico.nome
+        tecnico_usuario_id    : $db.tecnico_usuario.id
+        tecnico_nome          : $db.tecnico_usuario.nome
       }
 
       return = {type: "single"}

@@ -21,6 +21,9 @@ function "service_desk/listar_chamados_gerente" {
       input = {usuarios_id: $input.usuarios_id, gerente: true}
       mock = {
         "lista padrão da loja": {id: 8, role: "gerente", lojas_id: 1}
+        "lista inclui chamado historicamente autorizado": {id: 8, role: "gerente", lojas_id: 1}
+        "lista exclui chamado de outra loja historica": {id: 8, role: "gerente", lojas_id: 1}
+        "lista exclui chamado sem loja historica": {id: 8, role: "gerente", lojas_id: 1}
         "lista vazio"          : {id: 8, role: "gerente", lojas_id: 1}
       }
     } as $usuario
@@ -732,7 +735,22 @@ function "service_desk/listar_chamados_gerente" {
                 {id: 102, titulo: "Atual", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criado_em: 1780000002000, ultima_atualizacao_em: 1780000003000, ativo_id: 1, ativo_nome: "Totem 01", categoria_id: 2, categoria_nome: "Rede"}
               ]
               ```
-            "lista vazio"          : []
+            "lista inclui chamado historicamente autorizado": ```
+              [
+                {id: 201, titulo: "Loja histórica", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criado_em: 1780000002000, ultima_atualizacao_em: 1780000003000, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 2, categoria_id: 2, categoria_nome: "Rede"}
+              ]
+              ```
+            "lista exclui chamado de outra loja historica": ```
+              [
+                {id: 202, titulo: "Outra loja", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criado_em: 1780000002000, ultima_atualizacao_em: 1780000003000, ativo_id: 2, ativo_nome: "Totem 02", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Rede"}
+              ]
+              ```
+            "lista exclui chamado sem loja historica": ```
+              [
+                {id: 203, titulo: "Sem histórico", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criado_em: 1780000002000, ultima_atualizacao_em: 1780000003000, ativo_id: 3, ativo_nome: "Totem 03", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Rede"}
+              ]
+              ```
+            "lista vazio": []
           }
         } as $resultado
 
@@ -850,6 +868,9 @@ function "service_desk/listar_chamados_gerente" {
 
           mock = {
             "lista padrão da loja": {lojas_id: 1}
+            "lista inclui chamado historicamente autorizado": {lojas_id: 1}
+            "lista exclui chamado de outra loja historica": {lojas_id: 2}
+            "lista exclui chamado sem loja historica": {lojas_id: null}
             "lista vazio"          : {lojas_id: null}
           }
         } as $historico
@@ -933,6 +954,38 @@ function "service_desk/listar_chamados_gerente" {
 
     expect.to_not_equal ($response.items) {
       value = []
+    }
+  }
+
+  test "lista inclui chamado historicamente autorizado" {
+    input = {usuarios_id: 8}
+
+    expect.to_equal ($response.items) {
+      value = [
+        {id: 201, titulo: "Loja histórica", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criado_em: 1780000002000, ultima_atualizacao_em: 1780000003000, ativo: {id: 1, nome_ativo: "Totem 01"}, categoria: {id: 2, nome: "Rede"}}
+      ]
+    }
+
+    expect.to_equal ($response.total) {
+      value = 1
+    }
+  }
+
+  test "lista exclui chamado de outra loja historica" {
+    input = {usuarios_id: 8}
+
+    expect.to_be_empty ($response.items)
+    expect.to_equal ($response.total) {
+      value = 0
+    }
+  }
+
+  test "lista exclui chamado sem loja historica" {
+    input = {usuarios_id: 8}
+
+    expect.to_be_empty ($response.items)
+    expect.to_equal ($response.total) {
+      value = 0
     }
   }
 

@@ -73,7 +73,7 @@ function "service_desk/obter_chamado_gerente" {
 
       return = {type: "single"}
       mock = {
-        "retorna detalhe da loja"                     : {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+        "retorna detalhe da loja"                     : {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 2, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
         "retorna detalhe com campos opcionais legados": {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
         "retorna detalhe automático"                 : {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 1, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
         "rejeita chamado inexistente"                 : null
@@ -111,7 +111,7 @@ function "service_desk/obter_chamado_gerente" {
       field_name = "id"
       field_value = $historico.lojas_id
       mock = {
-        "retorna detalhe da loja"                     : {id: 1, nome: "Loja de Teste"}
+        "retorna detalhe da loja"                     : {id: 1, nome: "Loja Histórica"}
         "retorna detalhe com campos opcionais legados": {id: 1, nome: "Loja de Teste"}
         "retorna detalhe automático"                 : {id: 1, nome: "Loja de Teste"}
       }
@@ -195,6 +195,14 @@ function "service_desk/obter_chamado_gerente" {
 
     expect.to_equal ($response.chamado.solicitante.id) {
       value = 8
+    }
+
+    expect.to_equal ($response.chamado.loja) {
+      value = {id: 1, nome: "Loja Histórica"}
+    }
+
+    expect.to_equal ($response.chamado.resumo_totem.loja) {
+      value = {id: 1, nome: "Loja Histórica"}
     }
 
     expect.to_be_null ($response.chamado.criador_sistema)

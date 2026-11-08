@@ -207,6 +207,18 @@ def test_item_da_lista_do_solicitante_tem_os_campos_do_gerente():
     assert solicitante == gerente
 
 
+def test_detalhe_do_solicitante_tem_os_campos_do_gerente_sem_telemetria_nem_ids():
+    gerente = campos_projecao(logica(DETALHE_GERENTE), "var $chamado")
+    texto = logica(DETALHE_SOLICITANTE)
+    assert campos_projecao(texto, "var $chamado") == gerente
+    assert "resumo_totem: null" in texto
+    assert "telemetria" not in texto
+    assert "value = {nome: $registro.solicitante_nome}" in texto
+    assert "value = {nome: $registro.tecnico_nome}" in texto
+    assert "id: $registro.solicitante_usuario_id" not in texto
+    assert "id: $registro.tecnico_usuario_id" not in texto
+
+
 def test_r1_nenhum_recurso_xano_referencia_alteracao_status():
     referencias = [p for p in (ROOT / "xano").rglob("*.xs") if "alteracao_status" in fonte(p)]
     assert referencias == []
@@ -221,3 +233,28 @@ def test_comentarios_do_solicitante_tem_filtro_e_dto_identicos_ao_gerente():
     assert where(solicitante) == where(gerente)
     projecao = lambda t: t[t.index("var $items"):]
     assert projecao(solicitante) == projecao(gerente)
+
+
+def test_referencias_db_usam_tabelas_reais_salvo_joins_duplos_em_usuarios():
+    """Mesma regra léxica do Language Server oficial (`dbReferenceScanner`).
+
+    O Language Server trata todo `$db.<nome>` como tabela e não conhece aliases
+    de join. O detalhe do solicitante precisa de dois joins em `usuarios`
+    (`solicitante` e `tecnico`), que exigem chaves distintas.
+    """
+    tabelas = {re.search(r"^table (\w+)", fonte(p), re.M).group(1) for p in (ROOT / "xano/table").glob("*.xs")}
+    permitidos = {DETALHE_SOLICITANTE: {"solicitante", "tecnico"}}
+    for caminho in NOVOS + [FUNCOES / "calcular_consumo_sla_chamado.xs"]:
+        nomes = set(re.findall(r"\$db\.(\w+)", fonte(caminho)))
+        assert nomes - tabelas <= permitidos.get(caminho, set()), (caminho.name, nomes - tabelas)
+
+
+def test_detalhe_do_solicitante_usa_loja_historica_como_o_gerente_publicado():
+    """Mesma regra publicada do detalhe do Gerente: Loja do Totem no instante do chamado."""
+    texto = logica(DETALHE_SOLICITANTE)
+    chamada = texto[texto.index('function.run "administracao/resolver_loja_totem_no_instante"'):]
+    assert "ativos_referencia_id: $registro.ativo_id" in chamada
+    assert "instante            : $registro.criado_em" in chamada
+    assert "$db.lojas" not in texto and "$db.ativos_referencia.lojas_id" not in texto
+    assert "field_value = $historico.lojas_id" in texto
+    assert "loja: $loja" in texto

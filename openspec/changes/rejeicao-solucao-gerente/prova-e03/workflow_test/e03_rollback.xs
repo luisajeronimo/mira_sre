@@ -1,6 +1,8 @@
-// Matriz E0.3 no runtime Xano. Executar somente em ambiente isolado autorizado.
+// Matriz E0.3 no runtime Xano. Usa apenas o datasource de teste autorizado.
 // Cada cenário usa um marcador próprio; a leitura posterior conta os registros.
 workflow_test "e03_rollback" {
+  datasource = "mira_e03"
+
   stack {
     expect.to_throw {
       stack {

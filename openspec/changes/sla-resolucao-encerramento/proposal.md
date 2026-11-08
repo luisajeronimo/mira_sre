@@ -40,7 +40,7 @@ Nenhuma nesta proposta até o Apply da exposição. A DE-8 (2026-11-08) define a
 - `rejeicao-solucao-gerente`: operação que produz `Resolvido` → `Solução Rejeitada`.
 - `indicadores-governanca-formulas`: o indicador de SLA usa o consumo aqui definido.
 - H-1 (`acompanhamento-solicitante-historico-status`): mesma leitura de `alteracao_chamado`.
-- Prova E0.3 em ambiente isolado: nenhum ambiente isolado autorizado.
+- Prova E0.3: datasource próprio de teste no workspace `152692`, branch `v1`, autorizado em 2026-11-08 como alternativa ao workspace separado. Registros separados; schema e recursos publicados compartilhados. Prova e aprovação do relatório ainda pendentes.
 - Dependências "4", "5" e "D3" do planejamento: sem origem documental no repositório; registradas como dependências externas não esclarecidas.
 
 ## Decisões pendentes

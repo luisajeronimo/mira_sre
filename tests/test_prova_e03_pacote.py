@@ -1,7 +1,7 @@
 """Coerência local do pacote da prova E0.3.
 
 Confere cobertura da matriz e isolamento do pacote. Não executa XanoScript e
-não prova rollback: a prova exige o runtime Xano em ambiente isolado autorizado.
+não prova rollback: a prova exige o runtime Xano no datasource de teste autorizado.
 """
 
 import re
@@ -50,7 +50,8 @@ def test_workflow_exercita_cada_cenario_e_le_depois():
         assert f'$db.e03_prova.rotulo == "{marcador}"' in texto
     assert len({m for _, m in chamados}) == len(chamados)
     assert texto.count("expect.to_throw") == len(MATRIZ)
-    assert "datasource" not in texto
+    assert 'datasource = "mira_e03"' in texto
+    assert 'datasource = "live"' not in texto
 
 
 def test_controle_exige_persistencia_e_demais_exigem_zero_efeito():

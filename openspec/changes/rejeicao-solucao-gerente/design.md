@@ -30,7 +30,7 @@ O formato de 3 é o mesmo do Save; por H-1 a transição aparece no histórico p
 
 ### D3. Consistência
 
-O risco é o mesmo do Save atual: a documentação oficial do Xano diverge sobre rollback após falha de função que não é operação de banco, e não há prova runtime (E0.3). Pela decisão DT-1, as escritas de D2 só são implementadas após a prova E0.3 em ambiente isolado autorizado, com relatório aprovado. Se a prova confirmar rollback para falhas após escrita, a ordem de D2 é mantida; se não confirmar, a change volta para decisão humana antes de qualquer implementação. Sem isolamento, uma rejeição simultânea a um Save ou ao encerramento automático é decidida pela revalidação de status e `ultima_atualizacao_em`; a janela residual é registrada como limitação.
+O risco é o mesmo do Save atual: a documentação oficial do Xano diverge sobre rollback após falha de função que não é operação de banco, e não há prova runtime (E0.3). Pela decisão DT-1 revista em 2026-11-08, as escritas de D2 só são implementadas após a prova E0.3 em datasource próprio de teste no workspace `152692`, branch `v1`, com relatório aprovado. Os registros da prova ficam separados dos dados reais; o schema e os recursos publicados são compartilhados. O teste não muda o datasource ativo e usa seleção explícita do datasource de teste. Se a prova confirmar rollback para falhas após escrita, a ordem de D2 é mantida; se não confirmar, a change volta para decisão humana antes de qualquer implementação. Uma rejeição simultânea a um Save ou ao encerramento automático é decidida pela revalidação de status e `ultima_atualizacao_em`; a janela residual de concorrência não é coberta pela prova e permanece registrada.
 
 ### D4. Reflex
 
@@ -38,11 +38,11 @@ Ação "Rejeitar solução" no detalhe do Gerente somente quando `status == Reso
 
 ## Risks / Trade-offs
 
-- [Transação não comprovada] → prova E0.3 obrigatória (DT-1); ambiente isolado ainda não autorizado.
+- [Transação não comprovada] → prova E0.3 obrigatória (DT-1); datasource de teste autorizado, prova runtime e relatório ainda pendentes.
 - [Corrida com Save ou encerramento automático] → revalidação e controle otimista; limitação registrada.
 - [Divergência com o domínio] → resolvida por DR2-1; docs de domínio atualizados.
 - [Save ainda define `Solução Rejeitada`] → mantido por DR2-2; a rejeição não é o único caminho para esse status.
 
 ## Migration Plan
 
-Sem schema e sem migração. Ordem após aprovação do Apply: autorização do ambiente isolado → prova E0.3 e relatório aprovado → função e endpoint com testes XanoScript validados no MCP → dry-run e push seletivo aprovados → Reflex → validação integrada. Reversão: ocultar a ação e desativar o endpoint; registros gravados permanecem.
+Sem schema e sem migração da funcionalidade. Ordem após aprovação do Apply: criar o datasource de teste autorizado sem torná-lo ativo → publicar somente os recursos temporários E0.3 no `v1` após backup, validação e dry-run → executar a prova nesse datasource e obter aprovação do relatório → função e endpoint com testes XanoScript validados no MCP → dry-run e push seletivo aprovados → Reflex → validação integrada. Os recursos temporários da prova compartilham o schema e seguem o [plano de execução e rollback](./prova-e03/plano-execucao-rollback.md). Reversão da funcionalidade: ocultar a ação e desativar o endpoint; registros gravados permanecem.

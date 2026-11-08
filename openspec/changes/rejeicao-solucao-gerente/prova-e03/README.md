@@ -1,6 +1,6 @@
 # Pacote da prova E0.3 (atomicidade de `db.transaction`)
 
-Situação: **preparado e validado estaticamente; não executado.** Nenhum arquivo daqui pertence ao MIRA nem fica em `xano/`, para não entrar por engano em `xano workspace push`.
+Situação: **preparado para validação estática; não executado no runtime.** Nenhum arquivo daqui pertence ao MIRA nem fica em `xano/`, para não entrar por engano em `xano workspace push` do produto. A revisão humana de 2026-11-08 autorizou a prova no datasource de teste `mira_e03` do workspace `152692`, branch `v1`; registros separados, schema e recursos compartilhados. O acesso à UI do Xano foi recusado pelo gate automático do navegador nesta sessão, portanto nenhum datasource ou recurso remoto foi criado.
 
 ## Conteúdo
 
@@ -9,7 +9,7 @@ Situação: **preparado e validado estaticamente; não executado.** Nenhum arqui
 | `table/e03_prova.xs` | Tabela exclusiva com índice único em `rotulo`; somente dados fictícios |
 | `function/e03/executar_cenario.xs` | Cenários de escrita seguida de falha |
 | `function/e03/falhar.xs` | Função que sempre lança erro (cenário `function.run`) |
-| `workflow_test/e03_rollback.xs` | Executa os cenários e lê a tabela depois de cada falha |
+| `workflow_test/e03_rollback.xs` | Executa os cenários e lê a tabela depois de cada falha, com `datasource = "mira_e03"` explícito |
 
 ## Matriz
 
@@ -28,22 +28,22 @@ Situação: **preparado e validado estaticamente; não executado.** Nenhum arqui
 
 | Categoria | Situação |
 |---|---|
-| Validação estática MCP | 4/4 arquivos válidos (`xano_validate_xanoscript`, MCP 2.2.6) |
-| Teste local | `tests/test_prova_e03_pacote.py`: cobertura da matriz e isolamento do pacote; não executa XanoScript |
+| Validação estática MCP | **4/4 válidos, 0 warnings** após a seleção explícita de `mira_e03` (Developer MCP, 2026-11-08); não prova runtime |
+| Teste local | `tests/test_prova_e03_pacote.py`: **5/5 passaram** com `.venv/bin/python -m pytest`; cobertura da matriz e seleção de datasource, sem executar XanoScript |
 | Teste com mock | Não se aplica: mock não exercita o banco nem o rollback |
 | Teste de runtime / persistência e rollback | **Não executado** |
 | Publicação | Não se aplica; o pacote nunca deve ir ao workspace compartilhado |
 
 ## Por que não foi executado
 
-- Os testes de workflow e unitários rodam no runtime de um workspace: tabela, funções e teste precisam ser enviados antes. O único workspace da conta é o compartilhado `152692`, cuja alteração não está autorizada.
-- `xano sandbox` exige plano pago. `xano ephemeral` cria tenant dentro do workspace compartilhado.
-- A documentação (MCP, `workflow-tests`) informa que `datasource = "live"` clona o datasource antes de cada execução, e que datasources nomeados são aceitos. Ela não informa a disponibilidade no plano Free nem o que acontece com as escritas quando `datasource` é omitido. Usar isso como isolamento exige confirmação oficial e autorização para enviar o pacote.
+- Os testes de workflow exigem tabela, funções e teste publicados no `v1`. A autorização para isso foi dada em 2026-11-08, com seleção obrigatória do datasource `mira_e03` e preservação do ativo.
+- A revisão automática do navegador recusou acesso a `app.xano.com` nesta sessão, impedindo a criação e verificação do datasource. Nenhum push foi feito.
+- O [plano de execução e rollback](./plano-execucao-rollback.md) contém backup, seleção explícita, dry-run, critérios de prova e normalização.
 
-## Execução (somente após autorização de ambiente isolado)
+## Execução (somente após criar e verificar o datasource de teste)
 
-1. Confirmar que o destino não é `152692` nem contém dados reais.
-2. `xano workspace push --dry-run -d openspec/changes/rejeicao-solucao-gerente/prova-e03 -w <isolado>`; revisar o dry-run e depois executar o push.
-3. `xano workflow_test list -w <isolado>`, depois `xano workflow_test run <id> -w <isolado>`.
-4. Registrar a saída completa. Cada execução exige tabela vazia, porque os marcadores são únicos.
+1. Confirmar workspace `152692`, branch `v1`, datasource `mira_e03` vazio e datasource ativo inalterado.
+2. Seguir backup, validação e dry-run seletivo de [plano-execucao-rollback.md](./plano-execucao-rollback.md), depois publicar somente os quatro recursos temporários.
+3. `xano workflow_test list -w 152692 -b v1`, depois `xano workflow_test run <id> -w 152692 -o json`.
+4. Registrar a saída completa. Cada execução exige tabela de prova vazia, porque os marcadores são únicos; não repetir sem verificar e reiniciar exclusivamente os dados fictícios da prova.
 5. Critério: zero efeito parcial em todos os cenários de 1 a 6 e controle igual a 1. Se o controle falhar, o resultado é inválido. Resultado positivo não libera a rejeição nem o encerramento automaticamente: o relatório precisa de aprovação humana (DT-1).

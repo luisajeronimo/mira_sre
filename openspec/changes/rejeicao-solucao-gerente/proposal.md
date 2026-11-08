@@ -47,12 +47,12 @@ Nenhuma.
 | ID | Decisão | Efeito |
 |---|---|---|
 | DR2-0 | Rejeição incluída na Sprint 3, condicionada à segurança | Substitui o adiamento aprovado na revisão de escopo; esta change entra no plano da Sprint |
-| DT-1 | Prova E0.3 obrigatória antes de novas escritas que dependam de atomicidade | As tasks de escrita ficam bloqueadas até a prova; DT-1 não autoriza criar workspace, alterar o workspace compartilhado nem experimentar em produção |
+| DT-1 | Prova E0.3 obrigatória antes de novas escritas que dependam de atomicidade | As tasks de escrita ficam bloqueadas até a prova e a aprovação do relatório; a revisão de 2026-11-08 autorizou a prova em datasource próprio de teste no workspace `152692`, branch `v1`, sem alterar o datasource ativo nem dados reais |
 | DR2-1 | Somente o Gerente da própria Loja rejeita; o solicitante permanece somente leitura | Resolve a divergência com o domínio, que atribuía a rejeição ao solicitante |
 | DR2-2 | `Solução Rejeitada` permanece canônico | Destino da rejeição; o Save continua aceitando esse destino, sem alteração nesta change |
 | K-B | Histórico exibido na interface após validação | A transição da rejeição aparece no histórico do Gerente quando a seção for liberada em `acompanhamento-solicitante-historico-status` |
 
 ## Bloqueios
 
-- **E0.3 sem ambiente isolado:** o único workspace Xano registrado no projeto é o compartilhado `152692`. Não há ambiente isolado autorizado para a prova. A implementação das escritas depende de autorização específica de um ambiente isolado (ou de outro meio de prova aprovado) e do relatório da prova.
+- **E0.3 ainda não executada:** não existe workspace separado. A responsável autorizou um datasource de teste no `v1` como alternativa, ciente de que os registros ficam separados mas o schema e os recursos publicados são compartilhados. A implementação das escritas depende da execução da prova e da aprovação do relatório. O plano de execução e rollback está em [prova-e03/plano-execucao-rollback.md](./prova-e03/plano-execucao-rollback.md).
 - Validações de entrada e de autorização podem ser preparadas e testadas com mocks, mas o endpoint não é publicado antes da prova.

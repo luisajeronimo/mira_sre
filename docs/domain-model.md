@@ -351,7 +351,7 @@ Na abertura manual, o Gerente escolhe diretamente a prioridade. O MIRA não util
 #### SLA aplicado
 
 - o SLA da Categoria é copiado para o Chamado no momento da criação;
-- o Chamado preserva esse valor durante toda a sua existência;
+- o Chamado preserva esse valor enquanto a Categoria não for alterada por um Save efetivo; nesse caso, o SLA aplicado passa a ser o da Categoria resultante sem reiniciar a referência temporal;
 - alterações posteriores no SLA da Categoria não modificam retroativamente Chamados existentes;
 - a contagem inicia na criação do Chamado;
 - `Aguardando Solicitante` e `Aguardando Mudança` não pausam o SLA;
@@ -485,8 +485,8 @@ Permitir acompanhamento do tempo consumido e identificação de risco de violaç
 
 ### Relacionamentos
 
-- deriva da Categoria no momento da criação;
-- fica preservado no Chamado como valor aplicado.
+- deriva da Categoria no momento da criação e de eventual troca efetiva de Categoria pelo Save;
+- fica registrado no Chamado como valor aplicado vigente, sem alteração retroativa por mudanças posteriores no cadastro da Categoria.
 
 ### Regras estruturais
 
@@ -514,7 +514,7 @@ Dados mínimos:
 - eventos de telemetria com timestamp;
 - momentos em que a indisponibilidade é detectada e em que o Totem retorna a `Online`.
 
-A disponibilidade representa a proporção do período observado em que o Totem esteve operacional.
+A disponibilidade representa a proporção do período observado em que o Totem esteve operacional. A indisponibilidade começa no timestamp da última telemetria referenciada pelo evento Offline e termina no timestamp da telemetria referenciada pelo evento Online. O período observável não começa antes de 05/10/2026 00:00 em `America/Sao_Paulo`; Lojas e rede agregam o tempo indisponível sobre o tempo observado, sem média simples dos percentuais dos Totens. O recorte por Loja usa o vínculo histórico comprovado no instante do fato e não a Loja atual do Totem. Se qualquer Totem incluído tiver histórico necessário inválido, sua disponibilidade e o agregado do recorte ficam indisponíveis, com contagem dos Totens afetados; um trecho sem marco confiável não vira tempo Online.
 
 ### MTTD — Tempo Médio de Detecção
 
@@ -526,7 +526,7 @@ Dados mínimos:
 - momento em que a indisponibilidade é detectada;
 - Totem e Loja.
 
-A definição exata do marco inicial usado pelo MIRA deve ser consolidada na spec do indicador antes da implementação.
+O MTTD usa o intervalo entre a última telemetria referenciada pelo evento Offline e `detectado_em` desse evento, incluindo o limite de heartbeat. Entram no período os eventos cuja detecção ocorre nele; eventos sem telemetria de referência válida não recebem tempo estimado.
 
 ### MTTR — Tempo Médio de Recuperação
 
@@ -539,6 +539,8 @@ Dados mínimos:
 - Totem e Loja.
 
 O Chamado pode permanecer aberto mesmo após a recuperação do Totem.
+
+O MTTR usa os timestamps das telemetrias referenciadas pelos eventos Offline e Online. Uma recuperação entra no período pelo instante do retorno a Online. Indisponibilidades ainda abertas ficam fora da média e são contadas separadamente.
 
 ### Volumetria de Chamados por Status
 
@@ -558,6 +560,8 @@ Dados mínimos:
 - SLA aplicado;
 - status atual;
 - tempo contabilizado segundo as regras de SLA.
+
+O cumprimento agregado considera chamados que entram no estado de parada vigente no período, exclui Cancelados e separa os não calculáveis. Chamado rejeitado retoma o saldo anterior e é reavaliado na próxima resolução, sem contar o tempo em Resolvido.
 
 ### Top 5 Lojas com Maior Volume de Incidentes
 
@@ -593,7 +597,7 @@ Dados mínimos:
 - data de criação;
 - identificação do Chamado.
 
-Critérios de janela temporal e apresentação devem ser definidos na spec do dashboard, sem necessidade de uma nova entidade de "causa" neste momento.
+A recorrência usa janela de 30 dias corridos, mesmo Totem e mesma Categoria. Participam somente Incidentes não cancelados; Requisições e chamados Cancelados não entram na base nem servem de predecessor. Um chamado anterior ao período de análise pode ser predecessor se estiver dentro da janela. Os detalhes verificáveis estão na change `indicadores-governanca-formulas`; a apresentação pertence à spec futura do dashboard, sem necessidade de nova entidade de "causa".
 
 ## 14. Relações consolidadas do domínio-alvo
 

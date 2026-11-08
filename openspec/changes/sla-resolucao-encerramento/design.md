@@ -91,7 +91,7 @@ Pendências: indicadores do Gerente e da Diretoria dependem de DS-2 e DI-1 a DI-
 
 ## Risks / Trade-offs
 
-- [Transação não comprovada] → prova E0.3 obrigatória (DT-1) para as três escritas; ambiente isolado ainda não autorizado.
+- [Transação não comprovada] → prova E0.3 obrigatória (DT-1) para as três escritas; datasource de teste no `v1` autorizado em 2026-11-08, mas runtime e relatório ainda pendentes. Os recursos da prova compartilham o schema do workspace.
 - [Chamados anteriores ao Save sem linha do tempo] → não calculáveis e não elegíveis, reportados.
 - [Primeiro encerramento em massa de chamados já vencidos] → impedido pela vigência `T_v` (DE-2).
 - [Corrida com rejeição] → revalidação; janela residual registrada.

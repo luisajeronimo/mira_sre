@@ -2,6 +2,8 @@
 
 Merge de `origin/main` (`64f2790`) em `explore-monitoramento-xano` (`f861306`), feito em worktree separado; commit `b19d4b4`. Nenhum merge em `main`.
 
+Revisão posterior da branch: por decisão humana, `README.md`, `docs/domain-model.md` e `docs/project-overview.md` foram restaurados às versões de `main`, e `docs/xanoscript-language-server.md` foi descartado. A linha documental da tabela abaixo descreve apenas a resolução original do merge `b19d4b4`, não o resultado desta revisão. A cópia duplicada de `gerente/ativos-historicos` com nome de arquivo alternativo também foi removida.
+
 ## Método
 
 Para cada objeto Xano em conflito foram comparados: a versão do PR (ours), a de `main` (theirs), a do working tree local e a publicada (`xano workspace pull` somente leitura do mesmo dia), em forma canônica (sem diferenças de espaço, vírgulas separadoras, cercas de mock e parênteses que o servidor reescreve), além dos conjuntos de testes nativos de cada lado. Origem: `main` versionou os mesmos objetos publicados pela change arquivada `2026-11-08-administracao-mira` (commit `d75db38`); o PR os versionou nos commits `63f864d`, `9276048`, `6afb174` e `c9ede3c`. São versões independentes dos mesmos objetos de produção.
@@ -46,4 +48,4 @@ As specs consolidadas por `main` passaram a conter cenários que os deltas MODIF
 
 ## Pendência registrada
 
-`obter_chamado_tecnico` publicado usa o alias `tecnico_usuario`, enquanto `docs/xanoscript-language-server.md` recomenda não renomear aliases sem justificativa funcional. Não há justificativa registrada para a troca; os campos de saída não mudam. Decisão humana: manter (como publicado) ou reverter numa publicação futura.
+`obter_chamado_tecnico` publicado usa o alias `tecnico_usuario`. Não há justificativa funcional registrada para a troca; os campos de saída não mudam. O documento `docs/xanoscript-language-server.md`, que registrava essa observação, foi descartado nesta revisão. Decisão humana futura: manter o alias publicado ou revertê-lo numa publicação própria.

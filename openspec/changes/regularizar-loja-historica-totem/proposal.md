@@ -55,6 +55,6 @@ Chamados sem evidência histórica **não recebem vínculo retroativo automátic
 
 ## Impact
 
-- Repositório: `xano/` (documentos copiados do publicado), specs, `docs/domain-model.md`, `docs/project-overview.md`, testes de contrato.
+- Repositório: `xano/` (documentos copiados do publicado), specs e testes de contrato. As atualizações de `docs/domain-model.md`, `docs/project-overview.md` e `README.md` foram descartadas nesta integração por decisão humana; as tasks documentais permanecem abertas.
 - Xano: nenhum push nesta change sem autorização própria; após o Apply, o dry-run completo deve deixar de mostrar as diferenças da regra histórica e o `DROP_FIELD`.
 - Interação com changes ativas: `acompanhamento-solicitante-historico-status` também modifica `autorizacao-perfis` e `chamados-acompanhamento-gerente` em requisitos diferentes; o detalhe do solicitante já foi reconciliado com a Loja histórica.

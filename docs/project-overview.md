@@ -53,13 +53,11 @@ Suas principais responsabilidades são:
 - acompanhar os totens da própria loja;
 - abrir chamados manuais relacionados aos totens da própria loja;
 - consultar todos os chamados da própria loja, inclusive históricos;
-- acompanhar o status atual e os comentários públicos dos chamados da própria loja;
-- comentar publicamente em qualquer chamado da própria loja, inclusive encerrado ou cancelado;
-- rejeitar a solução de chamado `Resolvido` da própria loja, com justificativa obrigatória *(aprovado para a Sprint 3; ainda não implementado)*.
+- acompanhar status, atualizações e comentários visíveis;
+- comentar em chamados nos quais atua como solicitante;
+- rejeitar uma resolução quando o problema persistir, informando obrigatoriamente o motivo.
 
-O Gerente não deve visualizar chamados pertencentes a outras lojas, comentários privados nem eventos operacionais da tratativa. Ele não altera diretamente o status dos chamados, exceto pelo efeito específico da rejeição de solução, e não recebe permissões técnicas de tratativa, atribuição ou comentário privado (seção 6.7).
-
-Quando o Gerente for o solicitante de um chamado, ele também o acompanha pela interface do solicitante (seção 6.8).
+O Gerente não deve visualizar chamados pertencentes a outras lojas e não altera diretamente o status dos chamados.
 
 ### 4.2 Técnico
 
@@ -70,13 +68,15 @@ Suas principais responsabilidades são:
 - consultar todos os chamados;
 - utilizar filtros e busca por número do chamado;
 - visualizar chamados não atribuídos, próprios ou atribuídos a outros Técnicos;
-- atribuir chamados a si mesmo ou a outro Técnico, reatribuí-los e liberá-los pelo Save operacional, inclusive quando o responsável atual é outro Técnico;
+- assumir chamados não atribuídos;
+- retirar sua própria atribuição;
+- atribuir ou reatribuir chamados a outros Técnicos quando permitido;
 - alterar o status dos chamados não terminais;
 - registrar comentários e atualizações;
 - tratar e resolver chamados;
 - consultar informações do Totem, da loja e da telemetria relacionadas ao atendimento.
 
-A atribuição de um chamado não inicia automaticamente o atendimento. A mudança para `Em Atendimento` é uma ação explícita.
+A assunção de um chamado não inicia automaticamente o atendimento. A mudança para `Em Atendimento` é uma ação explícita.
 
 ### 4.3 Diretoria
 
@@ -122,19 +122,6 @@ O escopo global do MIRA compreende:
 - dashboards e indicadores operacionais e gerenciais.
 
 Os dados mestres permanecem persistidos no Xano. O Simulator não recria lojas ou totens a cada execução.
-
-### 5.1 Situação do acompanhamento e retorno do solicitante (Sprint 3)
-
-- **Já implementado:** lista, detalhe, filtros múltiplos e preferências do Gerente pela própria loja; comentário público do Gerente em qualquer chamado da loja, inclusive encerrado ou cancelado; visibilidade Pública/Interna exclusiva de comentários; timeline operacional restrita a Técnico, Diretoria e Administrador.
-- **Aprovado para a Sprint 3:** acompanhamento somente leitura dos chamados pelo solicitante associado, em interface própria e independente da loja atual; histórico público de status projetado das alterações já registradas pelo Save operacional, exibido na interface após validação; bloqueio do acesso do Gerente às consultas genéricas de interações; confirmação de publicação de comentário independente da atualização do detalhe; rejeição de solução pelo Gerente da loja com destino `Solução Rejeitada`; contagem de SLA em tempo corrido; encerramento automático após 72 horas corridas em `Resolvido`, sem encerramento em massa de chamados já resolvidos, com comentário público de sistema.
-- **Bloqueado por risco técnico:** novas operações que gravem mais de um registro de forma dependente (rejeição, encerramento automático) e a gravação de um evento de status de tipo próprio, até prova verificável, em ambiente isolado autorizado, de que o Xano Free desfaz escritas anteriores quando uma operação falha. A projeção do histórico e o cálculo de SLA são somente leitura, não dependem dessa prova e não a comprovam. O plano Free não oferece ambiente isolado utilizável sem alterar o workspace compartilhado; um pacote de prova pronto, validado apenas estaticamente, aguarda autorização de ambiente.
-- **Publicado no Xano em 07/11/2026, com autorização:** bloqueio do Gerente nas consultas genéricas de interações (Pacote A); contratos de leitura do solicitante e do histórico público de status (Pacote B). Testes nativos XanoScript e validação HTTP parcial foram executados; o caminho com chamado do próprio solicitante e da própria Loja do Gerente não foi executado por falta de dados de teste.
-- **Implementado localmente, não publicado (07/11/2026):** interface do solicitante e seção de histórico no detalhe do Gerente e do solicitante; confirmação de publicação de comentário; cálculo do consumo de SLA em tempo corrido como função interna (publicada em 08/11), ainda sem consulta que o exponha; a exposição por perfil foi decidida na DE-8 (08/11) e não está implementada. A interface do solicitante e a seção de histórico ficam fora do repositório versionado até a validação dos contratos publicados (liberação condicionada K-B); a configuração de liberação (`MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO`) entra junto com esse código.
-- **Não definido:** aceitação explícita da solução; fórmulas finais dos indicadores (em proposta), exceto o consumo de SLA e suas faixas, já sustentados pelo domínio.
-- **Loja histórica (publicada no Xano; regularização no repositório em andamento pela change `regularizar-loja-historica-totem`, 07/11/2026):** a Loja de um chamado é a do vínculo histórico do Totem no instante da abertura. Sem vínculo, a Loja é nula e o Gerente não acessa o chamado; não há vínculo retroativo nem uso da Loja atual como substituta. Chamados novos de Totem sem histórico registram marco somente quando há Loja atual. A abertura manual sem Loja atual é rejeitada; o heartbeat pode criar o incidente sem marco, mantendo sua Loja histórica nula e sem acesso para Gerentes. Em 07/11/2026 nenhum vínculo existia, então os chamados existentes estavam fora da jornada do Gerente (decisão DL-1 pendente na change `regularizar-loja-historica-totem`).
-- **Consultas genéricas de interações:** a versão publicada já negava o Gerente; o Pacote A, publicado em 07/11/2026, passou a autorizar antes de qualquer leitura e corrigiu o erro 500 para identificador inexistente.
-
-O estado de implementação, teste, validação e publicação de cada item está no [README](../README.md#estado-da-sprint-3-2610-a-08112026).
 
 ---
 
@@ -229,14 +216,16 @@ A contagem de SLA continua nos estados de espera. `Resolvido` interrompe a conta
 
 Um chamado pode existir sem Técnico responsável.
 
-A mudança de responsável ocorre exclusivamente pelo campo Responsável do Save operacional, sem comandos imediatos de assumir, atribuir, reatribuir ou liberar. Técnico, Diretoria e Administrador podem selecionar qualquer Técnico ou `Não atribuído` em chamado não terminal, inclusive quando o responsável atual é outro Técnico. Somente usuários com perfil Técnico podem ser responsáveis.
+Quando um Técnico assume um chamado:
 
-Quando o Save altera o responsável:
-
-- definir um Técnico em chamado sem responsável é atribuição, e trocar de Técnico é reatribuição; ambas registram o responsável e o momento da atribuição;
-- definir `Não atribuído` é liberação: o chamado volta a ficar sem Técnico responsável;
+- a atribuição é registrada;
+- o momento da atribuição é registrado;
 - o status não é alterado automaticamente;
-- salvar o mesmo responsável já persistido não cria nova atribuição.
+- repetir a mesma assunção pelo mesmo Técnico não cria uma nova atribuição.
+
+Chamados não atribuídos podem ser assumidos por um Técnico. Técnicos, Diretoria e Administrador também podem atribuir ou reatribuir chamados a outro Técnico, desde que o chamado não esteja em estado terminal.
+
+Um Técnico pode retirar sua própria atribuição. Nesse caso, o chamado volta a ficar sem Técnico responsável e mantém o status atual.
 
 Toda atribuição, reatribuição ou liberação deve fazer parte do histórico do chamado.
 
@@ -257,20 +246,18 @@ O solicitante não altera diretamente o status.
 
 Técnico, Diretoria e Administrador podem alterar o status de chamados não terminais. Toda alteração de status exige uma atualização registrada no histórico.
 
-`Cancelado` é terminal: depois do cancelamento, o chamado não volta a estado não terminal nem recebe edições funcionais.
+`Cancelado` é terminal: depois do cancelamento, o chamado não pode ser reaberto nem editado.
 
 `Encerrado` também é terminal. Se o problema voltar após o encerramento, deve ser criado um novo chamado.
 
 `Resolvido` e `Encerrado` representam fases distintas:
 
 - `Resolvido`: a solução técnica foi aplicada e o serviço foi considerado restaurado;
-- `Encerrado`: o prazo de fechamento automático expirou ou um perfil operacional encerrou o chamado.
+- `Encerrado`: a resolução foi aceita ou o prazo de fechamento automático expirou.
 
-Após 72 horas corridas em `Resolvido`, sem rejeição da solução, o sistema deve alterar automaticamente o chamado para `Encerrado` e registrar um comentário público de sistema. Um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade, revalida o estado do chamado e efetiva a alteração. Chamados que já estavam `Resolvido` antes do início de vigência dessa regra não são encerrados automaticamente. O retorno de telemetria não participa dessa regra.
+Após três dias em `Resolvido`, sem rejeição da solução, o sistema deve alterar automaticamente o chamado para `Encerrado`. Um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade e efetiva a alteração do chamado. O retorno de telemetria não participa dessa regra.
 
-Quando o problema persiste, o Gerente da loja à qual o chamado pertence pode rejeitar a resolução de um chamado `Resolvido`. A rejeição é uma operação específica, autorizada no Xano, que exige justificativa obrigatória registrada como comentário público e altera o status para `Solução Rejeitada`, sem alterar os demais dados do chamado. O solicitante permanece somente leitura. A contagem de SLA retoma o saldo anterior, sem contabilizar o período em `Resolvido`.
-
-Situação atual: rejeição e encerramento automático estão aprovados para a Sprint 3, mas não implementados; suas gravações dependem de prova de segurança transacional, que segue sem ambiente isolado disponível no plano Free. A aceitação explícita da solução não está definida. Hoje, `Solução Rejeitada` integra a lista canônica do Save operacional, das listagens, dos filtros e das preferências.
+Quando um solicitante humano entende que o problema persiste, pode rejeitar a resolução. A rejeição exige comentário obrigatório e altera o status para `Solução Rejeitada`, sem alterar automaticamente os demais dados do chamado.
 
 O status `Aguardando Solicitante` é definido por Técnico, Diretoria ou Administrador e exige comentário público. O comentário posterior do solicitante atualiza o chamado, mas não muda automaticamente seu status.
 
@@ -294,13 +281,7 @@ Comentários feitos por Técnico, Diretoria ou Administrador podem ser:
 - gerais, visíveis também ao solicitante;
 - privados, visíveis apenas a Técnico, Diretoria e Administrador.
 
-A visibilidade geral ou privada pertence somente aos comentários. Mudanças relevantes, como alteração de status, atribuição, reatribuição e liberação, geram eventos operacionais estruturados, sem visibilidade própria, apresentados na linha do tempo da tratativa a Técnico, Diretoria e Administrador.
-
-O Gerente e o solicitante recebem somente comentários públicos e, pelo contrato de histórico, o par de status projetado; nunca comentários privados ou os demais dados dos eventos operacionais da tratativa, inclusive por acesso direto a endpoints genéricos. Ocultar esses dados apenas na interface não é suficiente.
-
-O solicitante associado a um chamado, qualquer que seja seu perfil oficial e independentemente da loja atual, acompanha somente para leitura, em interface própria, os chamados que solicitou: lista ordenada pela última atualização, detalhe sem telemetria do Totem e comentários públicos. Essa interface não permite comentar, aceitar ou rejeitar solução. Chamado inexistente e chamado de outra pessoa recebem a mesma resposta, sem revelar sua existência.
-
-Histórico público de status: a Sprint 3 prevê um contrato de leitura próprio, separado dos comentários, que projeta as transições de status a partir do evento operacional registrado pelo Save. Ele expõe somente o status anterior, o resultante, o momento e o autor identificado pelo nome de exibição e pelo perfil (somente pelo nome quando o perfil não é reconhecido; `Sistema` quando não houver usuário), sem os demais dados do evento. Alterações sem mudança de status são ignoradas; sem transições, o histórico é vazio. Transições anteriores à implantação do Save operacional não são reconstruídas. A consulta não grava dados; a exibição na interface está aprovada e será liberada após a validação de autorização, segurança e contrato. Situação: contrato publicado no Xano em 07/11/2026 (Pacote B), com validação HTTP parcial; seção da interface implementada localmente e desligada até a validação (seção 5.1).
+Mudanças relevantes, como alteração de status, atribuição, reatribuição e liberação, devem gerar eventos estruturados no histórico, mesmo quando apresentados ao usuário na mesma linha do tempo de comentários.
 
 Toda inclusão de comentário atualiza a data de última atualização do chamado.
 
@@ -310,14 +291,15 @@ Mudanças para `Resolvido`, `Aguardando Solicitante` e `Cancelado` exigem coment
 
 As listagens de chamados devem permitir filtros compatíveis com o escopo de cada perfil.
 
-Critérios vigentes:
+Entre os critérios previstos estão:
 
-- Gerente: número do chamado, Status (múltipla seleção), Totem (múltipla seleção), período de abertura e período da última atualização, sempre restritos à própria loja;
-- Técnico, Diretoria e Administrador: número do chamado, Status, Totem, Loja, Responsável (incluindo `Não atribuído`) e Prioridade, todos com múltipla seleção, além dos períodos de abertura e de última atualização.
+- número do chamado;
+- status;
+- Totem;
+- data de abertura;
+- data da última atualização.
 
-Opções do mesmo filtro são combinadas por "ou", e filtros diferentes por "e".
-
-Técnicos podem visualizar todos os chamados e filtrá-los independentemente de estarem atribuídos a eles; o escopo rápido `Atribuídos a mim` é exclusivo do Técnico e não persiste entre logins.
+Técnicos podem visualizar todos os chamados e filtrá-los independentemente de estarem atribuídos a eles.
 
 Gerentes podem consultar e filtrar todos os chamados pertencentes à própria loja.
 
@@ -440,8 +422,6 @@ O Bot de Fiscalização é um ator de sistema utilizado como solicitante de cham
 As permissões devem ser aplicadas no backend e não apenas por ocultação de componentes na interface.
 
 O Gerente possui escopo restrito à própria loja.
-
-O acompanhamento pelo solicitante é autorizado no Xano pelo vínculo com cada chamado, exige perfil oficial e não depende da loja atual nem concede acesso a outros chamados.
 
 Técnico, Diretoria e Administrador possuem escopo global conforme suas responsabilidades.
 

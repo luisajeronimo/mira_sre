@@ -44,7 +44,7 @@ Classes: **C** correto e necessário; **CD** correto, documentação complementa
 | `ef7d883` | 08/11 | Isabelly Garcia | PR | `AUTENTICACAO.md` marcado como histórico | C | — |
 | `374ecf6` | 08/11 | Isabelly Garcia | PR | Prepara a validação das escritas e registra a ausência de job | C | — |
 | `64f2790` | 08/11 | Luisa Lima | main | Alinha os GETs genéricos de interações ao Xano | R | Equivalente ao Pacote A do PR (diferença só de layout); conciliado no merge |
-| `c9ede3c` | 08/11 | Isabelly Garcia | PR | Versiona as escritas da Loja histórica | DT | Atomicidade depende da E0.3 (DL-3) |
+| `c9ede3c` | 08/11 | Isabelly Garcia | PR | Versiona as escritas da Loja histórica | DT | Atomicidade depende da E0.3 (DL-3). Criou `ativos_historicos_GET.xs`, duplicando `ativos-historicos_GET.xs` de `d75db38` (mesmo objeto); duplicação removida em `9808756`, com teste de regressão |
 | `d16ae19` | 08/11 | Isabelly Garcia | PR | Publica o consumo de SLA | C | Testes complementados em `9e1fea6` |
 | `f861306` | 08/11 | Isabelly Garcia | PR | Versiona o detalhe de monitoramento | C | O UPDATE persistente do dry-run é artefato do CLI |
 | `b19d4b4` | 08/11 | Isabelly Garcia | PR | Merge de `main`, com os 28 conflitos resolvidos | C | Justificativa por arquivo em `corrigir-gerente-gets-genericos-loja-historica/integracao-main.md` |
@@ -54,7 +54,7 @@ Classes: **C** correto e necessário; **CD** correto, documentação complementa
 | `1243ea8` | 08/11 | Isabelly Garcia | PR | Alinha README e OpenSpec; DE-8 registrada | C | — |
 | `499f298` | 08/11 | Isabelly Garcia | PR | Evidências da publicação da C-1 e do SLA | C | — |
 
-Nenhum commit foi classificado como problemático ou incompleto sem tratamento. Os itens **DT** dependem dos bloqueios da seção 3, e nenhum foi reescrito.
+Commits posteriores à revisão: `dc0cdb7` (E2E da C-1 e DTO do Técnico), `3a1004c` (interface do solicitante integrada e desligada), `e665615` (este documento) e `9808756` (remoção do documento Xano duplicado). Nenhum commit foi classificado como problemático ou incompleto sem tratamento. Os itens **DT** dependem dos bloqueios da seção 3, e nenhum foi reescrito.
 
 ## 2. Entregas da Sprint 3
 

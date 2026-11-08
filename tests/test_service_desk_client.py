@@ -107,6 +107,16 @@ def test_catalogo_tecnico_usa_rota_do_service_desk():
     assert requisicoes[0].headers["Authorization"] == "Bearer token"
 
 
+def test_catalogo_tecnico_nao_inventa_estado_para_totem_sem_estado_materializado():
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"items": [
+            {"id": 17, "nome_ativo": "Totem de teste", "tipo": "Totem", "status_atual": "", "loja": None}
+        ]})),
+    )
+    assert executar(cliente.listar_ativos_tecnico("token"))[0].status_atual is None
+
+
 def test_catalogo_tecnicos_fila_independe_de_chamados():
     cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(
         lambda requisicao: httpx.Response(200, json={"items": [], "tecnicos": [
@@ -955,16 +965,6 @@ def test_erros_http_sao_classificados_sem_expor_corpo(status, erro):
         {},
         {"items": "não é coleção"},
         {"items": [None]},
-        {
-            "items": [
-                {
-                    "id": 1,
-                    "nome_ativo": "Totem",
-                    "tipo": "Totem",
-                    "status_atual": None,
-                }
-            ]
-        },
     ],
 )
 def test_resposta_incompativel_falha_fechado(resposta):
@@ -977,6 +977,34 @@ def test_resposta_incompativel_falha_fechado(resposta):
 
     with pytest.raises(XanoContratoInvalido):
         executar(cliente.listar_ativos("token"))
+
+
+@pytest.mark.parametrize("estado_bruto", [None, ""])
+def test_totem_novo_sem_telemetria_nao_recebe_estado_presumido(estado_bruto):
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={
+            "items": [{"id": 1, "nome_ativo": "Totem", "tipo": "Totem",
+                       "status_atual": estado_bruto, "loja": {"id": 2, "nome": "Loja"}}]
+        })),
+    )
+    assert executar(cliente.listar_ativos("token"))[0].status_atual is None
+
+
+def test_catalogo_historico_do_gerente_usa_rota_separada_da_abertura():
+    requisicoes = []
+
+    def responder(requisicao):
+        requisicoes.append(requisicao.url.path)
+        return httpx.Response(200, json={"items": [
+            {"id": 3, "nome_ativo": "Totem transferido", "tipo": "Totem", "status_atual": None}
+        ]})
+
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(responder))
+    historicos = executar(cliente.listar_ativos_historicos_gerente("token"))
+
+    assert historicos[0].id == 3
+    assert requisicoes == ["/api:mira-service-desk/gerente/ativos-historicos"]
 
 
 def test_timeout_e_conexao_sao_indisponibilidade():

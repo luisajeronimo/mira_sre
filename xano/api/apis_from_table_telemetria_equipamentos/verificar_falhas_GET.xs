@@ -95,6 +95,7 @@ query "verificar-falhas" verb=GET {
                   db.get ativos_referencia {
                     field_name = "id"
                     field_value = $item.id
+                    lock = true
                   } as $ativo_atual
 
                   db.get categorias_servico {
@@ -136,6 +137,26 @@ query "verificar-falhas" verb=GET {
                         if ($incidente_equivalente == null) {
                           var $criado_em {
                             value = now
+                          }
+
+                          db.query historico_vinculos_totem_loja {
+                            where = $db.historico_vinculos_totem_loja.ativos_referencia_id == $ativo_atual.id
+                            sort = {historico_vinculos_totem_loja.efetivado_em: "desc"}
+                            return = {type: "single"}
+                          } as $ultimo_vinculo
+                          conditional {
+                            if ($ultimo_vinculo == null && $ativo_atual.lojas_id != null) {
+                              // Para legado, comprova só a Loja no instante do novo chamado.
+                              db.add historico_vinculos_totem_loja {
+                                data = {
+                                  ativos_referencia_id: $ativo_atual.id
+                                  loja_origem_id: null
+                                  loja_destino_id: $ativo_atual.lojas_id
+                                  tipo: "marco"
+                                  efetivado_em: $criado_em
+                                }
+                              } as $marco
+                            }
                           }
 
                           db.add chamados {

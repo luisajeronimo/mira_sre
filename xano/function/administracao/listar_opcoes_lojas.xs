@@ -12,6 +12,7 @@ function "administracao/listar_opcoes_lojas" {
     } as $administrador
 
     db.query lojas {
+      where = $db.lojas.status == "Ativa" || $db.lojas.status == "ativa" || $db.lojas.status == "Ativo"
       sort = {lojas.nome: "asc"}
       return = {type: "list"}
       mock = {

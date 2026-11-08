@@ -191,6 +191,7 @@ def _historico_telemetrias() -> rx.Component:
                         rx.table.column_header_cell("Memória"),
                         rx.table.column_header_cell("Temperatura"),
                         rx.table.column_header_cell("Rede"),
+                        rx.table.column_header_cell("Loja na ocorrência"),
                     )
                 ),
                 rx.table.body(
@@ -202,6 +203,7 @@ def _historico_telemetrias() -> rx.Component:
                             rx.table.cell(telemetria["uso_memoria"]),
                             rx.table.cell(telemetria["temperatura"]),
                             rx.table.cell(badge_status(telemetria["status_rede"])),
+                            rx.table.cell(telemetria["loja_nome"]),
                         ),
                     )
                 ),
@@ -224,6 +226,7 @@ def _transicoes() -> rx.Component:
                         rx.table.column_header_cell("Estado"),
                         rx.table.column_header_cell("Detectado em"),
                         rx.table.column_header_cell("Limite de heartbeat"),
+                        rx.table.column_header_cell("Loja na ocorrência"),
                     )
                 ),
                 rx.table.body(
@@ -233,6 +236,7 @@ def _transicoes() -> rx.Component:
                             rx.table.cell(badge_status(transicao["status"])),
                             rx.table.cell(transicao["detectado_em_texto"]),
                             rx.table.cell(transicao["heartbeat_limite_minutos"]),
+                            rx.table.cell(transicao["loja_nome"]),
                         ),
                     )
                 ),
@@ -330,7 +334,7 @@ def _painel_detalhe() -> rx.Component:
                     ),
                     rx.vstack(
                         rx.text("Eventos de disponibilidade registrados", weight="bold"),
-                        rx.text("Transições persistidas pelo Xano.", size="2", color="gray"),
+                        rx.text("Histórico das mudanças de disponibilidade.", size="2", color="gray"),
                         _transicoes(),
                         align="start",
                         width="100%",

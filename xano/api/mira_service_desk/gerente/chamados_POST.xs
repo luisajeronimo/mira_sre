@@ -12,6 +12,9 @@ query "gerente/chamados" verb=POST {
   }
 
   stack {
+    function.run "autorizacao/exigir_perfil" {
+      input = {usuarios_id: $auth.id, gerente: true}
+    } as $gerente
     function.run "service_desk/abrir_chamado_manual" {
       input = {
         usuarios_id: $auth.id

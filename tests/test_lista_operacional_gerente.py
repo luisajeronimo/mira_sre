@@ -449,7 +449,7 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     fonte = (ROOT / "xano/function/service_desk/listar_chamados_gerente.xs").read_text()
     endpoint = (ROOT / "xano/api/mira_service_desk/gerente/chamados_GET.xs").read_text()
 
-    predicado_loja = "$db.ativo.lojas_id == $usuario.lojas_id"
+    predicado_loja_atual = "$db.ativo.lojas_id == $usuario.lojas_id"
     consultas = re.findall(
         r"db\.query chamados \{(.*?)\n        \} as \$[A-Za-z_][A-Za-z0-9_]*",
         fonte,
@@ -461,9 +461,12 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     assert "where = $filtros == true" not in fonte
     assert "$db.$db" not in fonte
     for consulta in consultas:
-        assert f"where = {predicado_loja}" in consulta
+        assert "where =" in consulta
+        assert predicado_loja_atual not in consulta
 
-    assert "$db.ativo.lojas_id == $usuario.lojas_id" in fonte
+    assert "administracao/resolver_loja_totem_no_instante" in fonte
+    assert "instante: $chamado.criado_em" in fonte
+    assert "if ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id)" in fonte
     assert 'sort = {status_ordenavel: "asc", chamados.id: "asc"}' in fonte
     assert "total: ($items|count)" in fonte
     assert "timestamp? data_inicio?" in endpoint
@@ -481,11 +484,11 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     assert "foreach ($ativo_ids)" in fonte
     assert "if (!($id > 0))" in fonte
     assert "($numero_convertido|to_text) == $input.numero" in fonte
-    assert "$ativo.lojas_id == $usuario.lojas_id" in fonte
+    assert "precondition ($ativo != null && ($ativo.lojas_id == $usuario.lojas_id || $vinculo_historico))" in fonte
     assert "array.filter ($chamados_filtrados) if ($ativo_ids|in:$this.ativo_id)" in fonte
     assert "array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status)" in fonte
     assert "where = $db.ativo.lojas_id == $usuario.lojas_id && ($input.numero" not in fonte
-    assert "where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado)" in fonte
+    assert "where = ($db.chamados.id ==? $numero_normalizado)" in fonte
     assert "where = $db.ativo.lojas_id == $usuario.lojas_id && (!$aplicar_numero" not in fonte
 
 

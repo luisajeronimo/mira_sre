@@ -113,7 +113,11 @@ function "service_desk/listar_chamados_gerente" {
           field_name = "id"
           field_value = $id
         } as $ativo
-        precondition ($ativo != null && $ativo.lojas_id == $usuario.lojas_id) {
+        db.query historico_vinculos_totem_loja {
+          where = $db.historico_vinculos_totem_loja.ativos_referencia_id == $id && $db.historico_vinculos_totem_loja.loja_destino_id == $usuario.lojas_id
+          return = {type: "exists"}
+        } as $vinculo_historico
+        precondition ($ativo != null && ($ativo.lojas_id == $usuario.lojas_id || $vinculo_historico)) {
           error_type = "accessdenied"
           error = "Acesso não autorizado."
         }
@@ -239,7 +243,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_id: $db.categoria.id
             categoria_nome: $db.categoria.nome
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -268,7 +272,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_id: $db.categoria.id
             categoria_nome: $db.categoria.nome
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -298,7 +302,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             titulo_ordenavel: $db.chamados.titulo|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {titulo_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -328,7 +332,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             titulo_ordenavel: $db.chamados.titulo|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {titulo_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -358,7 +362,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             status_ordenavel: $db.chamados.status|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {status_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -388,7 +392,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             status_ordenavel: $db.chamados.status|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {status_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -418,7 +422,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             prioridade_ordenavel: $db.chamados.prioridade|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {prioridade_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -448,7 +452,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             prioridade_ordenavel: $db.chamados.prioridade|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {prioridade_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -478,7 +482,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             totem_ordenavel: $db.ativo.nome_ativo|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {totem_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -508,7 +512,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             totem_ordenavel: $db.ativo.nome_ativo|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {totem_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -538,7 +542,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             categoria_ordenavel: $db.categoria.nome|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {categoria_ordenavel: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -568,7 +572,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_nome: $db.categoria.nome
             categoria_ordenavel: $db.categoria.nome|to_lower
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {categoria_ordenavel: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -597,7 +601,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_id: $db.categoria.id
             categoria_nome: $db.categoria.nome
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {chamados.criado_em: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -626,7 +630,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_id: $db.categoria.id
             categoria_nome: $db.categoria.nome
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {chamados.criado_em: "desc", chamados.id: "desc"}
           return = {type: "list"}
           mock = {
@@ -661,7 +665,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_id: $db.categoria.id
             categoria_nome: $db.categoria.nome
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {chamados.ultima_atualizacao_em: "asc", chamados.id: "asc"}
           return = {type: "list"}
         } as $resultado
@@ -690,7 +694,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_id: $db.categoria.id
             categoria_nome: $db.categoria.nome
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {chamados.ultima_atualizacao_em: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -719,7 +723,7 @@ function "service_desk/listar_chamados_gerente" {
             categoria_id: $db.categoria.id
             categoria_nome: $db.categoria.nome
           }
-          where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
+          where = ($db.chamados.id ==? $numero_normalizado) && ($db.chamados.criado_em >=? $data_inicio_normalizada) && ($db.chamados.criado_em <? $data_fim_normalizada)
           sort = {chamados.criado_em: "desc", chamados.id: "desc"}
           return = {type: "list"}
         } as $resultado
@@ -729,7 +733,28 @@ function "service_desk/listar_chamados_gerente" {
         }
       }
     }
-    var $chamados_filtrados { value = $chamados }
+    // O escopo do Gerente usa a Loja no instante do chamado, nunca a Loja atual.
+    var $historicos_autorizados { value = [] }
+    foreach ($chamados) {
+      each as $chamado {
+        function.run "administracao/resolver_loja_totem_no_instante" {
+          input = {
+            ativos_referencia_id: $chamado.ativo_id
+            instante: $chamado.criado_em
+          }
+          mock = {
+            "lista padrão da loja": {lojas_id: 1}
+            "lista vazio": {lojas_id: null}
+          }
+        } as $historico
+        conditional {
+          if ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id) {
+            array.push $historicos_autorizados { value = $chamado }
+          }
+        }
+      }
+    }
+    var $chamados_filtrados { value = $historicos_autorizados }
     conditional {
       if (($status_normalizados|count) > 0) {
         array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status) as $resultado_filtrado

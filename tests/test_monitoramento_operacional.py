@@ -121,6 +121,24 @@ def test_cliente_mapeia_resumo_e_detalhe_operacional_limitado():
     assert str(requisicoes[1].url) == f"{BASE_URL}/monitoramento/ativos/1"
 
 
+def test_detalhe_preserva_loja_historica_de_telemetria_e_disponibilidade():
+    dados = resposta_detalhe()
+    antiga = dict(dados["telemetrias"][0], loja={"id": 1, "nome": "Loja Origem"})
+    recente = dict(dados["telemetrias"][0], id=92, evento_timestamp=1780000050000,
+                   loja={"id": 3, "nome": "Loja Destino"})
+    dados["telemetrias"] = [recente, antiga]
+    dados["transicoes_disponibilidade"][0]["loja"] = {"id": 1, "nome": "Loja Origem"}
+    cliente = XanoServiceDeskCliente(
+        BASE_URL,
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=dados)),
+    )
+
+    detalhe = executar(cliente.obter_detalhe_ativo_monitoramento("token", 1))
+
+    assert [item.loja.nome for item in detalhe.telemetrias] == ["Loja Destino", "Loja Origem"]
+    assert detalhe.transicoes_disponibilidade[0].loja.nome == "Loja Origem"
+
+
 def test_cliente_preserva_ausencias_reais_e_rejeita_limite_excedido():
     ausente = resposta_detalhe(telemetrias=[], transicoes=[], incidentes=[])
     ausente["ultima_telemetria"] = None

@@ -105,6 +105,37 @@ function "service_desk/obter_chamado_tecnico" {
       error = "Recurso não encontrado."
     }
 
+    function.run "administracao/resolver_loja_totem_no_instante" {
+      input = {
+        ativos_referencia_id: $registro.ativo_id
+        instante: $registro.criado_em
+      }
+      mock = {
+        "retorna detalhe": {lojas_id: 3}
+        "retorna detalhe legado": {lojas_id: null}
+        "retorna detalhe automático": {lojas_id: null}
+        "retorna timeline cronológica decrescente com legado": {lojas_id: null}
+        "retorna detalhe Diretoria": {lojas_id: null}
+        "retorna detalhe Administrador": {lojas_id: null}
+      }
+    } as $historico
+    var $loja_historica_nome { value = null }
+    conditional {
+      if ($historico.lojas_id != null) {
+        db.get lojas {
+          field_name = "id"
+          field_value = $historico.lojas_id
+          mock = {
+            "retorna detalhe": {id: 3, nome: "Loja Centro"}
+          }
+        } as $loja_historica
+        var.update $loja_historica_nome { value = $loja_historica.nome }
+      }
+    }
+    var.update $registro {
+      value = $registro|set:"loja_id":$historico.lojas_id|set:"loja_nome":$loja_historica_nome
+    }
+
     function.run "service_desk/construir_dto_chamado_tecnico" {
       input = {registro: $registro}
     } as $chamado

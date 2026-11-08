@@ -30,6 +30,7 @@ function "administracao/validar_criacao_usuario" {
       return = {type: "single"}
       mock = {
         "aceita gerente com loja existente": null
+        "aceita gerente com loja legada Ativo": null
         "aceita tecnico sem loja": null
         "aceita diretoria sem loja": null
         "aceita administrador sem loja": null
@@ -49,14 +50,15 @@ function "administracao/validar_criacao_usuario" {
           field_name = "id"
           field_value = $input.lojas_id
           mock = {
-            "aceita gerente com loja existente": {id: 1, nome: "Loja Paulista"}
+            "aceita gerente com loja existente": {id: 1, nome: "Loja Paulista", status: "Ativa"}
+            "aceita gerente com loja legada Ativo": {id: 1, nome: "Loja Paulista", status: "Ativo"}
             "rejeita gerente loja inexistente": null
           }
         } as $loja
 
-        precondition ($loja != null) {
+        precondition ($loja != null && ($loja.status == "Ativa" || $loja.status == "ativa" || $loja.status == "Ativo")) {
           error_type = "inputerror"
-          error = "Loja não encontrada."
+          error = "Loja inexistente ou Inativa."
         }
       }
     }
@@ -70,6 +72,12 @@ function "administracao/validar_criacao_usuario" {
 
   test "aceita gerente com loja existente" {
     input = {email: "gerente@example.test", role: "gerente", lojas_id: 1}
+
+    expect.to_be_true ($response.valid)
+  }
+
+  test "aceita gerente com loja legada Ativo" {
+    input = {email: "gerente-legado@example.test", role: "gerente", lojas_id: 1}
 
     expect.to_be_true ($response.valid)
   }

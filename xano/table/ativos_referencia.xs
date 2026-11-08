@@ -9,6 +9,7 @@ table ativos_referencia {
     }
   
     text nome_ativo? filters=trim
+    text? identificacao? filters=trim
     text tipo? filters=trim
     text status_atual? filters=trim
     int lojas_id? {

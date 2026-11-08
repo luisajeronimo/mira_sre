@@ -25,6 +25,7 @@ function "service_desk/listar_chamados_tecnico" {
         "multiplos status usam OR": {id: 12, role: "tecnico"}
         "filtros diferentes usam AND": {id: 12, role: "tecnico"}
         "responsavel inclui nao atribuido": {id: 12, role: "tecnico"}
+        "usa loja historica": {id: 12, role: "tecnico"}
         "consulta padrão preserva query base": ```
           {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
           ```
@@ -374,6 +375,7 @@ function "service_desk/listar_chamados_tecnico" {
             "consulta padrão preserva query base": ```
               [{id: 102, prioridade: "Alta"}, {id: 101, prioridade: "Média"}]
               ```
+            "usa loja historica": [{id: 105, ativo_id: 1, criado_em: 1780000000000, loja_id: 2, loja_nome: "Loja de destino"}]
             "filtra prioridade após query base": ```
               [{id: 102, prioridade: "Alta"}, {id: 101, prioridade: "Média"}]
               ```
@@ -1360,7 +1362,61 @@ function "service_desk/listar_chamados_tecnico" {
     }
 
     // Filtragem no backend após ordenação preserva o desempate original.
-    var $chamados_filtrados { value = $chamados }
+    // Resolve Loja histórica antes de filtrar ou apresentar a fila global.
+    var $chamados_historicos { value = [] }
+    foreach ($chamados) {
+      each as $chamado {
+        var $ativo_id_fato { value = $chamado|get:"ativo_id":null }
+        var $instante_fato { value = $chamado|get:"criado_em":null }
+        var $lojas_id_historico { value = null }
+        var $loja_nome_historica { value = null }
+        conditional {
+          if ($ativo_id_fato != null && $instante_fato != null) {
+            function.run "administracao/resolver_loja_totem_no_instante" {
+              input = {
+                ativos_referencia_id: $ativo_id_fato
+                instante: $instante_fato
+              }
+              mock = {
+                "usa loja historica": {lojas_id: 3}
+              }
+            } as $historico
+            var.update $lojas_id_historico { value = $historico.lojas_id }
+            conditional {
+              if ($lojas_id_historico != null) {
+                db.get lojas {
+                  field_name = "id"
+                  field_value = $lojas_id_historico
+                  mock = {
+                    "usa loja historica": {id: 3, nome: "Loja de origem"}
+                  }
+                } as $loja_historica
+                conditional {
+                  if ($loja_historica != null) {
+                    var.update $loja_nome_historica { value = $loja_historica.nome }
+                  }
+                }
+              }
+            }
+          }
+        }
+        var $chamado_historico {
+          value = $chamado|set:"loja_id":$lojas_id_historico|set:"loja_nome":$loja_nome_historica|set:"loja_ordenavel":($loja_nome_historica != null ? ($loja_nome_historica|to_lower) : null)
+        }
+        array.push $chamados_historicos { value = $chamado_historico }
+      }
+    }
+    conditional {
+      if ($ordenar_por == "loja") {
+        var.update $chamados_historicos { value = $chamados_historicos|sort:"loja_ordenavel":"natural":true }
+        conditional {
+          if ($direcao == "DESC") {
+            var.update $chamados_historicos { value = $chamados_historicos|reverse }
+          }
+        }
+      }
+    }
+    var $chamados_filtrados { value = $chamados_historicos }
     conditional {
       if (($status_normalizados|count) > 0) {
         array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status) as $resultado_filtrado
@@ -1425,6 +1481,13 @@ function "service_desk/listar_chamados_tecnico" {
     input = {usuarios_id: 12}
     expect.to_equal ($response.total) {
       value = 2
+    }
+  }
+
+  test "usa loja historica" {
+    input = {usuarios_id: 12}
+    expect.to_equal ($response.items) {
+      value = [{id: 105, titulo: null, descricao: null, status: null, prioridade: null, origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: null, sla_horas_aplicado: null, atribuido_em: null, ativo: {id: 1, nome_ativo: null}, loja: {id: 3, nome: "Loja de origem"}, categoria: {id: null, nome: null}, solicitante: null, tecnico: null}]
     }
   }
 

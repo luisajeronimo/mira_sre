@@ -34,6 +34,7 @@ class TelemetriaTotemView(TypedDict, total=False):
     uso_memoria: str
     temperatura: str
     status_rede: str
+    loja_nome: str
 
 
 class TransicaoTotemView(TypedDict):
@@ -41,6 +42,7 @@ class TransicaoTotemView(TypedDict):
     status: str
     detectado_em_texto: str
     heartbeat_limite_minutos: str
+    loja_nome: str
 
 
 class IncidenteTotemView(TypedDict):
@@ -133,6 +135,7 @@ class MonitoramentoState(AuthState):
             "uso_memoria": f"{telemetria.uso_memoria}%",
             "temperatura": f"{telemetria.temperatura}°C",
             "status_rede": telemetria.status_rede,
+            "loja_nome": telemetria.loja.nome if telemetria.loja is not None else "Loja indeterminada",
         }
 
     def _atualizar_detalhe(self, resultado) -> None:
@@ -146,7 +149,7 @@ class MonitoramentoState(AuthState):
                 if resultado.totem.loja is not None
                 else "Loja não informada"
             ),
-            "status_atual": resultado.totem.status_atual,
+            "status_atual": resultado.totem.status_atual or "Sem telemetria",
             "tem_ultima_telemetria": ultima is not None,
             "ultima_telemetria": (
                 self._telemetria_para_dict(ultima) if ultima is not None else {}
@@ -165,6 +168,7 @@ class MonitoramentoState(AuthState):
                     "heartbeat_limite_minutos": (
                         f"{transicao.heartbeat_limite_minutos} minutos"
                     ),
+                    "loja_nome": transicao.loja.nome if transicao.loja is not None else "Loja indeterminada",
                 }
                 for transicao in resultado.transicoes_disponibilidade
             ],
@@ -201,7 +205,7 @@ class MonitoramentoState(AuthState):
                     "loja_nome": (
                         item.loja.nome if item.loja is not None else "Loja não informada"
                     ),
-                    "status_atual": item.status_atual,
+                    "status_atual": item.status_atual or "Sem telemetria",
                     "ultima_telemetria_em_texto": self._timestamp_para_texto(
                         item.ultima_telemetria_em
                     ),

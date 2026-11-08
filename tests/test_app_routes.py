@@ -3,7 +3,6 @@
 from app.app import app
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
-from app.pages.administracao import AdministracaoState
 from app.states.auth import AuthState
 
 
@@ -26,7 +25,9 @@ def test_aliases_sao_redirecionadores_protegidos():
     assert gerente.on_load.fn is ChamadosGerenteState.redirecionar_alias_lista.fn
     assert gerente_novo.on_load.fn is ChamadosGerenteState.redirecionar_alias_novo.fn
     assert tecnico.on_load.fn is ChamadosTecnicoState.redirecionar_alias_fila.fn
-    assert admin.on_load.fn is AdministracaoState.redirecionar_alias_administracao.fn
+    assert admin.on_load.fn is AuthState.redirecionar_alias_administracao.fn
+    assert app._unevaluated_pages["administracao/usuarios"].on_load.fn is AuthState.redirecionar_alias_administracao.fn
+    assert app._unevaluated_pages["chamados/novo"].on_load.fn is AuthState.carregar_novo_chamado.fn
 
 
 def test_rota_estatica_de_novo_e_registrada_antes_do_detalhe_dinamico():

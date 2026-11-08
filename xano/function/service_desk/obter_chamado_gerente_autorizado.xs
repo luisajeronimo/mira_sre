@@ -46,11 +46,11 @@ function "service_desk/obter_chamado_gerente_autorizado" {
       return = {type: "single"}
       mock = {
         "autoriza chamado da loja": ```
-          {id: 101, status: "Novo", ativo_lojas_id: 1}
+          {id: 101, status: "Novo", ativos_referencia_id: 1, criado_em: 1780000000000, ativo_lojas_id: 1}
           ```
         "rejeita chamado inexistente": null
         "rejeita chamado de outra loja": ```
-          {id: 102, status: "Novo", ativo_lojas_id: 2}
+          {id: 102, status: "Novo", ativos_referencia_id: 8, criado_em: 1780000000000, ativo_lojas_id: 2}
           ```
       }
     } as $registro
@@ -60,7 +60,17 @@ function "service_desk/obter_chamado_gerente_autorizado" {
       error = "Recurso não encontrado."
     }
 
-    precondition ($registro.ativo_lojas_id != null && $registro.ativo_lojas_id == $usuario.lojas_id) {
+    function.run "administracao/resolver_loja_totem_no_instante" {
+      input = {
+        ativos_referencia_id: $registro.ativos_referencia_id
+        instante: $registro.criado_em
+      }
+      mock = {
+        "autoriza chamado da loja": {lojas_id: 1}
+        "rejeita chamado de outra loja": {lojas_id: 2}
+      }
+    } as $historico
+    precondition ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }

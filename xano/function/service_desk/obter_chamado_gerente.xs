@@ -107,15 +107,42 @@ function "service_desk/obter_chamado_gerente" {
       error = "Recurso não encontrado."
     }
 
-    precondition ($registro.ativo_lojas_id != null && $registro.ativo_lojas_id == $usuario.lojas_id) {
+    function.run "administracao/resolver_loja_totem_no_instante" {
+      input = {
+        ativos_referencia_id: $registro.ativo_id
+        instante: $registro.criado_em
+      }
+      mock = {
+        "retorna detalhe da loja": {lojas_id: 1}
+        "retorna detalhe com campos opcionais legados": {lojas_id: 1}
+        "retorna detalhe automático": {lojas_id: 1}
+        "rejeita chamado de outra loja": {lojas_id: 2}
+        "rejeita chamado sem ativo autorizavel": {lojas_id: null}
+      }
+    } as $historico
+    precondition ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
+    db.get lojas {
+      field_name = "id"
+      field_value = $historico.lojas_id
+      mock = {
+        "retorna detalhe da loja": {id: 1, nome: "Loja de Teste"}
+        "retorna detalhe com campos opcionais legados": {id: 1, nome: "Loja de Teste"}
+        "retorna detalhe automático": {id: 1, nome: "Loja de Teste"}
+      }
+    } as $loja_historica
 
     db.query telemetria_equipamentos {
       where = $db.telemetria_equipamentos.ativos_referencia_id == $registro.ativo_id
       sort = {telemetria_equipamentos.evento_timestamp: "desc"}
       return = {type: "single"}
+      mock = {
+        "retorna detalhe da loja": null
+        "retorna detalhe com campos opcionais legados": null
+        "retorna detalhe automático": null
+      }
     } as $ultima_telemetria
     var $telemetria { value = $ultima_telemetria != null ? {id: $ultima_telemetria.id, evento_timestamp: $ultima_telemetria.evento_timestamp, uso_cpu: $ultima_telemetria.uso_cpu, uso_memoria: $ultima_telemetria.uso_memoria, temperatura: $ultima_telemetria.temperatura, status_rede: $ultima_telemetria.status_rede} : null }
 
@@ -159,8 +186,8 @@ function "service_desk/obter_chamado_gerente" {
         categoria: {id: $registro.categoria_id, nome: $registro.categoria_nome},
         solicitante: $solicitante,
         tecnico: $tecnico
-        loja: {id: $registro.loja_id, nome: $registro.loja_nome}
-        resumo_totem: {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome, loja: {id: $registro.loja_id, nome: $registro.loja_nome}, status_atual: $registro.ativo_status_atual, ultima_telemetria: $telemetria}
+        loja: {id: $loja_historica.id, nome: $loja_historica.nome}
+        resumo_totem: {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome, loja: {id: $loja_historica.id, nome: $loja_historica.nome}, status_atual: $registro.ativo_status_atual, ultima_telemetria: $telemetria}
       }
     }
   }

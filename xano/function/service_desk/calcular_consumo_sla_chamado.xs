@@ -30,6 +30,9 @@ function "service_desk/calcular_consumo_sla_chamado" {
         "sem sla aplicado": {id: 111, status: "Novo", criado_em: 1780000000000, sla_horas_aplicado: null}
         "sem criado em": {id: 112, status: "Novo", criado_em: null, sla_horas_aplicado: 4}
         "transicao anterior a abertura": {id: 113, status: "Em Atendimento", criado_em: 1780000000000, sla_horas_aplicado: 4}
+        "troca de categoria usa sla vigente": {id: 114, status: "Em Atendimento", criado_em: 1780000000000, sla_horas_aplicado: 4}
+        "instante omitido usa o instante atual": {id: 115, status: "Novo", criado_em: 1780000000000, sla_horas_aplicado: 8}
+        "instante zero e tratado como ausente": {id: 116, status: "Novo", criado_em: 1780000000000, sla_horas_aplicado: 8}
         "chamado inexistente": null
       }
     } as $chamado
@@ -39,14 +42,26 @@ function "service_desk/calcular_consumo_sla_chamado" {
       error = "Recurso não encontrado."
     }
 
+    // Instante atual lido uma única vez; o mock torna o caminho padrão testável.
+    var $agora {
+      value = "now"|to_ms
+      mock = {
+        "instante omitido usa o instante atual": 1780014400000
+        "instante zero e tratado como ausente" : 1780014400000
+      }
+    }
+
     var $t {
       value = $input.instante_referencia
     }
 
+    // Ausência do instante de referência: null ou 0. Inteiros opcionais podem
+    // chegar materializados como 0, e 0 (1970) não é instante de referência
+    // válido; sem esta guarda o consumo seria calculado como zero em silêncio.
     conditional {
-      if ($t == null) {
+      if ($t == null || $t == 0) {
         var.update $t {
-          value = "now"|to_ms
+          value = $agora
         }
       }
     }
@@ -100,6 +115,12 @@ function "service_desk/calcular_consumo_sla_chamado" {
         "transicao anterior a abertura": [
           {id: 1, alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}}, criado_em: 1779999000000}
         ]
+        "troca de categoria usa sla vigente": [
+          {id: 1, alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}}, criado_em: 1780003600000}
+          {id: 2, alteracoes: {categoria: {anterior: 2, resultante: 3}, sla_horas_aplicado: {anterior: 8, resultante: 4}}, criado_em: 1780007200000}
+        ]
+        "instante omitido usa o instante atual": []
+        "instante zero e tratado como ausente": []
       }
     } as $eventos
 
@@ -514,6 +535,63 @@ function "service_desk/calcular_consumo_sla_chamado" {
 
     expect.to_equal ($response.motivo) {
       value = "ordem_temporal_inconsistente"
+    }
+  }
+
+  // Troca de Categoria (design D1): S é o sla_horas_aplicado vigente e a
+  // referência continua em criado_em. Com o SLA anterior (8 h) a faixa seria
+  // normal; reiniciando na troca, o consumo seria 1 h.
+  test "troca de categoria usa sla vigente" {
+    input = {chamados_id: 114, instante_referencia: 1780010800000}
+
+    expect.to_equal ($response.consumo_ms) {
+      value = 10800000
+    }
+
+    expect.to_equal ($response.sla_horas_aplicado) {
+      value = 4
+    }
+
+    expect.to_equal ($response.faixa) {
+      value = "risco"
+    }
+
+    expect.to_equal ($response.estado_contagem) {
+      value = "em_contagem"
+    }
+  }
+
+  // Caminho padrão: sem instante_referencia, a referência é o instante atual
+  // (mockado em $agora = criado_em + 4 h); 4 h de 8 h = 50%, faixa normal.
+  test "instante omitido usa o instante atual" {
+    input = {chamados_id: 115}
+
+    expect.to_equal ($response.calculado_em) {
+      value = 1780014400000
+    }
+
+    expect.to_equal ($response.consumo_ms) {
+      value = 14400000
+    }
+
+    expect.to_equal ($response.faixa) {
+      value = "normal"
+    }
+
+    expect.to_equal ($response.estado_contagem) {
+      value = "em_contagem"
+    }
+  }
+
+  test "instante zero e tratado como ausente" {
+    input = {chamados_id: 116, instante_referencia: 0}
+
+    expect.to_equal ($response.calculado_em) {
+      value = 1780014400000
+    }
+
+    expect.to_equal ($response.consumo_ms) {
+      value = 14400000
     }
   }
 

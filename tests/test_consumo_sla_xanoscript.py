@@ -61,12 +61,25 @@ def mocks_eventos():
     return eventos
 
 
+def mocks_agora():
+    trecho = fonte().split("var $agora {", 1)[1].split("\n    }\n", 1)[0]
+    return {nome: int(valor) for nome, valor in re.findall(r'"([^"]+)"\s*: (\d+)', trecho)}
+
+
+def instante(nome, corpo):
+    """Instante de referência do teste; ausente ou 0 usa o instante atual mockado."""
+    m = re.search(r"instante_referencia: (\d+)", corpo)
+    if m and int(m.group(1)) != 0:
+        return int(m.group(1))
+    return mocks_agora()[nome]
+
+
 def blocos_teste():
     blocos = {}
     for nome, corpo in re.findall(r'test "([^"]+)" \{(.*?)\n  \}', fonte(), re.DOTALL):
         esperado = dict(re.findall(r"expect\.to_equal \(\$response\.(\w+)\) \{\s*value = \"?([^\"\n]+)\"?", corpo))
         blocos[nome] = {
-            "t": int(re.search(r"instante_referencia: (\d+)", corpo).group(1)),
+            "t": instante(nome, corpo),
             "esperado": esperado,
             "nulos": re.findall(r"expect\.to_be_null \(\$response\.(\w+)\)", corpo),
             "lanca": "expect.to_throw" in corpo,
@@ -99,7 +112,8 @@ def referencia(chamado, eventos, t):
     if motivo is None and not chamado["sla"]:
         motivo = "sem_sla_aplicado"
     if motivo is not None:
-        return {"calculavel": False, "motivo": motivo, "consumo_ms": None, "faixa": None, "estado_contagem": None}
+        return {"calculavel": False, "motivo": motivo, "consumo_ms": None, "faixa": None, "estado_contagem": None,
+                "sla_horas_aplicado": chamado["sla"], "calculado_em": t}
     sla_ms = chamado["sla"] * HORA_MS
     if consumo * 10 < sla_ms * 7:
         faixa = "normal"
@@ -110,7 +124,8 @@ def referencia(chamado, eventos, t):
     else:
         faixa = "violado"
     contagem = "em_contagem" if estado in CONTAM else "pausada" if estado == "Resolvido" else "encerrada"
-    return {"calculavel": True, "motivo": None, "consumo_ms": consumo, "faixa": faixa, "estado_contagem": contagem}
+    return {"calculavel": True, "motivo": None, "consumo_ms": consumo, "faixa": faixa, "estado_contagem": contagem,
+            "sla_horas_aplicado": chamado["sla"], "calculado_em": t}
 
 
 @pytest.mark.parametrize("nome", list(blocos_teste()))
@@ -163,3 +178,26 @@ def test_estados_e_faixas_seguem_dominio_e_design():
     assert "$consumo <= $sla_ms" in texto
     assert "if ($duracao > 0)" in texto and "if ($duracao_final > 0)" in texto
     assert "if ($t < $fim_segmento)" in texto
+
+
+def test_caminho_padrao_do_instante_de_referencia_e_testado():
+    """Auditoria M-4: ausência (null ou 0) usa o instante atual, nunca 0."""
+    texto = re.sub(r"\s+", "", fonte().split("\n  test ", 1)[0])
+    assert "if($t==null||$t==0){var.update$t{value=$agora}}" in texto
+    assert 'var$agora{value="now"|to_ms' in texto
+    corpo = re.search(r'test "instante omitido usa o instante atual" \{(.*?)\n  \}', fonte(), re.S).group(1)
+    assert "instante_referencia" not in corpo
+    blocos = blocos_teste()
+    agora = mocks_agora()
+    for nome in ("instante omitido usa o instante atual", "instante zero e tratado como ausente"):
+        assert blocos[nome]["esperado"]["calculado_em"] == str(agora[nome])
+        assert int(blocos[nome]["esperado"]["consumo_ms"]) > 0
+
+
+def test_troca_de_categoria_usa_sla_vigente_sem_reiniciar_referencia():
+    bloco = blocos_teste()["troca de categoria usa sla vigente"]
+    eventos = mocks_eventos()["troca de categoria usa sla vigente"]
+    assert any(e["anterior"] is None for e in eventos)  # evento só de Categoria, sem status
+    assert bloco["esperado"]["sla_horas_aplicado"] == "4"
+    assert bloco["esperado"]["consumo_ms"] == str(3 * HORA_MS)
+    assert bloco["esperado"]["faixa"] == "risco"

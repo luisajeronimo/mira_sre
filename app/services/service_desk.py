@@ -36,7 +36,7 @@ class AtivoServiceDesk:
     id: int
     nome_ativo: str
     tipo: str
-    status_atual: str
+    status_atual: str | None
     loja: ReferenciaLoja | None = None
 
 
@@ -48,7 +48,7 @@ class AtivoMonitoramento:
     nome_ativo: str
     tipo: str
     loja: ReferenciaLoja | None
-    status_atual: str
+    status_atual: str | None
     ultima_telemetria_em: int | None
     ultima_transicao_disponibilidade_em: int | None
 
@@ -61,6 +61,7 @@ class TelemetriaMonitoramento:
     uso_memoria: float
     temperatura: float
     status_rede: str
+    loja: ReferenciaLoja | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +70,7 @@ class TransicaoDisponibilidade:
     status: str
     detectado_em: int
     heartbeat_limite_minutos: int
+    loja: ReferenciaLoja | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +203,7 @@ class ResumoTotemGerente:
     id: int
     nome_ativo: str
     loja: ReferenciaLoja
-    status_atual: str
+    status_atual: str | None
     ultima_telemetria: TelemetriaMonitoramento | None
 
 
@@ -266,6 +268,14 @@ def _texto(valor: Any, campo: str) -> str:
 
 def _texto_opcional(valor: Any, campo: str) -> str | None:
     if valor is None:
+        return None
+    return _texto(valor, campo)
+
+
+def _estado_totem_opcional(valor: Any, campo: str) -> str | None:
+    # O Xano Free retorna texto vazio quando o Totem ainda não tem estado
+    # materializado. Isso não equivale a Online nem a Offline.
+    if valor is None or valor == "":
         return None
     return _texto(valor, campo)
 
@@ -365,7 +375,7 @@ def _ativo_monitoramento(dados: Any, campo: str = "totem") -> AtivoMonitoramento
         nome_ativo=_texto(ativo.get("nome_ativo"), f"{campo}.nome_ativo"),
         tipo=_texto(ativo.get("tipo"), f"{campo}.tipo"),
         loja=_referencia_loja(ativo.get("loja")),
-        status_atual=_texto(ativo.get("status_atual"), f"{campo}.status_atual"),
+        status_atual=_estado_totem_opcional(ativo.get("status_atual"), f"{campo}.status_atual"),
         ultima_telemetria_em=_timestamp_opcional(
             ativo.get("ultima_telemetria_em"),
             f"{campo}.ultima_telemetria_em",
@@ -393,6 +403,7 @@ def _telemetria_monitoramento(dados: Any, campo: str = "telemetria") -> Telemetr
         temperatura=_numero(
             telemetria.get("temperatura"), f"{campo}.temperatura"),
         status_rede=_texto(telemetria.get("status_rede"), f"{campo}.status_rede"),
+        loja=_referencia_loja(telemetria.get("loja")),
     )
 
 
@@ -414,6 +425,7 @@ def _transicao_disponibilidade(dados: Any) -> TransicaoDisponibilidade:
             transicao.get("heartbeat_limite_minutos"),
             "transicao_disponibilidade.heartbeat_limite_minutos",
         ),
+        loja=_referencia_loja(transicao.get("loja")),
     )
 
 
@@ -660,7 +672,7 @@ def _resumo_totem_gerente(valor: Any) -> ResumoTotemGerente | None:
         id=_inteiro(dados["id"], "resumo_totem.id"),
         nome_ativo=_texto(dados["nome_ativo"], "resumo_totem.nome_ativo"),
         loja=loja,
-        status_atual=_texto(dados["status_atual"], "resumo_totem.status_atual"),
+        status_atual=_estado_totem_opcional(dados["status_atual"], "resumo_totem.status_atual"),
         ultima_telemetria=(
             _telemetria_monitoramento(dados["ultima_telemetria"], "resumo_totem.ultima_telemetria")
             if dados["ultima_telemetria"] is not None else None
@@ -830,16 +842,19 @@ class XanoServiceDeskCliente(XanoCliente):
         )
 
     async def listar_ativos(self, token: str) -> list[AtivoServiceDesk]:
-        dados = await self._requisitar("GET", "/gerente/ativos", token=token)
+        return await self._listar_ativos_gerente_em(token, "/gerente/ativos")
+
+    async def listar_ativos_historicos_gerente(self, token: str) -> list[AtivoServiceDesk]:
+        return await self._listar_ativos_gerente_em(token, "/gerente/ativos-historicos")
+
+    async def _listar_ativos_gerente_em(self, token: str, caminho: str) -> list[AtivoServiceDesk]:
+        dados = await self._requisitar("GET", caminho, token=token)
         return [
             AtivoServiceDesk(
                 id=_inteiro(item.get("id"), "id"),
                 nome_ativo=_texto(item.get("nome_ativo"), "nome_ativo"),
                 tipo=_texto(item.get("tipo"), "tipo"),
-                status_atual=_texto(
-                    item.get("status_atual"),
-                    "status_atual",
-                ),
+                status_atual=_estado_totem_opcional(item.get("status_atual"), "status_atual"),
                 loja=_referencia_loja(item.get("loja")),
             )
             for item in _colecao(dados)
@@ -883,10 +898,7 @@ class XanoServiceDeskCliente(XanoCliente):
                 id=_inteiro(item.get("id"), "id"),
                 nome_ativo=_texto(item.get("nome_ativo"), "nome_ativo"),
                 tipo=_texto(item.get("tipo"), "tipo"),
-                status_atual=_texto(
-                    item.get("status_atual"),
-                    "status_atual",
-                ),
+                status_atual=_estado_totem_opcional(item.get("status_atual"), "status_atual"),
                 loja=_referencia_loja(item.get("loja")),
             )
             for item in _colecao(dados)

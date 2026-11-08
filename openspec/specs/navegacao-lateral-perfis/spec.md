@@ -8,15 +8,11 @@ descobríveis por perfil, sem substituir a autorização aplicada pelo Xano.
 ## Requirements
 
 ### Requirement: Casca autenticada apresenta navegação lateral configurada por perfil
-O Reflex DEVE (MUST) apresentar uma única navegação lateral desktop reutilizável
-após confirmar sessão e perfil oficial. A configuração central DEVE (MUST)
-exibir somente `/inicio` para Gerente; `/inicio` e `/monitoramento` para
-Técnico e Diretoria; e `/inicio`, `/monitoramento` e
-`/administracao/usuarios` para Administrador.
+O Reflex DEVE (MUST) apresentar uma única navegação lateral desktop reutilizável após confirmar sessão e perfil oficial. A configuração central DEVE (MUST) exibir somente `/inicio` para Gerente; `/inicio` e `/monitoramento` para Técnico e Diretoria; e `/inicio`, `/monitoramento` e `/administracao/gestao` para Administrador. O destino Administração DEVE (MUST) abrir diretamente a gestão consolidada.
 
 #### Scenario: Matriz de navegação autenticada
 - **WHEN** cada perfil oficial conclui a confirmação de identidade
-- **THEN** a sidebar mostra somente os destinos permitidos pela matriz aprovada
+- **THEN** a sidebar mostra somente os destinos permitidos pela matriz aprovada e o Administrador chega diretamente a `/administracao/gestao`
 
 #### Scenario: Perfil inválido ou sessão não confirmada
 - **WHEN** a sessão não está confirmada ou não possui perfil oficial
@@ -24,8 +20,7 @@ Técnico e Diretoria; e `/inicio`, `/monitoramento` e
 
 #### Scenario: Inclusão futura de destino
 - **WHEN** uma mudança futura adiciona destino à configuração central
-- **THEN** a visibilidade por perfil é definida no mesmo registro sem duplicar
-  listas de navegação nas páginas
+- **THEN** a visibilidade por perfil é definida no mesmo registro sem duplicar listas de navegação nas páginas
 
 ### Requirement: Sidebar não representa a jornada de chamados como destino
 A sidebar NÃO DEVE (MUST NOT) apresentar `/chamados`, `/chamados/novo` ou
@@ -89,21 +84,28 @@ distinguíveis sem depender apenas de cor.
 
 #### Scenario: Destinos globais ativos exclusivamente na própria rota
 - **WHEN** a rota canônica Reflex atual é `/monitoramento` ou
-  `/administracao/usuarios`
+  `/administracao/gestao`
 - **THEN** somente o respectivo item configurado possui indicação visual e
   semântica de ativo
 
 ### Requirement: Casca autenticada usa linguagem visual desktop compartilhada
 Após a confirmação da sessão, a casca autenticada DEVE (MUST) apresentar
-sidebar e topbar em superfícies claras, com contexto da página e identidade da
-sessão. A composição DEVE (MUST) usar a identidade visual definida e preservar
-os destinos, a matriz de perfis e as rotas já aprovadas.
+sidebar e topbar em superfícies claras, com identidade da sessão na topbar. O
+contexto da página DEVE (MUST) permanecer reconhecível pela navegação e pelo
+conteúdo; a topbar NÃO DEVE (MUST NOT) exibir título da rota em nenhum perfil.
+A composição DEVE (MUST) usar a identidade visual definida e preservar os
+destinos, a matriz de perfis e as rotas já aprovadas.
 
 #### Scenario: Perfil autenticado abre rota protegida
 - **WHEN** um perfil oficial confirmado abre uma rota protegida
 - **THEN** a interface apresenta a única sidebar desktop existente, uma topbar
-  de contexto e o conteúdo em canvas claro, sem criar destino, ação ou permissão
-  adicional
+  com identidade e saída e o conteúdo em canvas claro, sem criar destino, ação
+  ou permissão adicional
+
+#### Scenario: Título da rota fora da topbar
+- **WHEN** qualquer perfil oficial navega entre rotas protegidas
+- **THEN** a topbar não exibe títulos como Início, Novo chamado, Detalhe do
+  chamado, Monitoramento ou Administração de usuários
 
 #### Scenario: Navegação acessível permanece configurada por perfil
 - **WHEN** a casca renderiza a navegação para um perfil autenticado

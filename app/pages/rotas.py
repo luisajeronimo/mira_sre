@@ -3,6 +3,8 @@
 import reflex as rx
 
 from app.chamados.gerente import detalhe_chamado, gerente_chamados
+from app.chamados.gerente.pages import novo_chamado as novo_chamado_gerente
+from app.chamados.administrador import novo_chamado_administrador
 from app.chamados.tecnico import detalhe_chamado_tecnico, tecnico_chamados
 from app.components.layout import estado_carregamento, estado_revalidacao
 from app.states.auth import AuthState
@@ -31,6 +33,13 @@ def _jornada_lista() -> rx.Component:
 
 def inicio() -> rx.Component:
     return _protegida(_jornada_lista(), AuthState.carregar_inicio)
+
+
+def novo_chamado() -> rx.Component:
+    return _protegida(
+        rx.cond(AuthState.role == "administrador", novo_chamado_administrador(), novo_chamado_gerente()),
+        AuthState.carregar_novo_chamado,
+    )
 
 
 def chamados() -> rx.Component:

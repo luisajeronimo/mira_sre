@@ -84,6 +84,27 @@ def test_fiscal_falha_sem_chave_antes_da_chamada(monkeypatch):
     assert chamadas == []
 
 
+@pytest.mark.parametrize("valor", [None, "", "   "])
+def test_fiscal_falha_sem_url_explicita_antes_da_chamada(monkeypatch, valor):
+    monkeypatch.setattr("dotenv.load_dotenv", lambda: None)
+    ambiente = ambiente_fiscal()
+    ambiente.pop("XANO_BASE_URL")
+    if valor is None:
+        monkeypatch.delenv("XANO_BASE_URL", raising=False)
+    else:
+        ambiente["XANO_BASE_URL"] = valor
+    fiscal = carregar_modulo(monkeypatch, FISCAL_PATH, "fiscal_sem_url", ambiente)
+    chamadas = []
+    monkeypatch.setattr(fiscal.requests, "get", lambda *args, **kwargs: chamadas.append(args))
+
+    with pytest.raises(RuntimeError, match="XANO_BASE_URL não configurado"):
+        fiscal.verificar_falhas()
+    with pytest.raises(RuntimeError, match="XANO_BASE_URL não configurado"):
+        fiscal.validar_configuracao()
+
+    assert chamadas == []
+
+
 def test_fiscal_envia_somente_header_dedicado_e_preserva_get(monkeypatch):
     fiscal = carregar_modulo(monkeypatch, FISCAL_PATH, "fiscal_valido", ambiente_fiscal())
     chamadas = []
@@ -203,6 +224,41 @@ def test_simulator_separa_posts_por_intervalo_configuravel(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    ("duracao_ciclo", "segundo_inicio", "esperas_esperadas"),
+    [(42, 300, [258, 258]), (350, 350, [])],
+)
+def test_simulator_agenda_inicios_sem_sobrepor_ciclos(
+    monkeypatch, duracao_ciclo, segundo_inicio, esperas_esperadas
+):
+    simulator = carregar_modulo(
+        monkeypatch, SIMULATOR_PATH, "simulator_agendamento", ambiente_simulator()
+    )
+    relogio = [0]
+    inicios = []
+    esperas = []
+
+    def executar_ciclo():
+        if len(inicios) == 2:
+            raise StopIteration
+        inicios.append(relogio[0])
+        relogio[0] += duracao_ciclo
+
+    def dormir(segundos):
+        esperas.append(segundos)
+        relogio[0] += segundos
+
+    monkeypatch.setattr(simulator, "executar_ciclo", executar_ciclo)
+    monkeypatch.setattr(simulator.time, "monotonic", lambda: relogio[0])
+    monkeypatch.setattr(simulator.time, "sleep", dormir)
+
+    with pytest.raises(StopIteration):
+        simulator.executar_simulador()
+
+    assert inicios == [0, segundo_inicio]
+    assert esperas == esperas_esperadas
+
+
+@pytest.mark.parametrize(
     ("fonte", "header", "segredo", "primeiro_db", "header_401", "forma_resposta"),
     [
         (
@@ -257,7 +313,7 @@ def test_simulator_adia_presenca_do_payload_para_depois_do_guard():
 
     validacao = "precondition ($input.ativos_referencia_id != null"
     assert validacao in conteudo
-    assert conteudo.index('value = {error: "Não autenticado."}') < conteudo.index(validacao)
+    assert conteudo.index("else {") < conteudo.index(validacao)
     assert conteudo.index(validacao) < conteudo.index("db.get ativos_referencia")
     assert conteudo.index(validacao) < conteudo.index("db.add telemetria_equipamentos")
 

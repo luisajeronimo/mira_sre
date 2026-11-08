@@ -95,6 +95,84 @@ class ChamadosGerenteState(AuthState):
     mensagem_comentarios: str = ""
     mensagem_sucesso: str = ""
 
+    usuario_id_contexto_gerente: int | None = None
+    _token_contexto_gerente: str = ""
+    _versao_contexto_gerente: int = -1
+
+    def _contexto_sessao_gerente(self) -> tuple[int | None, int, str]:
+        return self.usuario_id, self._versao_sessao, self._auth_token
+
+    def _contexto_gerente_atual(self, contexto: tuple[int | None, int, str]) -> bool:
+        return (
+            self.sessao_confirmada
+            and self.role == "gerente"
+            and self._contexto_sessao_gerente() == contexto
+        )
+
+    def _limpar_contexto_gerente(self) -> None:
+        """Descarta dados locais protegidos e preferências da sessão anterior."""
+        self.chamados = []
+        self.ativos = []
+        self.ativos_formulario = []
+        self.categorias = []
+        self.categorias_formulario = []
+        self.chamado = {}
+        self.comentarios = []
+        self.rascunho_comentario = ""
+        self._limpar_filtros()
+        self.filtro_numero_confirmado = ""
+        self.filtro_status_confirmado = []
+        self.filtro_ativo_confirmado = []
+        self.filtro_data_inicio_confirmada = ""
+        self.filtro_data_fim_confirmada = ""
+        self.filtro_ultima_atualizacao_inicio_confirmada = ""
+        self.filtro_ultima_atualizacao_fim_confirmada = ""
+        self.ordenar_por = "criado_em"
+        self.direcao = "DESC"
+        self.total_chamados = 0
+        self.preferencia_filtros_carregada = False
+        self.drawer_totem_aberto = False
+        self._limpar_formulario_local()
+        self.carregando_chamados = False
+        self.consulta_chamados_pendente = False
+        self.carregando_formulario = False
+        self.carregando_detalhe = False
+        self.carregando_comentarios = False
+        self.detalhe_carregado = False
+        self.enviando = False
+        self.enviando_comentario = False
+        self._limpar_mensagens_funcionais()
+
+    def _sincronizar_contexto_gerente(self) -> None:
+        """Isola dados ao trocar de identidade ou iniciar outra sessão."""
+        if not self.sessao_confirmada or self.role != "gerente" or self.usuario_id is None:
+            self._limpar_contexto_gerente()
+            self.usuario_id_contexto_gerente = None
+            self._token_contexto_gerente = ""
+            self._versao_contexto_gerente = -1
+            return
+        if self.usuario_id_contexto_gerente is not None and (
+            self.usuario_id_contexto_gerente != self.usuario_id
+            or self._token_contexto_gerente != self._auth_token
+            or self._versao_contexto_gerente != self._versao_sessao
+        ):
+            self._limpar_contexto_gerente()
+        self.usuario_id_contexto_gerente = self.usuario_id
+        self._token_contexto_gerente = self._auth_token
+        self._versao_contexto_gerente = self._versao_sessao
+
+    def _limpar_sessao(self, mensagem: str = "") -> None:
+        self._limpar_contexto_gerente()
+        self.usuario_id_contexto_gerente = None
+        self._token_contexto_gerente = ""
+        self._versao_contexto_gerente = -1
+        super()._limpar_sessao(mensagem)
+
+    @rx.event
+    def sair_gerente(self):
+        self._limpar_sessao()
+        return rx.redirect("/login")
+
     @staticmethod
     def prioridades() -> list[str]:
         return list(PRIORIDADES_CHAMADO)
@@ -161,11 +239,14 @@ class ChamadosGerenteState(AuthState):
 
     async def _garantir_gerente(self) -> str | None:
         """Evita revalidar /me em cada interação já autenticada da jornada."""
+        self._sincronizar_contexto_gerente()
         if self.deve_trocar_senha:
             return DESTINO_PRIMEIRO_ACESSO
         if self.sessao_confirmada and self.role == "gerente" and self._auth_token:
             return None
-        return await self._validar_gerente()
+        destino = await self._validar_gerente()
+        self._sincronizar_contexto_gerente()
+        return destino
 
     @rx.event
     async def redirecionar_alias_lista(self):
@@ -461,7 +542,9 @@ class ChamadosGerenteState(AuthState):
             return ""
         return datetime.fromtimestamp(instante / 1000, tz=ZoneInfo("America/Sao_Paulo")).strftime("%Y-%m-%d")
 
-    async def _salvar_preferencia(self) -> None:
+    async def _salvar_preferencia(
+        self, contexto: tuple[int | None, int, str]
+    ) -> None:
         cliente = criar_cliente_service_desk()
         if not hasattr(cliente, "salvar_preferencia_filtros_gerente"):
             return
@@ -472,7 +555,8 @@ class ChamadosGerenteState(AuthState):
             ultima_atualizacao_inicio=self.ultima_atualizacao_inicio_aplicada,
             ultima_atualizacao_fim=self.ultima_atualizacao_fim_aplicada,
         )
-        self._confirmar_filtros()
+        if self._contexto_gerente_atual(contexto):
+            self._confirmar_filtros()
 
     @rx.event
     def alterar_ativo_formulario(self, valor: str):
@@ -496,6 +580,7 @@ class ChamadosGerenteState(AuthState):
 
     @rx.event
     async def carregar_lista(self):
+        self._sincronizar_contexto_gerente()
         if self.carregando_chamados:
             # Eventos rápidos de ordenação/filtro não abrem uma segunda
             # consulta concorrente. A última intenção será atendida pela
@@ -505,6 +590,7 @@ class ChamadosGerenteState(AuthState):
         self.carregando_chamados = True
         self._limpar_mensagens_funcionais()
         yield
+        contexto = None
         try:
             while True:
                 self.consulta_chamados_pendente = False
@@ -514,12 +600,14 @@ class ChamadosGerenteState(AuthState):
                     return
                 if not self.sessao_confirmada:
                     return
+                contexto = self._contexto_sessao_gerente()
 
                 cliente = criar_cliente_service_desk()
                 if not self.preferencia_filtros_carregada and hasattr(cliente, "obter_preferencia_filtros_gerente"):
-                    self._aplicar_preferencia(
-                        await cliente.obter_preferencia_filtros_gerente(self._auth_token)
-                    )
+                    preferencia = await cliente.obter_preferencia_filtros_gerente(self._auth_token)
+                    if not self._contexto_gerente_atual(contexto):
+                        return
+                    self._aplicar_preferencia(preferencia)
                     self.preferencia_filtros_carregada = True
                 filtros_consulta = {
                     "numero": self.numero_aplicado,
@@ -541,9 +629,11 @@ class ChamadosGerenteState(AuthState):
                 else:
                     resultado, ativos = await asyncio.gather(
                         chamada,
-                        cliente.listar_ativos(self._auth_token),
+                        cliente.listar_ativos_historicos_gerente(self._auth_token),
                         return_exceptions=True,
                     )
+                    if not self._contexto_gerente_atual(contexto):
+                        return
                     if isinstance(resultado, Exception):
                         raise resultado
                     if isinstance(ativos, Exception):
@@ -555,6 +645,9 @@ class ChamadosGerenteState(AuthState):
                             yield rx.redirect(destino_ativos)
                             return
                         ativos = None
+
+                if not self._contexto_gerente_atual(contexto):
+                    return
 
                 self.chamados = [
                     _resumo_para_dict(item) for item in resultado.items
@@ -575,25 +668,34 @@ class ChamadosGerenteState(AuthState):
                 if not self.consulta_chamados_pendente:
                     break
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            if contexto is not None and not self._contexto_gerente_atual(contexto):
+                return
             destino = self._registrar_erro(erro, "mensagem_chamados")
             if destino is not None:
                 yield rx.redirect(destino)
                 return
         finally:
-            self.carregando_chamados = False
+            if contexto is None or self._contexto_sessao_gerente() == contexto:
+                self.carregando_chamados = False
 
     @rx.event
     async def aplicar_filtros(self):
+        self._sincronizar_contexto_gerente()
+        contexto = self._contexto_sessao_gerente()
         filtros_confirmados = self._snapshot_filtros_confirmados()
         chamados_confirmados, total_confirmado = list(self.chamados), self.total_chamados
         if not self._preparar_filtros_aplicados():
             return
         async for evento in self.carregar_lista():
             yield evento
+        if not self._contexto_gerente_atual(contexto):
+            return
         if not self.mensagem_chamados:
             try:
-                await self._salvar_preferencia()
+                await self._salvar_preferencia(contexto)
             except Exception as erro:  # noqa: BLE001
+                if not self._contexto_gerente_atual(contexto):
+                    return
                 self._registrar_erro(erro, "mensagem_chamados")
                 self._restaurar_filtros_confirmados(filtros_confirmados)
                 self.chamados, self.total_chamados = chamados_confirmados, total_confirmado
@@ -603,15 +705,21 @@ class ChamadosGerenteState(AuthState):
 
     @rx.event
     async def limpar_filtros_lista(self):
+        self._sincronizar_contexto_gerente()
+        contexto = self._contexto_sessao_gerente()
         filtros_confirmados = self._snapshot_filtros_confirmados()
         chamados_confirmados, total_confirmado = list(self.chamados), self.total_chamados
         self._limpar_filtros()
         async for evento in self.carregar_lista():
             yield evento
+        if not self._contexto_gerente_atual(contexto):
+            return
         if not self.mensagem_chamados:
             try:
-                await self._salvar_preferencia()
+                await self._salvar_preferencia(contexto)
             except Exception as erro:  # noqa: BLE001
+                if not self._contexto_gerente_atual(contexto):
+                    return
                 self._registrar_erro(erro, "mensagem_chamados")
                 self._restaurar_filtros_confirmados(filtros_confirmados)
                 self.chamados, self.total_chamados = chamados_confirmados, total_confirmado
@@ -633,6 +741,7 @@ class ChamadosGerenteState(AuthState):
 
     @rx.event
     async def alternar_ordenacao(self, coluna: str):
+        self._sincronizar_contexto_gerente()
         if coluna not in self.colunas_ordenaveis():
             self.mensagem_chamados = "Ordenação inválida."
             return
@@ -646,6 +755,7 @@ class ChamadosGerenteState(AuthState):
 
     @rx.event
     async def carregar_formulario(self):
+        self._sincronizar_contexto_gerente()
         if self.carregando_formulario:
             return
         self.carregando_formulario = True
@@ -659,12 +769,15 @@ class ChamadosGerenteState(AuthState):
         if not self.sessao_confirmada:
             self.carregando_formulario = False
             return
+        contexto = self._contexto_sessao_gerente()
         try:
             cliente = criar_cliente_service_desk()
             ativos, categorias = await asyncio.gather(
                 cliente.listar_ativos(self._auth_token),
                 cliente.listar_categorias(self._auth_token),
             )
+            if not self._contexto_gerente_atual(contexto):
+                return
             self.ativos = [f"{item.id} — {item.nome_ativo}" for item in ativos]
             self.ativos_formulario = [
                 {"id": item.id, "nome": item.nome_ativo} for item in ativos
@@ -674,15 +787,19 @@ class ChamadosGerenteState(AuthState):
                 {"id": item.id, "nome": item.nome} for item in categorias
             ]
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            if not self._contexto_gerente_atual(contexto):
+                return
             destino = self._registrar_erro(erro, "mensagem_formulario")
             if destino is not None:
                 self.carregando_formulario = False
                 yield rx.redirect(destino)
                 return
-        self.carregando_formulario = False
+        if self._contexto_sessao_gerente() == contexto:
+            self.carregando_formulario = False
 
     @rx.event
     async def carregar_detalhe(self):
+        self._sincronizar_contexto_gerente()
         if self.carregando_detalhe:
             return
         self.carregando_detalhe = True
@@ -700,6 +817,7 @@ class ChamadosGerenteState(AuthState):
         if not self.sessao_confirmada:
             self.carregando_detalhe = False
             return
+        contexto = self._contexto_sessao_gerente()
         try:
             chamado_id = int(str(self.chamado_id))
             if chamado_id <= 0:
@@ -711,6 +829,8 @@ class ChamadosGerenteState(AuthState):
         try:
             cliente = criar_cliente_service_desk()
             resultado = await cliente.obter_chamado(self._auth_token, chamado_id)
+            if not self._contexto_gerente_atual(contexto):
+                return
             self.chamado = _detalhe_para_dict(resultado)
             self.detalhe_carregado = True
             self.carregando_comentarios = True
@@ -719,28 +839,37 @@ class ChamadosGerenteState(AuthState):
                     self._auth_token,
                     chamado_id,
                 )
+                if not self._contexto_gerente_atual(contexto):
+                    return
                 self.comentarios = [
                     comentario_publico_para_dict(comentario)
                     for comentario in comentarios
                 ]
             except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+                if not self._contexto_gerente_atual(contexto):
+                    return
                 destino = self._registrar_erro(erro, "mensagem_comentarios")
                 if destino is not None:
                     self.carregando_detalhe = False
                     yield rx.redirect(destino)
                     return
             finally:
-                self.carregando_comentarios = False
+                if self._contexto_sessao_gerente() == contexto:
+                    self.carregando_comentarios = False
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            if not self._contexto_gerente_atual(contexto):
+                return
             destino = self._registrar_erro(erro, "mensagem_detalhe")
             if destino is not None:
                 self.carregando_detalhe = False
                 yield rx.redirect(destino)
             return
-        self.carregando_detalhe = False
+        if self._contexto_sessao_gerente() == contexto:
+            self.carregando_detalhe = False
 
     @rx.event
     async def publicar_comentario(self):
+        self._sincronizar_contexto_gerente()
         if self.enviando_comentario:
             return
         self.enviando_comentario = True
@@ -754,6 +883,7 @@ class ChamadosGerenteState(AuthState):
         if not self.sessao_confirmada:
             self.enviando_comentario = False
             return
+        contexto = self._contexto_sessao_gerente()
         try:
             chamado_id = int(str(self.chamado_id))
             if chamado_id <= 0:
@@ -769,17 +899,24 @@ class ChamadosGerenteState(AuthState):
                 chamado_id,
                 conteudo=self.rascunho_comentario,
             )
+            if not self._contexto_gerente_atual(contexto):
+                return
             self.comentarios = [comentario_publico_para_dict(comentario)] + self.comentarios
             self.rascunho_comentario = ""
             resultado = await cliente.obter_chamado(self._auth_token, chamado_id)
+            if not self._contexto_gerente_atual(contexto):
+                return
             self.chamado = _detalhe_para_dict(resultado)
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            if not self._contexto_gerente_atual(contexto):
+                return
             destino = self._registrar_erro(erro, "mensagem_comentarios")
             if destino is not None:
                 self.enviando_comentario = False
                 yield rx.redirect(destino)
                 return
-        self.enviando_comentario = False
+        if self._contexto_sessao_gerente() == contexto:
+            self.enviando_comentario = False
 
     @rx.event
     def descartar_rascunho_comentario(self):
@@ -793,12 +930,22 @@ class ChamadosGerenteState(AuthState):
 
     @rx.event
     async def abrir_chamado(self, form_data: dict[str, Any] | None = None):
+        self._sincronizar_contexto_gerente()
         if self.enviando:
             return
         self.enviando = True
         self.mensagem_formulario = ""
         self.mensagem_sucesso = ""
         yield
+        destino = await self._garantir_gerente()
+        if destino is not None:
+            self.enviando = False
+            yield rx.redirect(destino)
+            return
+        if not self.sessao_confirmada:
+            self.enviando = False
+            return
+        contexto = self._contexto_sessao_gerente()
         if isinstance(form_data, dict) and any(
             k in form_data
             for k in ("ativos_referencia_id", "categorias_servico_id", "titulo")
@@ -829,6 +976,8 @@ class ChamadosGerenteState(AuthState):
                 titulo=str(dados.get("titulo", "")),
                 descricao=str(dados.get("descricao", "")),
             )
+            if not self._contexto_gerente_atual(contexto):
+                return
             self.chamado = _detalhe_para_dict(resultado)
             self._limpar_formulario_local()
             self.enviando = False
@@ -836,6 +985,8 @@ class ChamadosGerenteState(AuthState):
             yield rx.redirect(f"/chamados/{resultado.id}")
             return
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            if not self._contexto_gerente_atual(contexto):
+                return
             destino = self._registrar_erro(erro, "mensagem_formulario")
             self.enviando = False
             if destino is not None:

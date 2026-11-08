@@ -451,6 +451,8 @@ Estado atual: `Solução Rejeitada` integra a lista canônica do Save operaciona
 - Chamados que já estavam `Resolvido` antes do início de vigência do encerramento automático não são encerrados automaticamente; continuam sujeitos ao encerramento manual pelos perfis operacionais;
 - um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade e efetiva o encerramento;
 - o retorno de telemetria não participa do encerramento automático;
+- Técnico, Diretoria e Administrador podem selecionar `Solução Rejeitada` no Save de chamado não terminal, com comentário humano obrigatório de visibilidade Pública ou Interna; aceite e rejeição pelo solicitante são fluxos futuros;
+- essa transição operacional segue as regras gerais do Save: outras diferenças funcionais só são persistidas quando também forem informadas e autorizadas; o comentário e a última atualização são registrados;
 - para rejeitar uma resolução, o Gerente da Loja deve registrar justificativa obrigatória, validada no backend e registrada como comentário público; o sistema altera então o status para `Solução Rejeitada` e registra a transição no histórico;
 - a rejeição não altera atribuição, prioridade, Categoria ou demais dados funcionais do Chamado; o comentário e a última atualização são registrados;
 - rejeição e encerramento automático estão aprovados para a Sprint 3 e ainda não estão implementados; suas gravações dependem de prova verificável de segurança transacional no Xano;

@@ -474,6 +474,12 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     assert "text ativo_ids?" in endpoint
     assert "($input.ativo_ids|json_decode)" in endpoint
     assert "($ativo_ids|is_array)" in endpoint
+    # Verificações vindas de main, em forma compacta: validação 422 antes da consulta.
+    endpoint_c = compacto(endpoint)
+    assert compacto('if (!(($status|is_array) && ($ativo_ids|is_array)))') in endpoint_c
+    assert compacto('value = "HTTP/1.1 422 Unprocessable Entity"') in endpoint_c
+    assert endpoint_c.index(compacto('function.run "service_desk/listar_chamados_gerente"')) > endpoint_c.index(compacto('if (!(($status|is_array) && ($ativo_ids|is_array)))'))
+    assert compacto('response = $resultado') in endpoint_c
     assert "text numero? filters=trim" in fonte
     assert "int[] ativo_ids?" in fonte
     assert compacto("$input.numero|to_int") in fonte_c

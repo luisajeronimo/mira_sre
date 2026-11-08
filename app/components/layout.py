@@ -144,7 +144,7 @@ def _sidebar_desktop() -> rx.Component:
     )
 
 
-def _topbar_desktop() -> rx.Component:
+def _topbar_desktop(evento_sair=AuthState.logout) -> rx.Component:
     return rx.hstack(
         rx.spacer(),
         rx.hstack(
@@ -165,7 +165,7 @@ def _topbar_desktop() -> rx.Component:
             rx.divider(orientation="vertical", height="1.75rem"),
             rx.button(
                 "Sair",
-                on_click=AuthState.logout,
+                on_click=evento_sair,
                 color_scheme="ruby",
                 size="2",
             ),
@@ -201,14 +201,14 @@ def casca_autenticada(
 
 
 def casca_conteudo(
-    conteudo: rx.Component, destino_inicio: str | None = None
+    conteudo: rx.Component, destino_inicio: str | None = None, evento_sair=None
 ) -> rx.Component:
     """Apresenta conteúdo somente dentro da navegação autenticada."""
     del destino_inicio
     return rx.hstack(
         _sidebar_desktop(),
         rx.vstack(
-            _topbar_desktop(),
+            _topbar_desktop(evento_sair or AuthState.logout),
             rx.box(
                 rx.box(
                     conteudo,

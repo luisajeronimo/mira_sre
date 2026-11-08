@@ -42,11 +42,11 @@ ITENS_NAVEGACAO = (
         frozenset({"/monitoramento"}),
     ),
     ItemNavegacao(
-        "Administração de usuários",
-        "/administracao/usuarios",
+        "Administração",
+        "/administracao/gestao",
         "settings",
         frozenset({"administrador"}),
-        frozenset({"/administracao/usuarios"}),
+        frozenset({"/administracao/gestao"}),
     ),
 )
 

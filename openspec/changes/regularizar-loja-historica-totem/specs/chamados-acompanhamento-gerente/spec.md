@@ -21,6 +21,10 @@ O sistema DEVE (MUST) fornecer uma consulta específica de comentários público
 - **WHEN** um Gerente consulta comentários de chamado cuja Loja resolvida é nula
 - **THEN** o Xano responde como não autorizado sem retornar comentários
 
+#### Scenario: Loja histórica não demonstrável
+- **WHEN** não é possível comprovar a Loja de abertura do chamado legado
+- **THEN** o Xano não libera comentários ao Gerente por inferência da Loja atual do Totem
+
 #### Scenario: Chamado inexistente
 - **WHEN** um Gerente consulta comentários de identificador inexistente
 - **THEN** o Xano responde como recurso não encontrado

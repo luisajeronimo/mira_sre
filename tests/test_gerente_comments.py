@@ -288,3 +288,38 @@ def test_xanoscript_preserva_timestamps_e_visibilidade_fechada():
     assert "db.transaction" in criar
     assert 'visibilidade: "publica"' in criar
     assert "ultima_atualizacao_em: $criado_em" in criar
+
+
+def test_gets_genericos_de_interacoes_negam_gerente_sem_alterar_consulta_publica():
+    colecao = (
+        ROOT / "xano/api/apis_from_table_interacoes_chamado/interacoes_chamado_GET.xs"
+    ).read_text()
+    detalhe = (
+        ROOT
+        / "xano/api/apis_from_table_interacoes_chamado/interacoes_chamado/interacoes_chamado_id_GET.xs"
+    ).read_text()
+    publico = (
+        ROOT / "xano/function/service_desk/listar_comentarios_publicos_gerente.xs"
+    ).read_text()
+
+    for consulta in (colecao, detalhe):
+        autorizacao = consulta.split('function.run "autorizacao/exigir_perfil"', 1)[
+            1
+        ].split('} as $usuario', 1)[0]
+        assert "tecnico: true" in autorizacao
+        assert "gerente: true" not in autorizacao
+        assert "diretoria: true" not in autorizacao
+        assert "administrador: true" not in autorizacao
+        assert 'function.run "autorizacao/exigir_escopo_loja"' not in consulta
+        assert consulta.index('function.run "autorizacao/exigir_perfil"') < consulta.index(
+            "db."
+        )
+
+    assert "join =" not in colecao
+    assert "where = $usuario.role" not in colecao
+    assert "db.get chamados" not in detalhe
+    assert "db.get ativos_referencia" not in detalhe
+    assert detalhe.index("db.get interacoes_chamado") < detalhe.index(
+        "precondition ($interacoes_chamado != null)"
+    )
+    assert '$db.interacoes_chamado.visibilidade == "publica"' in publico

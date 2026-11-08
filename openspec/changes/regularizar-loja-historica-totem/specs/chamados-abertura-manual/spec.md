@@ -21,6 +21,10 @@ O sistema DEVE (MUST) fornecer `GET /gerente/chamados` e `GET /gerente/chamados/
 - **WHEN** um Gerente consulta o identificador de um chamado cuja Loja resolvida é nula
 - **THEN** o Xano rejeita a operação como não autorizada sem retornar os dados do chamado
 
+#### Scenario: Loja histórica indeterminada
+- **WHEN** o chamado legado não possui vínculo de Loja demonstrável em `criado_em`
+- **THEN** o Xano não o atribui à Loja atual do Totem nem o expõe ao Gerente
+
 #### Scenario: Chamado inexistente
 - **WHEN** um Gerente consulta um identificador de chamado que não existe
 - **THEN** o Xano responde como recurso não encontrado

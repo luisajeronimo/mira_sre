@@ -32,8 +32,8 @@ def novo_estado() -> MonitoramentoState:
         ("diretoria", ["/inicio", "/monitoramento"], ["Início", "Monitoramento"]),
         (
             "administrador",
-            ["/inicio", "/monitoramento", "/administracao/usuarios"],
-            ["Início", "Monitoramento", "Administração de usuários"],
+            ["/inicio", "/monitoramento", "/administracao/gestao"],
+            ["Início", "Monitoramento", "Administração"],
         ),
     ],
 )
@@ -64,12 +64,12 @@ def test_monitoramento_e_administracao_so_ativam_nas_rotas_configuradas():
     inicio, monitoramento, administracao = ITENS_NAVEGACAO
 
     assert item_esta_ativo(monitoramento, "/monitoramento") is True
-    assert item_esta_ativo(administracao, "/administracao/usuarios") is True
+    assert item_esta_ativo(administracao, "/administracao/gestao") is True
     for rota in ("/inicio", "/chamados", "/chamados/novo", "/chamados/[chamado_id]"):
         assert item_esta_ativo(monitoramento, rota) is False
         assert item_esta_ativo(administracao, rota) is False
     assert item_esta_ativo(inicio, "/monitoramento") is False
-    assert item_esta_ativo(inicio, "/administracao/usuarios") is False
+    assert item_esta_ativo(inicio, "/administracao/gestao") is False
 
 
 def test_asset_do_logo_corresponde_exatamente_a_referencia_oficial():
@@ -83,7 +83,8 @@ def test_casca_reutiliza_asset_oficial_em_sidebar_desktop_sem_drawer():
     app_fonte = (ROOT / "app/app.py").read_text(encoding="utf-8")
 
     assert 'src="/mira-logo.svg"' in fonte
-    assert "on_click=AuthState.logout" in fonte
+    assert "_topbar_desktop(evento_sair or AuthState.logout)" in fonte
+    assert "on_click=evento_sair" in fonte
     assert "_focus_visible" in fonte
     assert "_sidebar_desktop" in fonte
     assert "rx.drawer" not in fonte

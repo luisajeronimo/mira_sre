@@ -17,7 +17,7 @@ O sistema MUST exigir `lojas_id` de Loja existente e ativa para Gerente. Uma Loj
 - **WHEN** a criação de Gerente omite `lojas_id` ou informa uma Loja inexistente
 - **THEN** o sistema rejeita a criação sem persistir usuário
 
-#### Scenario: Gerente com Loja inativa
+#### Scenario: Gerente com Loja Inativa
 - **WHEN** a criação de Gerente informa `lojas_id` de uma Loja existente cujo `status` não é `Ativa`, `ativa` nem `Ativo`
 - **THEN** o sistema rejeita a criação como entrada inválida, sem persistir usuário
 

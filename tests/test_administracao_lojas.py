@@ -1,4 +1,4 @@
-"""Regressão do catálogo mínimo de Lojas na criação administrativa."""
+"""Regressões da criação de usuários no modal da gestão administrativa."""
 
 from __future__ import annotations
 
@@ -7,87 +7,62 @@ from importlib import import_module
 
 import pytest
 
-import app.states.auth as auth_module
-from app.pages.administracao import AdministracaoState, administracao
-from app.services.xano import (
-    IdentidadeXano,
-    LojaOpcaoAdministracaoXano,
-    XanoEntradaInvalida,
-    XanoIndisponivel,
-)
-from app.states.auth import AuthState, MENSAGEM_INDISPONIVEL
+from app.pages.administracao import primeiro_acesso
+from app.pages.gestao_administrativa import GestaoAdministrativaState, gestao_administrativa
+from app.services.xano import XanoEntradaInvalida
+from app.states.auth import AuthState
 
-administracao_module = import_module("app.pages.administracao")
-
-
-ADMIN_CONCLUIDO = IdentidadeXano(
-    id=12,
-    nome="Administradora de teste",
-    email="admin@example.test",
-    role="administrador",
-    lojas_id=None,
-    deve_trocar_senha=False,
-)
-
-
-class ClienteAdminFalso:
-    def __init__(
-        self, *, identidade=ADMIN_CONCLUIDO, erro_lojas=None, erro_criacao=None
-    ):
-        self.identidade = identidade
-        self.erro_lojas = erro_lojas
-        self.erro_criacao = erro_criacao
-        self.chamadas_me = []
-        self.chamadas_lojas = []
-        self.criacoes = []
-
-    async def obter_identidade(self, token):
-        self.chamadas_me.append(token)
-        return self.identidade
-
-    async def listar_lojas_administracao(self, token):
-        self.chamadas_lojas.append(token)
-        if self.erro_lojas:
-            raise self.erro_lojas
-        return (LojaOpcaoAdministracaoXano(id=1, nome="Loja Paulista"),)
-
-    async def criar_usuario_administrativo(self, token, **dados):
-        if self.erro_criacao:
-            raise self.erro_criacao
-        self.criacoes.append((token, dados))
+modulo = import_module("app.pages.gestao_administrativa")
 
 
 def coletar(gerador):
-    async def _coletar():
+    async def interno():
         return [evento async for evento in gerador]
-
-    return asyncio.run(_coletar())
-
-
-def executar_evento(handler, estado, *args):
-    resultado = handler.fn(estado, *args)
-    if hasattr(resultado, "__aiter__"):
-        return coletar(resultado)
-    return []
+    return asyncio.run(interno())
 
 
-def novo_estado():
+def estado_admin():
     raiz = AuthState(_reflex_internal_init=True)
-    estado = AdministracaoState(parent_state=raiz, _reflex_internal_init=True)
-    raiz._auth_token = "token-local-de-teste"
+    estado = GestaoAdministrativaState(parent_state=raiz, _reflex_internal_init=True)
+    raiz._auth_token = "token-ficticio"
+    raiz.usuario_id = 12
+    raiz.role = "administrador"
+    raiz.sessao_confirmada = True
+    estado.usuario_id_contexto = raiz.usuario_id
+    estado._token_contexto_admin = raiz._auth_token
+    estado._versao_contexto_admin = raiz._versao_sessao
+    estado.lojas = [
+        {"id": 1, "nome": "Ativa", "endereco": "Rua A", "regiao": "Sul", "status": "Ativa"},
+        {"id": 2, "nome": "Inativa", "endereco": "Rua B", "regiao": "Sul", "status": "Inativa"},
+    ]
+    estado._atualizar_destinos()
+    estado.nome_form = "Pessoa"
+    estado.email_form = "PESSOA@example.test"
     return estado
 
 
-def redirecionamento(evento):
-    return evento.args[0][1]._var_value
+class ClienteFalso:
+    def __init__(self, erro=None):
+        self.criacoes = []
+        self.erro = erro
+
+    async def criar_usuario_administrativo(self, token, **dados):
+        if self.erro:
+            raise self.erro
+        self.criacoes.append((token, dados))
+
+    async def listar_usuarios_administracao(self, token):
+        return ()
 
 
-def instalar_cliente(monkeypatch, cliente):
-    monkeypatch.setattr(auth_module, "criar_cliente_xano", lambda: cliente)
-    monkeypatch.setattr(administracao_module, "criar_cliente_xano", lambda: cliente)
+def criar(estado, cliente, monkeypatch, **dados):
+    monkeypatch.setattr(modulo, "criar_cliente_xano", lambda: cliente)
+    return coletar(GestaoAdministrativaState.criar_usuario.fn(estado, {
+        "senha_temporaria": "senha-ficticia", "confirmacao": "senha-ficticia", **dados,
+    }))
 
 
-def percorrer_componentes(componente):
+def percorrer(componente):
     vistos = set()
     pendentes = [componente]
     while pendentes:
@@ -96,278 +71,132 @@ def percorrer_componentes(componente):
             continue
         vistos.add(id(atual))
         yield atual
-        pendentes.extend(
-            filho
-            for filho in getattr(atual, "children", [])
-            if hasattr(filho, "children")
-        )
+        pendentes.extend(x for x in getattr(atual, "children", []) if hasattr(x, "children"))
 
 
-def test_entrada_na_administracao_revalida_e_carrega_opcoes_uma_vez(monkeypatch):
-    cliente = ClienteAdminFalso()
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
+def test_campos_do_modal_e_primeiro_acesso_tem_rotulos_persistentes():
+    for pagina, ids in [
+        (gestao_administrativa, {"gestao-nome-usuario", "gestao-email-usuario", "gestao-senha-temporaria", "gestao-confirmacao-senha"}),
+        (primeiro_acesso, {"nova-senha", "confirmacao-nova-senha"}),
+    ]:
+        componentes = list(percorrer(pagina()))
+        controles = {x.id for x in componentes if getattr(x, "id", None)}
+        rotulos = {str(x.html_for).strip('"') for x in componentes if x.__class__.__name__ == "Label"}
+        assert ids <= controles
+        assert ids <= rotulos
 
-    executar_evento(AdministracaoState.carregar_administracao, estado)
-    executar_evento(AdministracaoState.carregar_administracao, estado)
 
-    assert cliente.chamadas_me == ["token-local-de-teste"] * 2
-    assert cliente.chamadas_lojas == ["token-local-de-teste"]
+def test_modal_abre_cancela_e_nao_envia_mutacao(monkeypatch):
+    estado = estado_admin()
+    cliente = ClienteFalso()
+    monkeypatch.setattr(modulo, "criar_cliente_xano", lambda: cliente)
+    GestaoAdministrativaState.abrir_modal.fn(estado, "usuario")
+    assert estado.modal == "usuario"
+    GestaoAdministrativaState.fechar_modal.fn(estado)
+    assert estado.modal == ""
     assert cliente.criacoes == []
-    assert estado.opcoes_lojas == [{"id": 1, "nome": "Loja Paulista"}]
-    assert estado.opcoes_lojas_carregadas is True
 
 
-def test_administrador_pendente_revalida_sem_carregar_catalogo(monkeypatch):
-    identidade = IdentidadeXano(
-        id=12,
-        nome="Administradora de teste",
-        email="admin@example.test",
-        role="administrador",
-        lojas_id=None,
-        deve_trocar_senha=True,
-    )
-    cliente = ClienteAdminFalso(identidade=identidade)
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-
-    eventos = executar_evento(AdministracaoState.carregar_administracao, estado)
-
-    assert redirecionamento(eventos[-1]) == "/primeiro-acesso"
-    assert cliente.chamadas_lojas == []
-    assert estado.sessao_confirmada is True
-
-
-def test_erro_de_carregamento_e_sanitizado_e_permanece_tentavel(monkeypatch):
-    cliente = ClienteAdminFalso(erro_lojas=XanoIndisponivel("detalhe interno"))
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-
-    executar_evento(AdministracaoState.carregar_administracao, estado)
-
-    assert estado.erro_lojas == MENSAGEM_INDISPONIVEL
-    assert "detalhe interno" not in estado.erro_lojas
-    assert estado.opcoes_lojas_carregadas is False
-    assert estado.sessao_confirmada is True
-
-
-def test_select_usa_nome_como_rotulo_id_como_valor_e_so_aparece_condicionalmente():
-    componentes = list(percorrer_componentes(administracao()))
-    selects = [
-        item
-        for item in componentes
-        if type(item).__name__ == "SelectRoot"
-        and getattr(getattr(item, "name", None), "_var_value", None)
-        == "lojas_id"
-    ]
-    assert len(selects) == 1
-    seletor = selects[0]
-    assert seletor.required._var_value is True
-
-    condicao_perfil_gerente = [
-        item
-        for item in componentes
-        if type(item).__name__ == "Cond"
-        and "perfil_selecionado" in item.cond._js_expr
-        and '"gerente"' in item.cond._js_expr
-    ]
-    assert len(condicao_perfil_gerente) == 1
-
-    item_loja = [
-        item
-        for item in componentes
-        if type(item).__name__ == "SelectItem"
-        and '"id"' in item.value._js_expr
-    ]
-    assert len(item_loja) == 1
-    assert '"nome"' in item_loja[0].children[0].contents._js_expr
-    assert not any(
-        type(item).__name__ == "TextFieldRoot"
-        and getattr(getattr(item, "name", None), "_var_value", None)
-        == "lojas_id"
-        for item in componentes
-    )
-
-
-def test_gerente_sem_selecao_nao_submete(monkeypatch):
-    cliente = ClienteAdminFalso()
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-    estado.opcoes_lojas = [{"id": 1, "nome": "Loja Paulista"}]
-    executar_evento(AdministracaoState.selecionar_perfil, estado, "gerente")
-
-    executar_evento(
-        AdministracaoState.criar_usuario,
-        estado,
-        {
-            "nome": "Gerente de teste",
-            "email": "gerente@example.test",
-            "role": "gerente",
-            "senha_temporaria": "senha-ficticia",
-            "confirmacao": "senha-ficticia",
-        },
-    )
-
+def test_gerente_exige_loja_ativa_e_rejeita_id_forged(monkeypatch):
+    estado = estado_admin()
+    estado.perfil_usuario = "gerente"
+    cliente = ClienteFalso()
+    criar(estado, cliente, monkeypatch)
+    assert estado.erro == "Gerente exige Loja Ativa."
+    estado.loja_form_id = "2"
+    criar(estado, cliente, monkeypatch)
+    assert estado.erro == "Selecione uma Loja válida."
+    estado.loja_form_id = "999"
+    criar(estado, cliente, monkeypatch)
+    assert estado.erro == "Selecione uma Loja válida."
     assert cliente.criacoes == []
-    assert estado.mensagem_usuario == "Gerente exige Loja."
 
 
-def test_rejeicao_backend_de_criacao_e_exibida_com_mensagem_sanitizada(monkeypatch):
-    cliente = ClienteAdminFalso(erro_criacao=XanoEntradaInvalida("detalhe interno"))
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-
-    executar_evento(
-        AdministracaoState.criar_usuario,
-        estado,
-        {
-            "nome": "Técnico de teste",
-            "email": "tecnico@example.test",
-            "role": "tecnico",
-            "senha_temporaria": "senha-ficticia",
-            "confirmacao": "senha-ficticia",
-        },
-    )
-
-    assert estado.mensagem_usuario == (
-        "Não foi possível criar o usuário. Verifique os dados informados."
-    )
-    assert "detalhe interno" not in estado.mensagem_usuario
-    assert estado.sucesso_usuario == ""
-
-
-def test_contrato_invalido_na_criacao_mostra_erro_sanitizado(monkeypatch):
-    cliente = ClienteAdminFalso(erro_criacao=administracao_module.XanoContratoInvalido("detalhe interno"))
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-
-    executar_evento(
-        AdministracaoState.criar_usuario,
-        estado,
-        {
-            "nome": "Técnico de teste",
-            "email": "tecnico@example.test",
-            "role": "tecnico",
-            "senha_temporaria": "senha-ficticia",
-            "confirmacao": "senha-ficticia",
-        },
-    )
-
-    assert estado.mensagem_usuario == (
-        "Não foi possível confirmar a criação do usuário."
-    )
-    assert "detalhe interno" not in estado.mensagem_usuario
-
-
-@pytest.mark.parametrize(
-    ("role", "senha", "confirmacao", "mensagem"),
-    [
-        ("admin", "senha-ficticia", "senha-ficticia", "Selecione um perfil válido."),
-        ("tecnico", "curta", "curta", "A senha deve ter pelo menos 8 caracteres."),
-        ("tecnico", "senha-ficticia", "outra-ficticia", "A confirmação de senha não confere."),
-    ],
-)
-def test_formulario_rejeita_perfil_e_senha_invalidos_localmente(
-    monkeypatch, role, senha, confirmacao, mensagem
-):
-    cliente = ClienteAdminFalso()
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-
-    executar_evento(
-        AdministracaoState.criar_usuario,
-        estado,
-        {
-            "nome": "Usuário de teste",
-            "email": "teste@example.test",
-            "role": role,
-            "senha_temporaria": senha,
-            "confirmacao": confirmacao,
-        },
-    )
-
-    assert cliente.criacoes == []
-    assert estado.mensagem_usuario == mensagem
-
-
-def test_state_de_administracao_nao_persiste_campos_de_senha():
-    campos_sensiveis = {
-        "senha",
-        "password",
-        "senha_temporaria",
-        "nova_senha",
-        "confirmacao",
-    }
-
-    assert campos_sensiveis.isdisjoint(AdministracaoState.base_vars)
-
-
-def test_gerente_envia_id_selecionado_e_rejeita_id_fora_das_opcoes(monkeypatch):
-    cliente = ClienteAdminFalso()
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-    estado.opcoes_lojas = [{"id": 1, "nome": "Loja Paulista"}]
-    executar_evento(AdministracaoState.selecionar_perfil, estado, "gerente")
-    executar_evento(AdministracaoState.selecionar_loja, estado, "1")
-
-    executar_evento(
-        AdministracaoState.criar_usuario,
-        estado,
-        {
-            "nome": "Gerente de teste",
-            "email": "gerente@example.test",
-            "role": "gerente",
-            "senha_temporaria": "senha-ficticia",
-            "confirmacao": "senha-ficticia",
-            "lojas_id": "1",
-        },
-    )
-
-    assert cliente.criacoes[0][1]["lojas_id"] == 1
-
-    cliente.criacoes.clear()
-    estado.mensagem_usuario = ""
-    executar_evento(
-        AdministracaoState.criar_usuario,
-        estado,
-        {
-            "nome": "Gerente de teste",
-            "email": "gerente2@example.test",
-            "role": "gerente",
-            "senha_temporaria": "senha-ficticia",
-            "confirmacao": "senha-ficticia",
-            "lojas_id": "999",
-        },
-    )
-    assert cliente.criacoes == []
-    assert estado.mensagem_usuario == "Selecione uma Loja válida."
+def test_criacao_de_gerente_atualiza_lista_e_fecha_modal(monkeypatch):
+    estado = estado_admin()
+    estado.perfil_usuario = "gerente"
+    estado.loja_form_id = "1"
+    estado.modal = "usuario"
+    cliente = ClienteFalso()
+    criar(estado, cliente, monkeypatch)
+    assert cliente.criacoes == [("token-ficticio", {
+        "nome": "Pessoa", "email": "pessoa@example.test", "role": "gerente",
+        "lojas_id": 1, "senha_temporaria": "senha-ficticia",
+    })]
+    assert estado.modal == ""
+    assert estado.sucesso == "Usuário criado com sucesso."
 
 
 @pytest.mark.parametrize("perfil", ["tecnico", "diretoria", "administrador"])
-def test_perfis_globais_nao_exibem_ou_enviam_loja_e_limpam_selecao(
-    monkeypatch, perfil
-):
-    cliente = ClienteAdminFalso()
-    instalar_cliente(monkeypatch, cliente)
-    estado = novo_estado()
-    estado.opcoes_lojas = [{"id": 1, "nome": "Loja Paulista"}]
-    executar_evento(AdministracaoState.selecionar_perfil, estado, "gerente")
-    executar_evento(AdministracaoState.selecionar_loja, estado, "1")
-    executar_evento(AdministracaoState.selecionar_perfil, estado, perfil)
-
-    assert estado.loja_selecionada == ""
-    executar_evento(
-        AdministracaoState.criar_usuario,
-        estado,
-        {
-            "nome": "Usuário de teste",
-            "email": f"{perfil}@example.test",
-            "role": perfil,
-            "senha_temporaria": "senha-ficticia",
-            "confirmacao": "senha-ficticia",
-            "lojas_id": "1",  # valor residual não pode ir ao cliente
-        },
-    )
-
-    assert len(cliente.criacoes) == 1
+def test_perfil_global_nao_envia_loja_residual(monkeypatch, perfil):
+    estado = estado_admin()
+    estado.perfil_usuario = perfil
+    estado.loja_form_id = "1"
+    cliente = ClienteFalso()
+    criar(estado, cliente, monkeypatch)
     assert cliente.criacoes[0][1]["lojas_id"] is None
+
+
+@pytest.mark.parametrize("perfil,senha,confirmacao,mensagem", [
+    ("admin", "senha-ficticia", "senha-ficticia", "Selecione um perfil válido."),
+    ("tecnico", "curta", "curta", "A senha deve ter pelo menos 8 caracteres."),
+    ("tecnico", "senha-ficticia", "outra-ficticia", "A confirmação de senha não confere."),
+])
+def test_formulario_rejeita_perfil_e_senha_invalidos(monkeypatch, perfil, senha, confirmacao, mensagem):
+    estado = estado_admin()
+    estado.perfil_usuario = perfil
+    cliente = ClienteFalso()
+    criar(estado, cliente, monkeypatch, senha_temporaria=senha, confirmacao=confirmacao)
+    assert estado.erro == mensagem
+    assert cliente.criacoes == []
+
+
+def test_erro_funcional_nao_confirma_criacao(monkeypatch):
+    estado = estado_admin()
+    estado.perfil_usuario = "tecnico"
+    cliente = ClienteFalso(XanoEntradaInvalida("E-mail já cadastrado."))
+    criar(estado, cliente, monkeypatch)
+    assert estado.erro == "E-mail já cadastrado."
+    assert estado.sucesso == ""
+    assert estado.modal == ""
+
+
+def test_senha_nao_e_var_persistida_no_state():
+    assert {"senha", "senha_temporaria", "confirmacao"}.isdisjoint(GestaoAdministrativaState.base_vars)
+
+
+def test_evento_de_criacao_nao_envia_dados_sem_permissao(monkeypatch):
+    estado = estado_admin()
+    estado.perfil_usuario = "tecnico"
+    cliente = ClienteFalso()
+    monkeypatch.setattr(modulo, "criar_cliente_xano", lambda: cliente)
+    estado.parent_state.role = "gerente"
+    coletar(GestaoAdministrativaState.criar_usuario.fn(estado, {
+        "senha_temporaria": "senha-ficticia", "confirmacao": "senha-ficticia",
+    }))
+    assert cliente.criacoes == []
+
+
+def test_evento_de_criacao_nao_envia_dados_apos_expiracao(monkeypatch):
+    estado = estado_admin()
+    estado.perfil_usuario = "tecnico"
+    cliente = ClienteFalso()
+    monkeypatch.setattr(modulo, "criar_cliente_xano", lambda: cliente)
+    estado.parent_state._auth_token = ""
+    coletar(GestaoAdministrativaState.criar_usuario.fn(estado, {
+        "senha_temporaria": "senha-ficticia", "confirmacao": "senha-ficticia",
+    }))
+    assert cliente.criacoes == []
+
+
+def test_evento_de_criacao_nao_usa_formulario_de_sessao_anterior(monkeypatch):
+    estado = estado_admin()
+    estado.perfil_usuario = "tecnico"
+    cliente = ClienteFalso()
+    monkeypatch.setattr(modulo, "criar_cliente_xano", lambda: cliente)
+    estado.parent_state._auth_token = "token-de-outra-pessoa"
+    estado.parent_state.usuario_id = 33
+    coletar(GestaoAdministrativaState.criar_usuario.fn(estado, {
+        "senha_temporaria": "senha-ficticia", "confirmacao": "senha-ficticia",
+    }))
+    assert cliente.criacoes == []

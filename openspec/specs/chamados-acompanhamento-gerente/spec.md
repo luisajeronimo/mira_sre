@@ -7,7 +7,7 @@ Definir o acompanhamento público e seguro de chamados pelo Gerente, com coment�
 ## Requirements
 
 ### Requirement: Última atualização representa alteração observável pelo Gerente
-Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. Na criação manual ou automática, o Xano DEVE (MUST) definir ambos com o mesmo instante funcional, calculado uma única vez; `criado_em` permanece imutável. A atribuição efetiva, mudança de status e comentário público DEVEM (MUST) atualizar somente `ultima_atualizacao_em`; leitura e eventos internos não visíveis NÃO DEVEM (MUST NOT) atualizá-lo.
+Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. Na criação manual ou automática, o Xano DEVE (MUST) definir ambos com o mesmo instante funcional, calculado uma única vez; `criado_em` permanece imutável. Atribuição efetiva, mudança de status e comentário Público ou Interno autorizado DEVEM (MUST) atualizar somente `ultima_atualizacao_em`; leitura e eventos internos sem comentário ou consequência funcional NÃO DEVEM (MUST NOT) atualizá-lo.
 
 #### Scenario: Criação inicializa os timestamps funcionais
 - **WHEN** um fluxo funcional cria chamado válido
@@ -18,7 +18,7 @@ Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. 
 - **THEN** `ultima_atualizacao_em` recebe o mesmo instante funcional de `criado_em`
 
 #### Scenario: Evento observável posterior
-- **WHEN** atribuição efetiva, mudança de status ou comentário público ocorre
+- **WHEN** atribuição efetiva, mudança de status ou comentário Público autorizado ocorre
 - **THEN** `criado_em` permanece imutável e o Xano atualiza `ultima_atualizacao_em` no mesmo ato
 
 #### Scenario: Atribuição efetiva atualiza a data
@@ -29,8 +29,12 @@ Todo chamado válido DEVE (MUST) possuir `criado_em` e `ultima_atualizacao_em`. 
 - **WHEN** um fluxo funcional autorizado altera o status de um chamado
 - **THEN** o Xano atualiza somente `ultima_atualizacao_em` no mesmo ato da alteração de status
 
+#### Scenario: Comentário interno operacional
+- **WHEN** um perfil operacional publica comentário Interno autorizado
+- **THEN** o Xano atualiza `ultima_atualizacao_em` sem tornar o conteúdo do comentário visível ao Gerente
+
 #### Scenario: Evento interno não visível
-- **WHEN** ocorre nota interna, work log, diagnóstico ou outra operação sem consequência visível ao Gerente
+- **WHEN** ocorre diagnóstico ou outra operação interna sem comentário nem consequência funcional
 - **THEN** o evento não altera `ultima_atualizacao_em`
 
 ### Requirement: Dados legados permanecem sem última atualização inferida
@@ -67,10 +71,10 @@ Cada nova interação criada por esta capacidade DEVE (MUST) possuir visibilidad
 - **THEN** ela não é retornada ao Gerente, independentemente de autoria, conteúdo ou data
 
 ### Requirement: Gerente consulta comentários públicos do chamado da própria Loja
-O sistema DEVE (MUST) fornecer uma consulta específica de comentários públicos por chamado ao Gerente autenticado. Ela DEVE (MUST) autorizar o chamado pela relação persistida chamado, Totem e Loja, retornar somente DTO sanitizado de comentário público e ordenar por `criado_em` decrescente. O DTO público contém exclusivamente `id`, `conteudo`, `criado_em` e `autor`, sendo `autor` objeto nulo ou com somente o campo público `nome`; ele NÃO DEVE (MUST NOT) expor identificador de usuário, e-mail, perfil, Loja, credenciais ou qualquer atributo interno.
+O sistema DEVE (MUST) fornecer uma consulta específica de comentários públicos por chamado ao Gerente autenticado. Ela DEVE (MUST) autorizar o chamado pela Loja histórica demonstrável em `criado_em`, retornar somente DTO sanitizado de comentário público e ordenar por `criado_em` decrescente. O DTO público contém exclusivamente `id`, `conteudo`, `criado_em` e `autor`, sendo `autor` objeto nulo ou com somente o campo público `nome`; ele NÃO DEVE (MUST NOT) expor identificador de usuário, e-mail, perfil, Loja, credenciais ou qualquer atributo interno.
 
 #### Scenario: Consulta autorizada ordenada
-- **WHEN** um Gerente consulta os comentários públicos de chamado ligado a Totem de sua Loja
+- **WHEN** um Gerente consulta comentários públicos de chamado comprovadamente aberto em sua Loja
 - **THEN** recebe somente comentários públicos, do mais recente ao mais antigo, com conteúdo, data funcional e autor limitado ao nome público
 
 #### Scenario: Relação de autor ausente ou incompatível
@@ -78,22 +82,26 @@ O sistema DEVE (MUST) fornecer uma consulta específica de comentários público
 - **THEN** o DTO retorna `autor = null`, sem vazar identificador ou atributo interno e sem inferir autoria
 
 #### Scenario: Chamado de outra Loja
-- **WHEN** um Gerente consulta comentários de chamado associado a outra Loja
+- **WHEN** um Gerente consulta comentários de chamado comprovadamente aberto em outra Loja
 - **THEN** o Xano responde como não autorizado sem retornar comentários
 
 #### Scenario: Chamado inexistente
 - **WHEN** um Gerente consulta comentários de identificador inexistente
 - **THEN** o Xano responde como recurso não encontrado
 
+#### Scenario: Loja histórica não demonstrável
+- **WHEN** não é possível comprovar a Loja de abertura do chamado legado
+- **THEN** o Xano não libera comentários ao Gerente por inferência da Loja atual do Totem
+
 ### Requirement: Gerente publica comentário público em chamado não terminal
-O sistema DEVE (MUST) fornecer comando específico para o Gerente autenticado publicar comentário Público não vazio em chamado de sua Loja e jornada autorizada, inclusive quando estiver Encerrado ou Cancelado. Autor, visibilidade e `criado_em` DEVEM (MUST) ser definidos pelo Xano; o comando DEVE (MUST) atualizar `ultima_atualizacao_em` junto da criação, sem modificar campos funcionais nem reabrir chamado terminal.
+O sistema DEVE (MUST) fornecer comando específico para o Gerente autenticado publicar comentário Público não vazio em chamado historicamente autorizado de sua Loja, inclusive quando estiver Encerrado ou Cancelado. Autor, visibilidade e `criado_em` DEVEM (MUST) ser definidos pelo Xano; o comando DEVE (MUST) atualizar `ultima_atualizacao_em` junto da criação, sem modificar campos funcionais nem reabrir chamado terminal.
 
 #### Scenario: Comentário público válido
-- **WHEN** Gerente autorizado envia conteúdo não vazio para chamado de sua Loja
+- **WHEN** Gerente autorizado envia conteúdo não vazio para chamado historicamente autorizado de sua Loja
 - **THEN** o Xano cria comentário Público com autor da sessão, atualiza `ultima_atualizacao_em` e retorna somente o DTO sanitizado
 
 #### Scenario: Chamado terminal permite comentário público
-- **WHEN** o chamado da Loja do Gerente está Encerrado ou Cancelado e recebe comentário Público não vazio
+- **WHEN** o chamado autorizado da Loja do Gerente está Encerrado ou Cancelado e recebe comentário Público não vazio
 - **THEN** o Xano cria somente o comentário, atualiza `ultima_atualizacao_em` e preserva os campos funcionais
 
 #### Scenario: Gerente tenta comentário Interno
@@ -101,7 +109,7 @@ O sistema DEVE (MUST) fornecer comando específico para o Gerente autenticado pu
 - **THEN** o Xano rejeita a operação sem criar interação
 
 #### Scenario: Comentário fora do escopo
-- **WHEN** o Gerente tenta comentar chamado fora de sua Loja ou jornada autorizada
+- **WHEN** o Gerente tenta comentar chamado fora da Loja histórica comprovada de sua sessão ou jornada autorizada
 - **THEN** o Xano rejeita a operação sem expor ou alterar o chamado
 
 #### Scenario: Autoridade do cliente é ignorada
@@ -124,10 +132,10 @@ As consultas e criações de comentários DEVEM (MUST) exigir autenticação de 
 - **THEN** o Xano responde como não autorizado sem ler ou criar comentários
 
 ### Requirement: Visibilidade de comentário não define autorização do chamado
-Público/Interno DEVE (MUST) classificar somente comentários. O acesso do Gerente ao chamado e ao status atual DEVE (MUST) continuar derivado da sessão e da Loja persistida. O contrato público de comentários DEVE (MUST) retornar somente interações de comentário explicitamente públicas, sem inferir que evento operacional sem visibilidade seja público ou privado.
+Público/Interno DEVE (MUST) classificar somente comentários. O acesso do Gerente ao chamado e ao status atual DEVE (MUST) continuar derivado da sessão e da Loja histórica demonstrável na abertura. O contrato público de comentários DEVE (MUST) retornar somente interações de comentário explicitamente públicas, sem inferir que evento operacional sem visibilidade seja público ou privado.
 
 #### Scenario: Gerente consulta status atual
-- **WHEN** o Gerente autorizado abre chamado de sua Loja após alteração operacional de Status
+- **WHEN** o Gerente autorizado abre chamado comprovadamente de sua Loja após alteração operacional de Status
 - **THEN** o detalhe apresenta o Status atual persistido independentemente da visibilidade dos comentários associados
 
 #### Scenario: Comentário interno permanece protegido
@@ -141,3 +149,22 @@ Público/Interno DEVE (MUST) classificar somente comentários. O acesso do Geren
 #### Scenario: Escopo da change no histórico do Gerente
 - **WHEN** o Gerente consulta o acompanhamento autorizado
 - **THEN** permanece com o detalhe atual e os comentários públicos vigentes, sem receber por esta change a timeline operacional global dos perfis internos
+
+### Requirement: Transferência de Totem preserva escopo histórico de chamado
+Listagem, detalhe e comentários do Gerente DEVEM (MUST) autorizar chamados pela Loja demonstrável em `criado_em`. Uma transferência NÃO DEVE (MUST NOT) expor chamados antigos ao Gerente da Loja de destino nem ocultar da origem os chamados cuja Loja histórica seja comprovada. Sem comprovação, a autorização DEVE (MUST) falhar fechada.
+
+#### Scenario: Gerente da Loja de origem
+- **WHEN** Totem é transferido e Gerente da Loja de origem consulta chamado anterior com vínculo histórico comprovado
+- **THEN** o Xano mantém o chamado consultável e comentável conforme as regras existentes da jornada
+
+#### Scenario: Gerente da Loja de destino
+- **WHEN** Gerente da Loja de destino tenta consultar chamado anterior à transferência
+- **THEN** o Xano rejeita sem expor chamado ou comentários
+
+#### Scenario: Loja de origem não demonstrável
+- **WHEN** um chamado legado anterior ao primeiro vínculo comprovado não permite determinar a Loja da abertura
+- **THEN** nenhum Gerente o recebe por inferência do vínculo atual; o registro permanece preservado
+
+#### Scenario: Loja Inativa existente
+- **WHEN** Loja do Gerente já vinculado passa a `Inativa`
+- **THEN** ele continua a consultar e comentar chamados historicamente autorizados conforme as regras existentes

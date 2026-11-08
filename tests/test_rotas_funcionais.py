@@ -11,7 +11,7 @@ from app.app import app
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
 import app.chamados.tecnico.state as tecnico_module
-from app.pages.administracao import AdministracaoState
+from app.pages.gestao_administrativa import GestaoAdministrativaState
 import app.states.auth as auth_module
 from app.services.xano import IdentidadeXano
 from app.states.auth import AuthState
@@ -116,6 +116,7 @@ def test_registro_contem_mapa_completo_de_rotas_canonicas_e_aliases():
         "chamados/novo",
         "chamados/[chamado_id]",
         "monitoramento",
+        "administracao/gestao",
         "administracao/usuarios",
         "gerente",
         "gerente/chamados/novo",
@@ -364,10 +365,10 @@ def test_rotas_canonicas_de_chamados_sem_sessao_redirecionam_para_login(handler)
 
 def test_abertura_e_administracao_canonicas_sem_sessao_redirecionam_para_login():
     gerente = _estado(ChamadosGerenteState)
-    admin = _estado(AdministracaoState)
+    admin = _estado(GestaoAdministrativaState)
 
     abertura = _coletar(ChamadosGerenteState.carregar_formulario, gerente)
-    administracao = _coletar(AdministracaoState.carregar_administracao, admin)
+    administracao = _coletar(GestaoAdministrativaState.carregar, admin)
 
     assert _destino(abertura[-1]) == "/login"
     assert _destino(administracao[-1]) == "/login"
@@ -509,7 +510,7 @@ def test_alias_administrativo_e_diretoria_redirecionam_somente_perfis_autorizado
     monkeypatch,
 ):
     admin = _estado(
-        AdministracaoState, role="administrador", token="token", confirmado=True
+        AuthState, role="administrador", token="token", confirmado=True
     )
     diretoria = _estado(
         AuthState, role="diretoria", token="token", confirmado=True
@@ -521,10 +522,10 @@ def test_alias_administrativo_e_diretoria_redirecionam_somente_perfis_autorizado
     async def guard_diretoria(self, *_args):
         yield None
 
-    monkeypatch.setattr(AdministracaoState, "_executar_guard", guard_admin)
+    monkeypatch.setattr(AuthState, "_executar_guard", guard_admin)
     monkeypatch.setattr(AuthState, "_executar_guard", guard_diretoria)
 
     assert _destino(
-        _coletar(AdministracaoState.redirecionar_alias_administracao, admin)[-1]
-    ) == "/administracao/usuarios"
+        _coletar(AuthState.redirecionar_alias_administracao, admin)[-1]
+    ) == "/administracao/gestao"
     assert _destino(_coletar(AuthState.redirecionar_alias_diretoria, diretoria)[-1]) == "/inicio"

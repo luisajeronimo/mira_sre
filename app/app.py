@@ -5,7 +5,6 @@ import reflex as rx
 from app.pages import (
     alias,
     detalhe_chamado_canonico,
-    administracao,
     index,
     inicio,
     login,
@@ -17,7 +16,7 @@ from app.monitoramento.pages import monitoramento
 from app.monitoramento.state import MonitoramentoState
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
-from app.pages.administracao import AdministracaoState
+from app.pages.gestao_administrativa import GestaoAdministrativaState, gestao_administrativa
 from app.states.auth import AuthState
 from app.components.visual import CANVAS, FONTE_INTERFACE, TEXTO
 
@@ -40,10 +39,10 @@ app.add_page(
     on_load=AuthState.carregar_login,
 )
 app.add_page(
-    administracao,
-    route="/administracao/usuarios",
-    title="Administração | MIRA",
-    on_load=AdministracaoState.carregar_administracao,
+    gestao_administrativa,
+    route="/administracao/gestao",
+    title="Gestão administrativa | MIRA",
+    on_load=GestaoAdministrativaState.carregar,
 )
 app.add_page(primeiro_acesso, route="/primeiro-acesso", title="Primeiro acesso | MIRA", on_load=AuthState.carregar_primeiro_acesso)
 app.add_page(
@@ -62,7 +61,7 @@ app.add_page(
     novo_chamado,
     route="/chamados/novo",
     title="Novo chamado | MIRA",
-    on_load=ChamadosGerenteState.carregar_formulario,
+    on_load=AuthState.carregar_novo_chamado,
 )
 app.add_page(
     detalhe_chamado_canonico,
@@ -107,10 +106,16 @@ app.add_page(
     on_load=AuthState.redirecionar_alias_diretoria,
 )
 app.add_page(
-    lambda: alias(AdministracaoState.redirecionar_alias_administracao),
+    lambda: alias(AuthState.redirecionar_alias_administracao),
     route="/administracao",
     title="Administração | MIRA",
-    on_load=AdministracaoState.redirecionar_alias_administracao,
+    on_load=AuthState.redirecionar_alias_administracao,
+)
+app.add_page(
+    lambda: alias(AuthState.redirecionar_alias_administracao),
+    route="/administracao/usuarios",
+    title="Administração | MIRA",
+    on_load=AuthState.redirecionar_alias_administracao,
 )
 
 app.add_page(

@@ -14,6 +14,21 @@ load_dotenv()
 
 PERFIS_OFICIAIS = frozenset({"gerente", "tecnico", "diretoria", "administrador"})
 TIMEOUT_PADRAO_SEGUNDOS = 10.0
+ERROS_FUNCIONAIS_ADMINISTRACAO = frozenset({
+    "O último Administrador deve permanecer.",
+    "Não é permitido excluir a própria conta.",
+    "Loja possui vínculos ou histórico impeditivos.",
+    "Totem possui vínculos ou histórico impeditivos.",
+    "Totem possui transferência histórica.",
+    "Usuário possui vínculos ou histórico impeditivos.",
+    "Loja inexistente ou Inativa.",
+    "Loja de destino inexistente ou Inativa.",
+    "Loja inexistente ou Inativa para novo vínculo.",
+    "Técnico possui chamado atribuído.",
+    "E-mail já cadastrado.",
+    "Loja incompatível com o perfil.",
+    "Situação inválida.",
+})
 
 
 class XanoErro(RuntimeError):
@@ -95,6 +110,101 @@ class LojaOpcaoAdministracaoXano:
 
     id: int
     nome: str
+
+
+@dataclass(frozen=True, slots=True)
+class LojaAdministrativaXano:
+    id: int
+    nome: str | None
+    endereco: str | None
+    regiao: str | None
+    status: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class TotemAdministrativoXano:
+    id: int
+    identificacao: str | None
+    nome: str | None
+    lojas_id: int | None
+    status_atual: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class UsuarioCadastroXano:
+    id: int
+    nome: str
+    email: str
+    role: str
+    lojas_id: int | None
+
+
+def _inteiro_positivo(valor: Any) -> bool:
+    return isinstance(valor, int) and not isinstance(valor, bool) and valor > 0
+
+
+def _loja_administrativa(dados: dict[str, Any]) -> LojaAdministrativaXano:
+    if (
+        set(dados) != {"id", "nome", "endereco", "regiao", "status"}
+        or not _inteiro_positivo(dados.get("id"))
+        or any(dados.get(campo) is not None and not isinstance(dados[campo], str) for campo in ("nome", "endereco", "regiao"))
+        or dados["status"] not in {"Ativa", "Inativa", "ativa", "inativa", "Ativo", None}
+    ):
+        raise XanoContratoInvalido("O Xano retornou uma Loja inválida.")
+    return LojaAdministrativaXano(**dados)
+
+
+def _totem_administrativo(dados: dict[str, Any]) -> TotemAdministrativoXano:
+    if (
+        set(dados) != {"id", "identificacao", "nome", "lojas_id", "status_atual"}
+        or not _inteiro_positivo(dados.get("id"))
+        or (dados.get("nome") is not None and not isinstance(dados["nome"], str))
+        or (dados.get("identificacao") is not None and not isinstance(dados["identificacao"], str))
+        or (dados.get("lojas_id") is not None and not _inteiro_positivo(dados["lojas_id"]))
+        or (dados.get("status_atual") is not None and not isinstance(dados["status_atual"], str))
+    ):
+        raise XanoContratoInvalido("O Xano retornou um Totem inválido.")
+    return TotemAdministrativoXano(**dados)
+
+
+def _usuario_cadastro(dados: dict[str, Any]) -> UsuarioCadastroXano:
+    # Registros anteriores ao contrato administrativo usam 0 como ausência de
+    # Loja para perfis sem vínculo obrigatório. A projeção não altera o dado.
+    if dados.get("role") != "gerente" and dados.get("lojas_id") == 0:
+        dados = {**dados, "lojas_id": None}
+    if (
+        set(dados) != {"id", "nome", "email", "role", "lojas_id"}
+        or not _inteiro_positivo(dados.get("id"))
+        or not isinstance(dados.get("nome"), str)
+        or not dados["nome"].strip()
+        or not isinstance(dados.get("email"), str)
+        or not dados["email"].strip()
+        or dados.get("role") not in PERFIS_OFICIAIS
+        or (dados.get("lojas_id") is not None and not _inteiro_positivo(dados["lojas_id"]))
+    ):
+        raise XanoContratoInvalido("O Xano retornou um usuário inválido.")
+    return UsuarioCadastroXano(**dados)
+
+
+def _lista_administrativa(dados: dict[str, Any], parser: Any) -> tuple[Any, ...]:
+    if set(dados) != {"items"} or not isinstance(dados["items"], list):
+        raise XanoContratoInvalido("O Xano retornou uma lista administrativa inválida.")
+    if not all(isinstance(item, dict) for item in dados["items"]):
+        raise XanoContratoInvalido("O Xano retornou uma lista administrativa inválida.")
+    return tuple(parser(item) for item in dados["items"])
+
+
+def _mensagem_funcional_permitida(resposta: httpx.Response) -> str:
+    try:
+        dados = resposta.json()
+    except ValueError:
+        return "Os dados informados são inválidos."
+    if isinstance(dados, dict):
+        for chave in ("message", "error"):
+            mensagem = dados.get(chave)
+            if isinstance(mensagem, str) and mensagem in ERROS_FUNCIONAIS_ADMINISTRACAO:
+                return mensagem
+    return "Os dados informados são inválidos."
 
 
 def _ler_timeout(valor: str | None) -> float:
@@ -203,9 +313,9 @@ class XanoCliente:
                     retry_after_segundos = valor
             raise XanoRateLimitado(retry_after_segundos=retry_after_segundos)
         if resposta.status_code == 422:
-            raise XanoEntradaInvalida("Os dados informados são inválidos.")
+            raise XanoEntradaInvalida(_mensagem_funcional_permitida(resposta))
         if resposta.status_code == 400 and erro_400_como_entrada:
-            raise XanoEntradaInvalida("Os dados informados são inválidos.")
+            raise XanoEntradaInvalida(_mensagem_funcional_permitida(resposta))
         if resposta.status_code >= 500:
             raise XanoIndisponivel("O Xano está indisponível temporariamente.")
         if resposta.is_error:
@@ -357,6 +467,117 @@ class XanoCliente:
                 LojaOpcaoAdministracaoXano(id=loja["id"], nome=loja["nome"])
             )
         return tuple(opcoes)
+
+    async def listar_registros_lojas(self, token: str) -> tuple[LojaAdministrativaXano, ...]:
+        dados = await self._requisitar("GET", "/administracao/lojas/registros", token=token)
+        return _lista_administrativa(dados, _loja_administrativa)
+
+    async def obter_registro_loja(self, token: str, loja_id: int) -> LojaAdministrativaXano:
+        dados = await self._requisitar("GET", f"/administracao/lojas/{loja_id}", token=token)
+        return _loja_administrativa(dados)
+
+    async def criar_loja(self, token: str, *, nome: str, endereco: str, regiao: str) -> LojaAdministrativaXano:
+        dados = await self._requisitar(
+            "POST", "/administracao/lojas/registros", token=token,
+            json={"nome": nome, "endereco": endereco, "regiao": regiao},
+            erro_400_como_entrada=True,
+        )
+        return _loja_administrativa(dados)
+
+    async def editar_loja(self, token: str, loja_id: int, *, nome: str, endereco: str, regiao: str, status: str) -> LojaAdministrativaXano:
+        dados = await self._requisitar(
+            "PATCH", f"/administracao/lojas/{loja_id}", token=token,
+            json={"nome": nome, "endereco": endereco, "regiao": regiao, "status": status},
+            erro_400_como_entrada=True,
+        )
+        return _loja_administrativa(dados)
+
+    async def excluir_loja(self, token: str, loja_id: int) -> None:
+        dados = await self._requisitar(
+            "DELETE", f"/administracao/lojas/{loja_id}", token=token,
+            erro_400_como_entrada=True,
+        )
+        if dados.get("success") is not True:
+            raise XanoContratoInvalido("O Xano não confirmou a exclusão da Loja.")
+
+    async def listar_totens_administracao(self, token: str) -> tuple[TotemAdministrativoXano, ...]:
+        dados = await self._requisitar("GET", "/administracao/totens", token=token)
+        return _lista_administrativa(dados, _totem_administrativo)
+
+    async def obter_totem_administrativo(self, token: str, totem_id: int) -> TotemAdministrativoXano:
+        dados = await self._requisitar("GET", f"/administracao/totens/{totem_id}", token=token)
+        return _totem_administrativo(dados)
+
+    async def criar_totem(self, token: str, *, identificacao: str, nome: str, lojas_id: int) -> TotemAdministrativoXano:
+        dados = await self._requisitar(
+            "POST", "/administracao/totens", token=token,
+            json={"identificacao": identificacao, "nome": nome, "lojas_id": lojas_id},
+            erro_400_como_entrada=True,
+        )
+        return _totem_administrativo(dados)
+
+    async def editar_totem(self, token: str, totem_id: int, *, identificacao: str, nome: str, lojas_id: int) -> TotemAdministrativoXano:
+        dados = await self._requisitar(
+            "PATCH", f"/administracao/totens/{totem_id}", token=token,
+            json={"identificacao": identificacao, "nome": nome, "lojas_id": lojas_id},
+            erro_400_como_entrada=True,
+        )
+        return _totem_administrativo(dados)
+
+    async def excluir_totem(self, token: str, totem_id: int) -> None:
+        dados = await self._requisitar(
+            "DELETE", f"/administracao/totens/{totem_id}", token=token,
+            erro_400_como_entrada=True,
+        )
+        if dados.get("success") is not True:
+            raise XanoContratoInvalido("O Xano não confirmou a exclusão do Totem.")
+
+    async def listar_usuarios_administracao(self, token: str) -> tuple[UsuarioCadastroXano, ...]:
+        dados = await self._requisitar("GET", "/administracao/usuarios", token=token)
+        return _lista_administrativa(dados, _usuario_cadastro)
+
+    async def obter_usuario_administrativo(self, token: str, usuario_id: int) -> UsuarioCadastroXano:
+        dados = await self._requisitar("GET", f"/administracao/usuarios/{usuario_id}", token=token)
+        return _usuario_cadastro(dados)
+
+    async def editar_usuario_administrativo(self, token: str, usuario_id: int, *, nome: str, email: str, role: str, lojas_id: int | None) -> UsuarioCadastroXano:
+        dados = await self._requisitar(
+            "PATCH", f"/administracao/usuarios/{usuario_id}", token=token,
+            json={"nome": nome, "email": email, "role": role, "lojas_id": lojas_id},
+            erro_400_como_entrada=True,
+        )
+        return _usuario_cadastro(dados)
+
+    async def excluir_usuario_administrativo(self, token: str, usuario_id: int) -> None:
+        dados = await self._requisitar(
+            "DELETE", f"/administracao/usuarios/{usuario_id}", token=token,
+            erro_400_como_entrada=True,
+        )
+        if dados.get("success") is not True:
+            raise XanoContratoInvalido("O Xano não confirmou a exclusão do usuário.")
+
+    async def listar_categorias_administracao(self, token: str) -> tuple[dict[str, Any], ...]:
+        dados = await self._requisitar("GET", "/administracao/categorias", token=token)
+        if set(dados) != {"items"} or not isinstance(dados["items"], list):
+            raise XanoContratoInvalido("O Xano retornou categorias inválidas.")
+        return tuple(dados["items"])
+
+    async def abrir_chamado_administrativo(
+        self, token: str, *, ativos_referencia_id: int, categorias_servico_id: int,
+        prioridade: str, titulo: str, descricao: str,
+    ) -> dict[str, Any]:
+        dados = await self._requisitar(
+            "POST", "/administracao/chamados", token=token,
+            json={
+                "ativos_referencia_id": ativos_referencia_id,
+                "categorias_servico_id": categorias_servico_id,
+                "prioridade": prioridade, "titulo": titulo, "descricao": descricao,
+            },
+            erro_400_como_entrada=True,
+        )
+        if not isinstance(dados.get("chamado"), dict) or not _inteiro_positivo(dados["chamado"].get("id")):
+            raise XanoContratoInvalido("O Xano retornou um chamado inválido.")
+        return dados["chamado"]
 
     async def trocar_senha_primeiro_acesso(self, token: str, nova_senha: str) -> None:
         dados = await self._requisitar(

@@ -85,6 +85,8 @@ def _resumo_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
 def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
     dados = asdict(chamado)
     resumo_totem = dados.get("resumo_totem")
+    if resumo_totem is not None and resumo_totem["status_atual"] is None:
+        resumo_totem["status_atual"] = "Sem telemetria"
     if resumo_totem is not None and resumo_totem["ultima_telemetria"] is not None:
         resumo_totem["ultima_telemetria"]["evento_timestamp_texto"] = _timestamp_para_texto(
             resumo_totem["ultima_telemetria"]["evento_timestamp"]
@@ -364,5 +366,24 @@ def cabecalho(titulo: str, descricao: str) -> rx.Component:
         rx.text(descricao, color=TEXTO_SECUNDARIO, size="3", max_width="46rem"),
         align="start",
         spacing="2",
+        width="100%",
+    )
+
+
+def botao_criar_chamado() -> rx.Component:
+    return rx.link(
+        rx.button("Criar chamado", color_scheme="ruby"),
+        href="/chamados/novo",
+    )
+
+
+def cabecalho_lista_chamados(
+    titulo: str, descricao: str, acao: rx.Component
+) -> rx.Component:
+    return rx.hstack(
+        rx.box(cabecalho(titulo, descricao), flex="1", min_width="0"),
+        acao,
+        justify="between",
+        align="start",
         width="100%",
     )

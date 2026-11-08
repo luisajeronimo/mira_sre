@@ -3,7 +3,7 @@
 import reflex as rx
 
 from app.chamados.gerente.state import ChamadosGerenteState
-from app.chamados.shared import cabecalho, erro
+from app.chamados.shared import botao_criar_chamado, cabecalho, cabecalho_lista_chamados, erro
 from app.components.layout import casca_conteudo, estado_carregamento, estado_revalidacao
 from app.components.visual import (
     BORDA,
@@ -36,19 +36,10 @@ from app.states.auth import AuthState
 
 def _lista() -> rx.Component:
     return rx.vstack(
-        rx.hstack(
-            rx.box(
-                cabecalho("Chamados", "Acompanhe os chamados da sua loja."),
-                flex="1",
-                min_width="0",
-            ),
-            rx.link(
-                rx.button("Criar chamado", color_scheme="ruby"),
-                href="/chamados/novo",
-            ),
-            justify="between",
-            align="start",
-            width="100%",
+        cabecalho_lista_chamados(
+            "Chamados",
+            "Acompanhe os chamados da sua loja.",
+            botao_criar_chamado(),
         ),
         painel_filtros(
                     campo_rotulado(
@@ -248,8 +239,8 @@ def _campo_abertura(rotulo: str, controle: rx.Component) -> rx.Component:
     )
 
 
-def _opcao_prioridade(prioridade: rx.Var | str) -> rx.Component:
-    selecionada = ChamadosGerenteState.prioridade_formulario == prioridade
+def _opcao_prioridade(prioridade: rx.Var | str, estado=ChamadosGerenteState) -> rx.Component:
+    selecionada = estado.prioridade_formulario == prioridade
     return rx.button(
         rx.hstack(
             rx.box(
@@ -271,8 +262,8 @@ def _opcao_prioridade(prioridade: rx.Var | str) -> rx.Component:
             min_width="0",
             overflow="hidden",
         ),
-        on_click=ChamadosGerenteState.alterar_prioridade_formulario(prioridade),
-        disabled=ChamadosGerenteState.enviando,
+        on_click=estado.alterar_prioridade_formulario(prioridade),
+        disabled=estado.enviando,
         aria_label="Prioridade " + prioridade,
         aria_pressed=selecionada,
         variant="ghost",
@@ -300,7 +291,7 @@ def _opcao_prioridade(prioridade: rx.Var | str) -> rx.Component:
     )
 
 
-def _formulario() -> rx.Component:
+def formulario_abertura(estado=ChamadosGerenteState, escopo="os Totens da sua loja") -> rx.Component:
     estilo_controle = {
         "background": SUPERFICIE,
         "border": f"1px solid {BORDA}",
@@ -336,7 +327,7 @@ def _formulario() -> rx.Component:
                     letter_spacing="-0.03em",
                 ),
                 rx.text(
-                    "Registre uma solicitação para os Totens da sua loja.",
+                    "Registre uma solicitação para " + escopo + ".",
                     color=TEXTO_SECUNDARIO,
                     size="3",
                 ),
@@ -348,8 +339,8 @@ def _formulario() -> rx.Component:
                 rx.icon("arrow_left", size=17),
                 "Voltar para lista",
                 variant="outline",
-                on_click=ChamadosGerenteState.voltar_para_lista,
-                disabled=ChamadosGerenteState.enviando,
+                on_click=estado.voltar_para_lista,
+                disabled=estado.enviando,
                 flex_shrink="0",
                 _focus_visible=FOCO_VISIVEL,
             ),
@@ -357,7 +348,7 @@ def _formulario() -> rx.Component:
             align="start",
             width="100%",
         ),
-        erro(ChamadosGerenteState.mensagem_formulario),
+        erro(estado.mensagem_formulario),
         rx.card(
             rx.vstack(
                 rx.hstack(
@@ -386,8 +377,8 @@ def _formulario() -> rx.Component:
                 _campo_abertura(
                     "Título do chamado",
                     rx.input(
-                        value=ChamadosGerenteState.titulo_formulario,
-                        on_change=ChamadosGerenteState.alterar_titulo_formulario,
+                        value=estado.titulo_formulario,
+                        on_change=estado.alterar_titulo_formulario,
                         placeholder="Resuma a solicitação",
                         width="100%",
                         min_height="3.25rem",
@@ -406,15 +397,15 @@ def _formulario() -> rx.Component:
                             ),
                             rx.select.content(
                                 rx.foreach(
-                                    ChamadosGerenteState.ativos_formulario,
+                                    estado.ativos_formulario,
                                     lambda ativo: rx.select.item(
                                         ativo["nome"],
                                         value=ativo["id"].to_string(),
                                     ),
                                 ),
                             ),
-                            value=ChamadosGerenteState.ativo_formulario,
-                            on_change=ChamadosGerenteState.alterar_ativo_formulario,
+                            value=estado.ativo_formulario,
+                            on_change=estado.alterar_ativo_formulario,
                             width="100%",
                         ),
                     ),
@@ -429,15 +420,15 @@ def _formulario() -> rx.Component:
                             ),
                             rx.select.content(
                                 rx.foreach(
-                                    ChamadosGerenteState.categorias_formulario,
+                                    estado.categorias_formulario,
                                     lambda categoria: rx.select.item(
                                         categoria["nome"],
                                         value=categoria["id"].to_string(),
                                     ),
                                 ),
                             ),
-                            value=ChamadosGerenteState.categoria_formulario,
-                            on_change=ChamadosGerenteState.alterar_categoria_formulario,
+                            value=estado.categoria_formulario,
+                            on_change=estado.alterar_categoria_formulario,
                             width="100%",
                         ),
                     ),
@@ -449,8 +440,8 @@ def _formulario() -> rx.Component:
                     "Prioridade",
                     rx.grid(
                         rx.foreach(
-                            ChamadosGerenteState.prioridades(),
-                            _opcao_prioridade,
+                            estado.prioridades(),
+                            lambda prioridade: _opcao_prioridade(prioridade, estado),
                         ),
                         columns="4",
                         gap="0.75rem",
@@ -465,8 +456,8 @@ def _formulario() -> rx.Component:
                 _campo_abertura(
                     "Descrição detalhada",
                     rx.text_area(
-                        value=ChamadosGerenteState.descricao_formulario,
-                        on_change=ChamadosGerenteState.alterar_descricao_formulario,
+                        value=estado.descricao_formulario,
+                        on_change=estado.alterar_descricao_formulario,
                         placeholder="Descreva o problema, os sintomas e o contexto observado",
                         width="100%",
                         min_height="10rem",
@@ -499,26 +490,26 @@ def _formulario() -> rx.Component:
                     rx.button(
                         "Limpar",
                         variant="ghost",
-                        on_click=ChamadosGerenteState.limpar_formulario,
-                        disabled=ChamadosGerenteState.enviando,
+                        on_click=estado.limpar_formulario,
+                        disabled=estado.enviando,
                         _focus_visible=FOCO_VISIVEL,
                     ),
                     rx.button(
                         "Descartar",
                         variant="soft",
-                        on_click=ChamadosGerenteState.descartar_formulario,
-                        disabled=ChamadosGerenteState.enviando,
+                        on_click=estado.descartar_formulario,
+                        disabled=estado.enviando,
                         _focus_visible=FOCO_VISIVEL,
                     ),
                     rx.button(
                         rx.icon("send", size=17),
                         rx.cond(
-                            ChamadosGerenteState.enviando,
+                            estado.enviando,
                             "Enviando...",
                             "Confirmar e abrir chamado",
                         ),
-                        on_click=ChamadosGerenteState.abrir_chamado,
-                        disabled=ChamadosGerenteState.enviando,
+                        on_click=estado.abrir_chamado,
+                        disabled=estado.enviando,
                         color_scheme="ruby",
                         weight="bold",
                         _focus_visible=FOCO_VISIVEL,
@@ -759,7 +750,7 @@ def _protegida(conteudo: rx.Component, evento) -> rx.Component:
         estado_carregamento(),
         rx.cond(
             AuthState.sessao_confirmada & (AuthState.role == "gerente"),
-            casca_conteudo(conteudo, "/inicio"),
+            casca_conteudo(conteudo, "/inicio", evento_sair=ChamadosGerenteState.sair_gerente),
             estado_revalidacao(evento),
         ),
     )
@@ -770,7 +761,7 @@ def gerente_chamados() -> rx.Component:
 
 
 def novo_chamado() -> rx.Component:
-    return _protegida(_formulario(), ChamadosGerenteState.carregar_formulario)
+    return _protegida(formulario_abertura(), ChamadosGerenteState.carregar_formulario)
 
 
 def detalhe_chamado() -> rx.Component:

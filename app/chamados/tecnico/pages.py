@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from app.chamados.shared import cabecalho, erro
+from app.chamados.shared import botao_criar_chamado, cabecalho, cabecalho_lista_chamados, erro
 from app.chamados.tecnico.state import ChamadosTecnicoState
 from app.components.layout import casca_conteudo, estado_carregamento, estado_revalidacao
 from app.components.visual import (
@@ -34,7 +34,11 @@ from app.states.auth import AuthState
 
 def _fila_tecnico() -> rx.Component:
     return rx.vstack(
-        cabecalho("Fila técnica", "Consulte a fila global e a distribuição atual dos chamados."),
+        cabecalho_lista_chamados(
+            "Fila técnica",
+            "Consulte a fila global e a distribuição atual dos chamados.",
+            rx.cond(AuthState.role == "administrador", botao_criar_chamado()),
+        ),
         rx.cond(
             AuthState.role == "tecnico",
             rx.box(

@@ -287,6 +287,29 @@ class AuthState(rx.State):
             yield evento
 
     @rx.event
+    async def carregar_novo_chamado(self) -> AsyncIterator[Any]:
+        self._iniciar_carregamento()
+        yield
+        destino = await self._revalidar()
+        self._finalizar_carregamento()
+        if destino is not None:
+            yield rx.redirect(destino)
+            return
+        if self.role == "gerente":
+            from app.chamados.gerente.state import ChamadosGerenteState
+            estado = await self.get_state(ChamadosGerenteState)
+            handler = ChamadosGerenteState.carregar_formulario
+        elif self.role == "administrador":
+            from app.chamados.administrador import AberturaAdminState
+            estado = await self.get_state(AberturaAdminState)
+            handler = AberturaAdminState.carregar_formulario
+        else:
+            yield rx.redirect("/inicio")
+            return
+        async for evento in handler.fn(estado):
+            yield evento
+
+    @rx.event
     async def redirecionar_chamados_para_inicio(self) -> AsyncIterator[Any]:
         """Mantém o link legado de lista sem duplicar a jornada de `/inicio`."""
         async for evento in self._executar_guard(None, False):
@@ -307,6 +330,13 @@ class AuthState(rx.State):
     async def carregar_administracao(self) -> AsyncIterator[Any]:
         async for evento in self._executar_guard("administrador", False):
             yield evento
+
+    @rx.event
+    async def redirecionar_alias_administracao(self) -> AsyncIterator[Any]:
+        async for evento in self._executar_guard("administrador", False):
+            yield evento
+        if self.sessao_confirmada and self.role == "administrador" and not self.deve_trocar_senha:
+            yield rx.redirect("/administracao/gestao")
 
     @rx.event
     async def carregar_primeiro_acesso(self) -> AsyncIterator[Any]:

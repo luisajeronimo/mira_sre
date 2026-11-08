@@ -7,7 +7,7 @@
 - [x] 1.3 DE-2 aprovada: sem encerramento em massa de chamados já resolvidos; regra técnica de vigência no design D3.
 - [x] 1.4 DE-3 aprovada: comentário público de sistema no encerramento automático.
 - [ ] 1.5 Decidir DE-3a (texto) e DE-3b (autor do comentário de sistema no DTO público).
-- [ ] 1.6 Decidir DE-4 e DE-5 (mecanismo e frequência do job).
+- [ ] 1.6 Decidir DE-4 e DE-5 (mecanismo e frequência do job). Evidência para a decisão (2026-11-08, `xano workspace pull` somente leitura de 16:28): o workspace `152692` contém somente documentos `api`, `function`, `table` e `workspace`, sem nenhuma tarefa agendada; hoje não existe mecanismo que dispare o encerramento. A disponibilidade de tarefas agendadas no plano Free não foi verificada.
 - [ ] 1.7 Decidir DE-6, DE-7, DE-8 e DE-9.
 - [ ] 1.8 Obter autorização de ambiente isolado e executar a prova E0.3 (DT-1) antes de 3.1. Investigação de 2026-11-05 ([validacao-xano-2026-11.md](../acompanhamento-solicitante-historico-status/validacao-xano-2026-11.md)): `xano sandbox` exige plano pago; `xano ephemeral` cria tenant dentro do workspace compartilhado `152692`, o único da conta. Nenhum ambiente criado; segue bloqueada por ambiente. Pacote de prova preparado em 2026-11-07: [prova-e03/](../rejeicao-solucao-gerente/prova-e03/README.md) (tabela, funções e teste de workflow com a matriz `db.add`, `db.patch`, `function.run`, duas escritas e tipos de erro; concorrência não coberta). Validação estática MCP: 4/4; teste local de coerência: `tests/test_prova_e03_pacote.py`. **Não executado:** runtime, persistência e rollback continuam sem prova.
 - [ ] 1.9 Esclarecer as dependências externas "4", "5" e "D3" do planejamento.

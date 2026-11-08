@@ -210,8 +210,8 @@ def test_simulator_separa_posts_por_intervalo_configuravel(monkeypatch):
             "X-Mira-Fiscal-Key",
             "MIRA_FISCAL_AUTOMATION_KEY",
             "db.get categorias_servico",
-            "HTTP/1.1 401 Unauthorized\\nContent-Type: application/json",
-            "return",
+            "HTTP/1.1 401 Unauthorized",
+            "resultado_else",
         ),
         (
             SIMULATOR_XS,

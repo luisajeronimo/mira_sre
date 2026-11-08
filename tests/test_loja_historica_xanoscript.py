@@ -93,6 +93,53 @@ def test_t3_sem_vinculo_resolve_null_sem_fallback_para_loja_atual():
     assert not re.search(r"\bdb\.(add|edit|patch|del)\b", texto)
 
 
+@pytest.mark.parametrize("caminho", [ABERTURA, HEARTBEAT], ids=["abertura-manual", "heartbeat"])
+def test_t4_chamado_novo_cria_marco_somente_sem_vinculo_e_no_instante_do_chamado(caminho):
+    texto = compacto(logica(caminho))
+    assert compacto('sort = {historico_vinculos_totem_loja.efetivado_em: "desc"}') in texto
+    assert re.search(r"if\(\$ultimo_vinculo==null(&&\$ativo_atual\.lojas_id!=null)?\)\{dbaddhistorico_vinculos_totem_loja".replace("dbadd", r"db\.add"), texto)
+    bloco = texto[texto.index("db.addhistorico_vinculos_totem_loja"):]
+    bloco = bloco[: bloco.index("}as$marco")]
+    assert 'tipo:"marco"' in bloco
+    assert "efetivado_em:$criado_em" in bloco
+    assert "loja_destino_id:$ativo_atual.lojas_id" in bloco
+    assert "criado_em:$criado_em" in texto[texto.index("db.addchamados"):]
+
+
+def test_marco_exige_loja_atual_e_nao_faz_fallback():
+    abertura = compacto(logica(ABERTURA))
+    heartbeat = compacto(logica(HEARTBEAT))
+
+    assert compacto(
+        "precondition ($ativo_atual != null && $ativo_atual.lojas_id != null"
+    ) in abertura
+    assert compacto(
+        "if ($ultimo_vinculo == null && $ativo_atual.lojas_id != null)"
+    ) in heartbeat
+    assert heartbeat.index("if($ultimo_vinculo==null&&$ativo_atual.lojas_id!=null)") < heartbeat.index(
+        "db.addhistorico_vinculos_totem_loja"
+    )
+    assert heartbeat.index("db.addhistorico_vinculos_totem_loja") < heartbeat.index(
+        "db.addchamados"
+    )
+    assert "loja_destino_id:$ativo_atual.lojas_id" in heartbeat
+
+
+def test_nao_retroatividade_nenhum_vinculo_com_instante_arbitrario():
+    """Todo vínculo gravado usa o instante do próprio fato (now ou criado_em do chamado novo)."""
+    gravacoes = []
+    for caminho in X.rglob("*.xs"):
+        texto = compacto(logica(caminho.relative_to(X)))
+        for m in re.finditer(r"db\.addhistorico_vinculos_totem_loja\{data=\{(.*?)\}", texto):
+            gravacoes.append((caminho.name, m.group(1)))
+    assert {nome for nome, _ in gravacoes} == {"verificar_falhas_GET.xs", "abrir_chamado_manual.xs", "transferir_totem.xs", "totens_POST.xs"}
+    for nome, dados in gravacoes:
+        assert re.search(r"efetivado_em:\$(criado_em|efetivado_em)\b", dados), nome
+    for caminho in X.rglob("*.xs"):
+        texto = compacto(logica(caminho.relative_to(X)))
+        assert not re.search(r"foreach\(\$chamados[^)]*\)\{[^}]*db\.addhistorico_vinculos", texto), caminho.name
+
+
 def test_t5_t6_autorizador_do_gerente_usa_loja_historica():
     texto = compacto(logica(AUTORIZADO))
     assert compacto('function.run "administracao/resolver_loja_totem_no_instante"') in texto
@@ -108,3 +155,26 @@ def test_detalhe_e_lista_do_gerente_usam_loja_historica():
     lista = compacto(logica(LISTA_GERENTE))
     assert compacto("instante: $chamado.criado_em") in lista
     assert compacto("if ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id)") in lista
+
+
+def test_fato_historico_projeta_loja_ou_null():
+    texto = compacto(logica(FATO))
+    assert compacto("var $loja { value = null }") in texto
+    assert compacto("if ($vinculo.lojas_id != null)") in texto
+    assert compacto("response = {loja: $loja}") in texto
+
+
+def test_transferencia_registra_vinculo_somente_com_mudanca_de_loja_em_transacao():
+    texto = compacto(logica(TRANSFERIR))
+    assert compacto("db.transaction") in texto
+    assert compacto("if ($totem.lojas_id != $input.loja_destino_id)") in texto
+    assert compacto('tipo: "transferencia"') in texto
+    assert compacto("loja_origem_id: $totem.lojas_id") in texto
+    assert texto.index("db.addhistorico_vinculos_totem_loja") < texto.index("db.editativos_referencia")
+    assert compacto("exigir_perfil") in texto and compacto("administrador: true") in texto
+
+
+def test_exclusao_de_totem_remove_somente_vinculo_de_criacao():
+    texto = compacto(logica("api/mira_administracao/totens/ativos_referencia_id_DELETE.xs"))
+    assert compacto('$vinculos[0].tipo == "criacao"') in texto
+    assert compacto("!$tem_chamado") in texto

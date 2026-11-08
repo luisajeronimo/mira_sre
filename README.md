@@ -23,13 +23,13 @@ O comportamento aprovado e vigente está em [`openspec/specs/`](openspec/specs/)
 
 - Acompanhamento somente leitura dos chamados pelo solicitante e histórico público de status (Sprint 3: contratos publicados no Xano em 07/11; interface implementada localmente e desligada até a validação; ver tabela abaixo).
 - Rejeição de solução pelo Gerente da loja e encerramento automático após 72 horas corridas em `Resolvido` (Sprint 3, em especificação; dependem de prova de segurança transacional).
-- Contagem de SLA em tempo corrido (Sprint 3: cálculo implementado localmente como função interna, sem exposição definida) e indicadores de consumo.
+- Contagem de SLA em tempo corrido (Sprint 3: cálculo publicado no Xano em 08/11 como função interna, sem endpoint nem exibição; exposição depende da DE-8) e indicadores de consumo.
 - Aceitação explícita da solução (sem regra definida).
 - Dashboards de disponibilidade, incidentes, MTTD, MTTR e SLA.
 
 ## Estado da Sprint 3 (26/10 a 08/11/2026)
 
-Situação em 07/11/2026, na branch `explore-monitoramento-xano`, sem commit. Publicados no Xano com autorização: Pacote A (2 GETs genéricos, 17:41) e Pacote B (7 funções e 5 endpoints do solicitante e do histórico, 19:19). O restante continua local.
+Situação em 08/11/2026, na branch `explore-monitoramento-xano`. Publicados no Xano com autorização: Pacote A (2 GETs genéricos, 07/11 17:41), Pacote B (7 funções e 5 endpoints do solicitante e do histórico, 07/11 19:19) e a função interna `calcular_consumo_sla_chamado` (08/11). O restante continua local.
 
 Categorias de evidência (não se misturam):
 
@@ -46,10 +46,10 @@ Categorias de evidência (não se misturam):
 | Contratos do solicitante e do histórico de status | Sim (Xano) | Sim | Válido | Testes nativos 14/14 PASS | HTTP parcial: 404 uniforme e 403; caminho com chamado próprio não executado (sem dados) | Não se aplica (somente leitura) | **Sim** (Pacote B, 07/11) |
 | Interface do solicitante e seção de histórico | Sim (Reflex) | Sim | Não se aplica | Sim (cliente, State, rotas, navegação) | Não se aplica | Não se aplica | Desligada por `MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO=false` até a validação dos contratos publicados |
 | Confirmação de publicação de comentário do Gerente | Sim (Reflex) | — | Não se aplica | Sim | Não se aplica | Não se aplica | Não |
-| Consumo de SLA (`calcular_consumo_sla_chamado`), **interna**, sem endpoint (DE-8 pendente) | Sim (Xano) | Sim (modelo de referência) | Válido | Blocos `test` escritos, não executados | Não executado | Não se aplica | Não |
+| Consumo de SLA (`calcular_consumo_sla_chamado`), **interna**, sem endpoint (DE-8 pendente) | Sim (Xano) | Sim (modelo de referência) | Válido | Testes nativos 17/17 PASS (08/11) | Sem HTTP (não há endpoint) | Não se aplica (somente leitura) | **Sim** (função interna, 08/11) |
 | Prova E0.3 (atomicidade) | Pacote de prova preparado | Sim (coerência da matriz) | Válido | Não se aplica | Não executado | **Não comprovado** | Nunca no workspace compartilhado |
 | Rejeição de solução e encerramento automático | Não: dependem da E0.3 (DT-1) e das decisões DE-3a/b e DE-4 a DE-9 | — | — | — | — | — | Não |
-| Loja histórica do Totem (regra já publicada no Xano) | Regularização local em andamento (change `regularizar-loja-historica-totem`) | Sim (contrato e mutação) | Válido | Testes nativos 36/36 PASS (9 funções somente leitura) | HTTP: Gerente 403 em chamados sem Loja histórica | Não se aplica | Já estava publicada; nenhum push nesta change |
+| Loja histórica do Totem (regra já publicada no Xano) | Regularização local em andamento (change `regularizar-loja-historica-totem`) | Sim (contrato e mutação) | Válido | Testes nativos 36/36 PASS (9 funções somente leitura) e 14/14 PASS das escritas com `mock` (`abrir_chamado_manual`, `transferir_totem`, 08/11) | HTTP: Gerente 403 em chamados sem Loja histórica; cenários de escrita não executados | Não se aplica | Já estava publicada; nenhum push nesta change |
 
 Pacote seletivo de publicação, com o pacote A (segurança) e o B (contratos): [`pacote-publicacao.md`](openspec/changes/acompanhamento-solicitante-historico-status/pacote-publicacao.md). Evidências de validação: [`validacao-xano-2026-11.md`](openspec/changes/acompanhamento-solicitante-historico-status/validacao-xano-2026-11.md). Prova E0.3: [`prova-e03/`](openspec/changes/rejeicao-solucao-gerente/prova-e03/README.md).
 

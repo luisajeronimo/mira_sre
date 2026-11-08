@@ -6,9 +6,9 @@ Preparado em 2026-11-08. Nada aqui foi executado: as operações abaixo gravam r
 
 | Documento | Escrita | Versionado | Validação |
 |---|---|---|---|
-| `service_desk/abrir_chamado_manual` | `marco` (sem vínculo e com Loja atual) e chamado | Sim (cópia do publicado) | Testes nativos não executados |
+| `service_desk/abrir_chamado_manual` | `marco` (sem vínculo e com Loja atual) e chamado | Sim (cópia do publicado) | Testes nativos 12/12 PASS com escritas mockadas (2026-11-08); HTTP não executado |
 | `verificar-falhas` | `marco`, Totem `offline` e incidente | Sim (cópia do publicado) | Sem testes nativos |
-| `administracao/transferir_totem` | `transferencia` e Totem, em `db.transaction` | Sim (cópia do publicado) | Testes nativos não executados |
+| `administracao/transferir_totem` | `transferencia` e Totem, em `db.transaction` | Sim (cópia do publicado) | Testes nativos 2/2 PASS com escritas mockadas (2026-11-08); HTTP não executado |
 | `administracao/totens` (GET, POST, PATCH, DELETE) | `criacao` no POST; exclusão do vínculo `criacao` no DELETE | Sim (cópia do publicado) | Sem testes nativos |
 | `listar_ativos_historicos_gerente` e `gerente/ativos-historicos` | Somente leitura | Sim (cópia do publicado) | Sem testes; DL-4 aberta |
 
@@ -16,13 +16,23 @@ A parte de leitura (resolvedor, autorizador, listas e detalhes) está versionada
 
 Tentativa de 2026-11-08: a análise estática mostrou que nenhum dos 14 testes nativos abaixo alcança escrita sem `mock` (os `rejeita` falham antes do `db.transaction`; nos casos de sucesso, o vínculo e o `db.add chamados` são simulados). A execução no workspace compartilhado foi recusada pelo controle de permissões da sessão e não foi realizada.
 
+### Execução autorizada de 2026-11-08
+
+Com autorização expressa da responsável pelo projeto, os 14 testes abaixo foram executados no workspace `152692`, branch `v1`, somente pelos IDs registrados (`xano unit_test run <id> -o json`).
+
+- Antes da execução: o dry-run de `abrir_chamado_manual.xs` e `transferir_totem.xs` retornou "No changes to push" (publicado igual ao versionado), e `xano unit_test list` confirmou que os 14 IDs correspondem aos nomes desta tabela.
+- Revisão dos mocks no publicado: nos casos de sucesso, `db.add chamados`, `db.add historico_vinculos_totem_loja` (transferência) e `db.edit ativos_referencia` têm `mock`; o `db.add` do `marco` não é alcançado porque `$ultimo_vinculo` vem mockado não nulo. Nos casos `rejeita`, a interrupção ocorre antes de qualquer escrita.
+- Resultado: **14/14 PASS** (`status = ok` e todas as asserções `pass`; 8 asserções em "cria chamado manual" e 3 em "administrador abre em outra loja" e em "transfere para loja ativa"). As respostas trazem os valores dos `mock` (por exemplo `ultima_atualizacao_em = 1780000000000` e `lojas_id = 2`), o que indica que as escritas foram substituídas.
+
+Limites: esta é evidência de **runtime com mock**. Não comprova persistência, atomicidade nem rollback (E0.3 continua não executada), e os cenários HTTP abaixo continuam **não executados**, porque exigem escrita real em ambiente isolado. `verificar-falhas` e `administracao/totens*` continuam sem testes nativos.
+
 ## Pré-requisitos
 
 1. Ambiente Xano isolado autorizado (ou outro meio aprovado), sem dados reais.
 2. Prova E0.3 executada e aprovada, porque `transferir_totem`, a abertura manual e o heartbeat fazem escritas dependentes (DL-3; DT-1).
 3. Decisões DL-1 a DL-5 registradas (abaixo).
 
-## Testes nativos publicados (executar somente no ambiente isolado)
+## Testes nativos publicados (executados com mock em 2026-11-08; repetir no ambiente isolado)
 
 | Função | ID | Teste |
 |---|---|---|

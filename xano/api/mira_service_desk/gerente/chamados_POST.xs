@@ -12,14 +12,18 @@ query "gerente/chamados" verb=POST {
   }
 
   stack {
+    function.run "autorizacao/exigir_perfil" {
+      input = {usuarios_id: $auth.id, gerente: true}
+    } as $gerente
+
     function.run "service_desk/abrir_chamado_manual" {
       input = {
-        usuarios_id: $auth.id
-        ativos_referencia_id: $input.ativos_referencia_id
+        usuarios_id          : $auth.id
+        ativos_referencia_id : $input.ativos_referencia_id
         categorias_servico_id: $input.categorias_servico_id
-        prioridade: $input.prioridade
-        titulo: $input.titulo
-        descricao: $input.descricao
+        prioridade           : $input.prioridade
+        titulo               : $input.titulo
+        descricao            : $input.descricao
       }
     } as $resultado
 

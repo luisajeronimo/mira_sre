@@ -12,6 +12,10 @@ query telemetria_equipamentos verb=POST {
   }
 
   stack {
+    var $resultado {
+      value = {error: "Não autenticado."}
+    }
+
     var $chave_simulator_recebida {
       value = $env.$http_headers|get:"X-Mira-Simulator-Key"
     }
@@ -23,58 +27,59 @@ query telemetria_equipamentos verb=POST {
     conditional {
       if (!($chave_simulator_configurada != null && $chave_simulator_configurada != "" && $chave_simulator_recebida != null && $chave_simulator_recebida != "" && $chave_simulator_recebida === $chave_simulator_configurada)) {
         util.set_header {
-          value = "HTTP/1.1 401 Unauthorized\nContent-Type: application/json"
+          value = "HTTP/1.1 401 Unauthorized"
           duplicates = "replace"
         }
-
-        return {
-          value = {error: "Não autenticado."}
-        }
       }
-    }
 
-    precondition ($input.ativos_referencia_id != null && $input.uso_cpu != null && $input.uso_memoria != null && $input.temperatura != null && $input.status_rede != null && $input.status_rede != "" && $input.evento_timestamp != null) {
-      error_type = "inputerror"
-      error = "Payload de telemetria incompleto."
-    }
-
-    db.get ativos_referencia {
-      field_name = "id"
-      field_value = $input.ativos_referencia_id
-    } as $ativo
-  
-    conditional {
-      if ($ativo == null) {
-        precondition (false) {
-          error_type = "notfound"
-          error = "ATIVO_NAO_ENCONTRADO - O ativo informado não existe."
-        }
-      }
-    
       else {
-        db.add telemetria_equipamentos {
-          enforce_hidden_fields = false
-          data = {
-            created_at          : "now"
-            ativos_referencia_id: $input.ativos_referencia_id
-            uso_cpu             : $input.uso_cpu
-            uso_memoria         : $input.uso_memoria
-            temperatura         : $input.temperatura
-            status_rede         : $input.status_rede
-            evento_timestamp    : $input.evento_timestamp
+        precondition ($input.ativos_referencia_id != null && $input.uso_cpu != null && $input.uso_memoria != null && $input.temperatura != null && $input.status_rede != null && $input.status_rede != "" && $input.evento_timestamp != null) {
+          error_type = "inputerror"
+          error = "Payload de telemetria incompleto."
+        }
+
+        db.get ativos_referencia {
+          field_name = "id"
+          field_value = $input.ativos_referencia_id
+        } as $ativo
+
+        conditional {
+          if ($ativo == null) {
+            precondition (false) {
+              error_type = "notfound"
+              error = "ATIVO_NAO_ENCONTRADO - O ativo informado não existe."
+            }
           }
-        } as $telemetria_equipamentos
+
+          else {
+            db.add telemetria_equipamentos {
+              enforce_hidden_fields = false
+              data = {
+                created_at          : "now"
+                ativos_referencia_id: $input.ativos_referencia_id
+                uso_cpu             : $input.uso_cpu
+                uso_memoria         : $input.uso_memoria
+                temperatura         : $input.temperatura
+                status_rede         : $input.status_rede
+                evento_timestamp    : $input.evento_timestamp
+              }
+            } as $telemetria_equipamentos
+          }
+        }
+
+        var.update $resultado {
+          value = {
+            success             : true
+            message             : "Telemetria registrada com sucesso."
+            telemetria_id       : $telemetria_equipamentos.id
+            ativos_referencia_id: $telemetria_equipamentos.ativos_referencia_id
+            evento_timestamp    : $telemetria_equipamentos.evento_timestamp
+          }
+        }
       }
     }
   }
 
-  response = {
-    success             : true
-    message             : "Telemetria registrada com sucesso."
-    telemetria_id       : $telemetria_equipamentos.id
-    ativos_referencia_id: $telemetria_equipamentos.ativos_referencia_id
-    evento_timestamp    : $telemetria_equipamentos.evento_timestamp
-  }
-
+  response = $resultado
   guid = "rv26AQvmgM-PHWCz53dBj3OjUHA"
 }

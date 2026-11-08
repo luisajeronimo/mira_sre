@@ -12,20 +12,21 @@ function "administracao/listar_opcoes_lojas" {
     } as $administrador
 
     db.query lojas {
+      where = $db.lojas.status == "Ativa" || $db.lojas.status == "ativa" || $db.lojas.status == "Ativo"
       sort = {lojas.nome: "asc"}
       return = {type: "list"}
       mock = {
-        "lista opcoes para administrador concluido": ```
-          [{id: 1, nome: "Loja Paulista", endereco: "Uso interno no teste", status: "ativa"}]
-          ```
+        "lista opcoes para administrador concluido": [{id: 1, nome: "Loja Paulista", endereco: "Uso interno no teste", status: "ativa"}]
       }
     } as $lojas
 
     var $opcoes {
-      value = $lojas|map:{
-        id: $$.id,
-        nome: $$.nome
-      }
+      value = ```
+        $lojas|map:{
+                id: $$.id,
+                nome: $$.nome
+              }
+        ```
     }
   }
 
@@ -70,5 +71,6 @@ function "administracao/listar_opcoes_lojas" {
       exception = ""
     }
   }
+
   guid = "Gd5IMxUpBN6H_0tggZTzLkC7aC0"
 }

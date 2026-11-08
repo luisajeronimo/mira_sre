@@ -36,7 +36,7 @@ Cenários (spec `vinculo-historico-totem-loja` e deltas):
 
 - [x] 4.1 `docs/domain-model.md`: Totem com histórico de vínculos (seções 3 e 5); Loja do chamado = Loja histórica; marco; não retroatividade; consequência para chamados legados.
 - [x] 4.2 `docs/project-overview.md` e `README.md`: regra publicada e estado dos dados (sem vínculos em 2026-11-07).
-- [ ] 4.3 Registrar a change própria para as divergências excluídas (rotas administrativas, Loja "Ativa", `telemetria_equipamentos POST`, `gerente/chamados POST`). **Pendente:** listadas na proposal (Fora do escopo); a change própria ainda não foi criada.
+- [ ] 4.3 Registrar a change própria para as divergências excluídas (rotas administrativas, Loja "Ativa", `telemetria_equipamentos POST`, `gerente/chamados POST`). **Pendente:** listadas na proposal (Fora do escopo). Progresso em 2026-11-08: Loja "Ativa", `telemetria_equipamentos POST` e `gerente/chamados POST` passaram a ter change própria ([reconciliar-contratos-publicados](../reconciliar-contratos-publicados/proposal.md)); as rotas administrativas que existem somente no publicado continuam sem change.
 
 ## 5. Encerramento
 

@@ -449,39 +449,42 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     fonte = (ROOT / "xano/function/service_desk/listar_chamados_gerente.xs").read_text()
     endpoint = (ROOT / "xano/api/mira_service_desk/gerente/chamados_GET.xs").read_text()
 
-    predicado_loja = "$db.ativo.lojas_id == $usuario.lojas_id"
-    consultas = re.findall(
-        r"db\.query chamados \{(.*?)\n        \} as \$[A-Za-z_][A-Za-z0-9_]*",
-        fonte,
-        re.DOTALL,
-    )
+    # Escopo pela Loja histórica (change regularizar-loja-historica-totem): as
+    # consultas não filtram pela Loja atual; cada chamado é mantido somente se a
+    # Loja resolvida no instante da abertura for a do Gerente.
+    compacto = lambda texto: re.sub(r"\s+|```", "", texto)
+    fonte_c = compacto(fonte)
+    consultas = re.findall(r"db\.query chamados \{", fonte)
 
     assert consultas
     assert "$filtros" not in fonte
     assert "where = $filtros == true" not in fonte
     assert "$db.$db" not in fonte
-    for consulta in consultas:
-        assert f"where = {predicado_loja}" in consulta
-
-    assert "$db.ativo.lojas_id == $usuario.lojas_id" in fonte
-    assert 'sort = {status_ordenavel: "asc", chamados.id: "asc"}' in fonte
-    assert "total: ($items|count)" in fonte
+    assert "$db.ativo.lojas_id == $usuario.lojas_id" not in fonte
+    assert compacto('function.run "administracao/resolver_loja_totem_no_instante"') in fonte_c
+    assert compacto("instante: $chamado.criado_em") in fonte_c
+    assert compacto("if ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id)") in fonte_c
+    assert compacto('sort = {status_ordenavel: "asc", chamados.id: "asc"}') in fonte_c
+    assert compacto("response = {items: $items, total: $items|count}") in fonte_c
     assert "timestamp? data_inicio?" in endpoint
     assert "timestamp? data_fim?" in endpoint
     assert "text numero? filters=trim" in endpoint
-    assert "int[] ativo_ids?" in endpoint
+    # Contrato aprovado (2026-11-02, design D4): coleções chegam ao GET como
+    # texto JSON e são decodificadas e validadas como array no endpoint.
+    assert "text ativo_ids?" in endpoint
+    assert "($input.ativo_ids|json_decode)" in endpoint
+    assert "($ativo_ids|is_array)" in endpoint
     assert "text numero? filters=trim" in fonte
     assert "int[] ativo_ids?" in fonte
-    assert "($input.numero|to_int)" in fonte
+    assert compacto("$input.numero|to_int") in fonte_c
     assert "foreach ($ativo_ids)" in fonte
     assert "if (!($id > 0))" in fonte
     assert "($numero_convertido|to_text) == $input.numero" in fonte
-    assert "$ativo.lojas_id == $usuario.lojas_id" in fonte
-    assert "array.filter ($chamados_filtrados) if ($ativo_ids|in:$this.ativo_id)" in fonte
-    assert "array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status)" in fonte
-    assert "where = $db.ativo.lojas_id == $usuario.lojas_id && ($input.numero" not in fonte
-    assert "where = $db.ativo.lojas_id == $usuario.lojas_id && ($db.chamados.id ==? $numero_normalizado)" in fonte
-    assert "where = $db.ativo.lojas_id == $usuario.lojas_id && (!$aplicar_numero" not in fonte
+    # Filtro de Totem: Totem da Loja atual ou com vínculo histórico com a Loja.
+    assert compacto("$ativo.lojas_id == $usuario.lojas_id || $vinculo_historico") in fonte_c
+    assert compacto("array.filter ($chamados_filtrados) if ($ativo_ids|in:$this.ativo_id)") in fonte_c
+    assert compacto("array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status)") in fonte_c
+    assert compacto("where = ($db.chamados.id ==? $numero_normalizado)") in fonte_c
 
 
 def test_xanoscript_nao_usa_eval_booleano_para_ordenacao_composta():

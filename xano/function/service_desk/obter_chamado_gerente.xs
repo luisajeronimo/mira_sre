@@ -12,24 +12,12 @@ function "service_desk/obter_chamado_gerente" {
     function.run "autorizacao/exigir_perfil" {
       input = {usuarios_id: $input.usuarios_id, gerente: true}
       mock = {
-        "retorna detalhe da loja": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
-        "retorna detalhe com campos opcionais legados": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
-        "retorna detalhe automático": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
-        "rejeita chamado inexistente": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
-        "rejeita chamado de outra loja": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
-        "rejeita chamado sem ativo autorizavel": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
+        "retorna detalhe da loja"                     : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "retorna detalhe com campos opcionais legados": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "retorna detalhe automático"                 : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "rejeita chamado inexistente"                 : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "rejeita chamado de outra loja"               : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "rejeita chamado sem ativo autorizavel"       : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
       }
     } as $usuario
 
@@ -40,65 +28,57 @@ function "service_desk/obter_chamado_gerente" {
 
     db.query chamados {
       join = {
-        ativo: {
+        ativo      : {
           table: "ativos_referencia"
-          type: "left"
+          type : "left"
           where: $db.chamados.ativos_referencia_id == $db.ativo.id
         }
-        loja: {
+        loja       : {
           table: "lojas"
-          type: "left"
+          type : "left"
           where: $db.ativo.lojas_id == $db.loja.id
         }
-        categoria: {
+        categoria  : {
           table: "categorias_servico"
-          type: "left"
+          type : "left"
           where: $db.chamados.categorias_servico_id == $db.categoria.id
         }
         solicitante: {
           table: "usuarios"
-          type: "left"
+          type : "left"
           where: $db.chamados.solicitante_id == $db.solicitante.id
         }
-        tecnico: {
+        tecnico    : {
           table: "usuarios"
-          type: "left"
+          type : "left"
           where: $db.chamados.tecnico_id == $db.tecnico.id
         }
       }
-      eval = {
-        ativo_id: $db.ativo.id
-        ativo_nome: $db.ativo.nome_ativo
-        ativo_lojas_id: $db.ativo.lojas_id
-        loja_id: $db.loja.id
-        loja_nome: $db.loja.nome
-        ativo_status_atual: $db.ativo.status_atual
-        categoria_id: $db.categoria.id
-        categoria_nome: $db.categoria.nome
-        solicitante_usuario_id: $db.solicitante.id
-        solicitante_nome: $db.solicitante.nome
-        tecnico_usuario_id: $db.tecnico.id
-        tecnico_nome: $db.tecnico.nome
-      }
+
       where = $db.chamados.id == $input.chamados_id
+      eval = {
+        ativo_id              : $db.ativo.id
+        ativo_nome            : $db.ativo.nome_ativo
+        ativo_lojas_id        : $db.ativo.lojas_id
+        loja_id               : $db.loja.id
+        loja_nome             : $db.loja.nome
+        ativo_status_atual    : $db.ativo.status_atual
+        categoria_id          : $db.categoria.id
+        categoria_nome        : $db.categoria.nome
+        solicitante_usuario_id: $db.solicitante.id
+        solicitante_nome      : $db.solicitante.nome
+        tecnico_usuario_id    : $db.tecnico.id
+        tecnico_nome          : $db.tecnico.nome
+      }
+
       return = {type: "single"}
       mock = {
-        "retorna detalhe da loja": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "retorna detalhe com campos opcionais legados": ```
-          {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "retorna detalhe automático": ```
-          {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 1, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "rejeita chamado inexistente": null
-        "rejeita chamado de outra loja": ```
-          {id: 102, ativo_id: 8, ativo_nome: "Totem 08", ativo_lojas_id: 2}
-          ```
-        "rejeita chamado sem ativo autorizavel": ```
-          {id: 103, ativo_id: null, ativo_nome: null, ativo_lojas_id: null}
-          ```
+        "retorna detalhe da loja"                     : {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+        "retorna detalhe com campos opcionais legados": {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+        "retorna detalhe automático"                 : {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 1, ativo_id: 1, ativo_nome: "Totem 01", ativo_lojas_id: 1, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+        "rejeita chamado inexistente"                 : null
+        "rejeita chamado de outra loja"               : {id: 102, ativo_id: 8, ativo_nome: "Totem 08", ativo_lojas_id: 2}
+        "rejeita chamado sem ativo autorizavel"       : {id: 103, ativo_id: null, ativo_nome: null, ativo_lojas_id: null}
       }
     } as $registro
 
@@ -107,17 +87,50 @@ function "service_desk/obter_chamado_gerente" {
       error = "Recurso não encontrado."
     }
 
-    precondition ($registro.ativo_lojas_id != null && $registro.ativo_lojas_id == $usuario.lojas_id) {
+    function.run "administracao/resolver_loja_totem_no_instante" {
+      input = {
+        ativos_referencia_id: $registro.ativo_id
+        instante            : $registro.criado_em
+      }
+
+      mock = {
+        "retorna detalhe da loja"                     : {lojas_id: 1}
+        "retorna detalhe com campos opcionais legados": {lojas_id: 1}
+        "retorna detalhe automático"                 : {lojas_id: 1}
+        "rejeita chamado de outra loja"               : {lojas_id: 2}
+        "rejeita chamado sem ativo autorizavel"       : {lojas_id: null}
+      }
+    } as $historico
+
+    precondition ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
+
+    db.get lojas {
+      field_name = "id"
+      field_value = $historico.lojas_id
+      mock = {
+        "retorna detalhe da loja"                     : {id: 1, nome: "Loja de Teste"}
+        "retorna detalhe com campos opcionais legados": {id: 1, nome: "Loja de Teste"}
+        "retorna detalhe automático"                 : {id: 1, nome: "Loja de Teste"}
+      }
+    } as $loja_historica
 
     db.query telemetria_equipamentos {
       where = $db.telemetria_equipamentos.ativos_referencia_id == $registro.ativo_id
       sort = {telemetria_equipamentos.evento_timestamp: "desc"}
       return = {type: "single"}
+      mock = {
+        "retorna detalhe da loja"                     : null
+        "retorna detalhe com campos opcionais legados": null
+        "retorna detalhe automático"                 : null
+      }
     } as $ultima_telemetria
-    var $telemetria { value = $ultima_telemetria != null ? {id: $ultima_telemetria.id, evento_timestamp: $ultima_telemetria.evento_timestamp, uso_cpu: $ultima_telemetria.uso_cpu, uso_memoria: $ultima_telemetria.uso_memoria, temperatura: $ultima_telemetria.temperatura, status_rede: $ultima_telemetria.status_rede} : null }
+
+    var $telemetria {
+      value = $ultima_telemetria != null ? {id: $ultima_telemetria.id, evento_timestamp: $ultima_telemetria.evento_timestamp, uso_cpu: $ultima_telemetria.uso_cpu, uso_memoria: $ultima_telemetria.uso_memoria, temperatura: $ultima_telemetria.temperatura, status_rede: $ultima_telemetria.status_rede} : null
+    }
 
     var $solicitante {
       value = null
@@ -126,7 +139,10 @@ function "service_desk/obter_chamado_gerente" {
     conditional {
       if ($registro.solicitante_usuario_id != null) {
         var.update $solicitante {
-          value = {id: $registro.solicitante_usuario_id, nome: $registro.solicitante_nome}
+          value = {
+            id  : $registro.solicitante_usuario_id
+            nome: $registro.solicitante_nome
+          }
         }
       }
     }
@@ -138,29 +154,32 @@ function "service_desk/obter_chamado_gerente" {
     conditional {
       if ($registro.tecnico_usuario_id != null) {
         var.update $tecnico {
-          value = {id: $registro.tecnico_usuario_id, nome: $registro.tecnico_nome}
+          value = {
+            id  : $registro.tecnico_usuario_id
+            nome: $registro.tecnico_nome
+          }
         }
       }
     }
 
     var $chamado {
       value = {
-        id: $registro.id,
-        titulo: $registro.titulo,
-        descricao: $registro.descricao,
-        status: $registro.status,
-        prioridade: $registro.prioridade,
-        origem: $registro.origem,
-        criador_sistema: $registro.criador_sistema,
-        criado_em: $registro.criado_em,
-        ultima_atualizacao_em: $registro.ultima_atualizacao_em,
-        sla_horas_aplicado: $registro.sla_horas_aplicado,
-        ativo: {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome},
-        categoria: {id: $registro.categoria_id, nome: $registro.categoria_nome},
-        solicitante: $solicitante,
-        tecnico: $tecnico
-        loja: {id: $registro.loja_id, nome: $registro.loja_nome}
-        resumo_totem: {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome, loja: {id: $registro.loja_id, nome: $registro.loja_nome}, status_atual: $registro.ativo_status_atual, ultima_telemetria: $telemetria}
+        id                   : $registro.id
+        titulo               : $registro.titulo
+        descricao            : $registro.descricao
+        status               : $registro.status
+        prioridade           : $registro.prioridade
+        origem               : $registro.origem
+        criador_sistema      : $registro.criador_sistema
+        criado_em            : $registro.criado_em
+        ultima_atualizacao_em: $registro.ultima_atualizacao_em
+        sla_horas_aplicado   : $registro.sla_horas_aplicado
+        ativo                : {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome}
+        categoria            : {id: $registro.categoria_id, nome: $registro.categoria_nome}
+        solicitante          : $solicitante
+        tecnico              : $tecnico
+        loja                 : {id: $loja_historica.id, nome: $loja_historica.nome}
+        resumo_totem         : {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome, loja: {id: $loja_historica.id, nome: $loja_historica.nome}, status_atual: $registro.ativo_status_atual, ultima_telemetria: $telemetria}
       }
     }
   }
@@ -169,44 +188,75 @@ function "service_desk/obter_chamado_gerente" {
 
   test "retorna detalhe da loja" {
     input = {usuarios_id: 8, chamados_id: 101}
-    expect.to_equal ($response.chamado.id) { value = 101 }
-    expect.to_equal ($response.chamado.solicitante.id) { value = 8 }
+
+    expect.to_equal ($response.chamado.id) {
+      value = 101
+    }
+
+    expect.to_equal ($response.chamado.solicitante.id) {
+      value = 8
+    }
+
     expect.to_be_null ($response.chamado.criador_sistema)
     expect.to_be_null ($response.chamado.tecnico)
     expect.to_not_be_defined ($response.chamado.created_at)
-    expect.to_equal ($response.chamado.ultima_atualizacao_em) { value = 1780000000000 }
+    expect.to_equal ($response.chamado.ultima_atualizacao_em) {
+      value = 1780000000000
+    }
   }
 
   test "retorna detalhe com campos opcionais legados" {
     input = {usuarios_id: 8, chamados_id: 16}
+
     expect.to_be_null ($response.chamado.descricao)
     expect.to_be_null ($response.chamado.origem)
     expect.to_be_null ($response.chamado.criador_sistema)
     expect.to_be_null ($response.chamado.sla_horas_aplicado)
-    expect.to_equal ($response.chamado.criado_em) { value = 1780000000000 }
-    expect.to_equal ($response.chamado.ultima_atualizacao_em) { value = 1780000000000 }
+    expect.to_equal ($response.chamado.criado_em) {
+      value = 1780000000000
+    }
+
+    expect.to_equal ($response.chamado.ultima_atualizacao_em) {
+      value = 1780000000000
+    }
   }
 
   test "retorna detalhe automático" {
     input = {usuarios_id: 8, chamados_id: 17}
-    expect.to_equal ($response.chamado.origem) { value = "automatico" }
+
+    expect.to_equal ($response.chamado.origem) {
+      value = "automatico"
+    }
+
     expect.to_be_null ($response.chamado.solicitante)
-    expect.to_equal ($response.chamado.criador_sistema) { value = "bot_fiscalizacao" }
+    expect.to_equal ($response.chamado.criador_sistema) {
+      value = "bot_fiscalizacao"
+    }
   }
 
   test "rejeita chamado inexistente" {
     input = {usuarios_id: 8, chamados_id: 999}
-    expect.to_throw { exception = "" }
+
+    expect.to_throw {
+      exception = ""
+    }
   }
 
   test "rejeita chamado de outra loja" {
     input = {usuarios_id: 8, chamados_id: 102}
-    expect.to_throw { exception = "" }
+
+    expect.to_throw {
+      exception = ""
+    }
   }
 
   test "rejeita chamado sem ativo autorizavel" {
     input = {usuarios_id: 8, chamados_id: 103}
-    expect.to_throw { exception = "" }
+
+    expect.to_throw {
+      exception = ""
+    }
   }
+
   guid = "SDxf7t8lCf5IwjBf3TnELdgGnm0"
 }

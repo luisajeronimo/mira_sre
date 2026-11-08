@@ -302,12 +302,24 @@ def test_gets_genericos_de_interacoes_negam_gerente_sem_alterar_consulta_publica
         ROOT / "xano/function/service_desk/listar_comentarios_publicos_gerente.xs"
     ).read_text()
 
-    autorizacao_colecao = colecao.split('function.run "autorizacao/exigir_perfil"', 1)[1].split('} as $usuario', 1)[0]
-    assert "tecnico: true" in autorizacao_colecao
-    assert "gerente: true" not in autorizacao_colecao
-    assert "diretoria: true" not in autorizacao_colecao
-    assert "administrador: true" not in autorizacao_colecao
-    assert 'function.run "autorizacao/exigir_escopo_loja"' in detalhe
-    assert 'tecnico: true' in detalhe
-    assert 'precondition ($usuario.role == "tecnico")' in detalhe
+    for consulta in (colecao, detalhe):
+        autorizacao = consulta.split('function.run "autorizacao/exigir_perfil"', 1)[
+            1
+        ].split('} as $usuario', 1)[0]
+        assert "tecnico: true" in autorizacao
+        assert "gerente: true" not in autorizacao
+        assert "diretoria: true" not in autorizacao
+        assert "administrador: true" not in autorizacao
+        assert 'function.run "autorizacao/exigir_escopo_loja"' not in consulta
+        assert consulta.index('function.run "autorizacao/exigir_perfil"') < consulta.index(
+            "db."
+        )
+
+    assert "join =" not in colecao
+    assert "where = $usuario.role" not in colecao
+    assert "db.get chamados" not in detalhe
+    assert "db.get ativos_referencia" not in detalhe
+    assert detalhe.index("db.get interacoes_chamado") < detalhe.index(
+        "precondition ($interacoes_chamado != null)"
+    )
     assert '$db.interacoes_chamado.visibilidade == "publica"' in publico

@@ -8,34 +8,17 @@ query "interacoes_chamado/{interacoes_chamado_id}" verb=GET {
   }
 
   stack {
+    // Autoriza antes de qualquer leitura. O Gerente lê interações somente
+    // pelos contratos funcionais filtrados; esta consulta não filtra visibilidade.
+    function.run "autorizacao/exigir_perfil" {
+      input = {usuarios_id: $auth.id, tecnico: true}
+    } as $usuario
+
     db.get interacoes_chamado {
       field_name = "id"
       field_value = $input.interacoes_chamado_id
     } as $interacoes_chamado
 
-    db.get chamados {
-      field_name = "id"
-      field_value = $interacoes_chamado.chamados_id
-    } as $chamado
-
-    db.get ativos_referencia {
-      field_name = "id"
-      field_value = $chamado.ativos_referencia_id
-    } as $ativo
-
-    function.run "autorizacao/exigir_escopo_loja" {
-      input = {
-        usuarios_id: $auth.id,
-        lojas_id: $ativo.lojas_id,
-        tecnico: true
-      }
-    } as $usuario
-
-    precondition ($usuario.role == "tecnico") {
-      error_type = "accessdenied"
-      error = "Acesso não autorizado."
-    }
-  
     precondition ($interacoes_chamado != null) {
       error_type = "notfound"
       error = "Not Found."

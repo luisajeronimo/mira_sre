@@ -81,9 +81,9 @@ mock:
 	wait -n "$$simulator_pid" "$$fiscal_pid"
 
 py_test:
-	@PYTHONPATH=. .venv/bin/python -m pytest -q
+	@PYTHONPATH=. $(VENV_PYTHON) -m pytest -q
 
 reflex_check:
-	@PYTHONPATH=. .venv/bin/reflex compile --dry
+	@PYTHONPATH=. $(VENV_PYTHON) -m reflex compile --dry
 
 check: py_test reflex_check

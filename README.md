@@ -120,7 +120,7 @@ $env:PYTHONPATH = "."; .venv\Scripts\python.exe -m pytest -q
 Limitações conhecidas no Windows:
 
 - `make mock` depende de `bash`, `setsid` e grupos de processos POSIX; execute Simulator e Fiscal em terminais separados.
-- `make py_test`, `make reflex_check` e `make check` usam caminhos `.venv/bin` e não funcionam no Windows; use os comandos acima.
+- `make py_test`, `make reflex_check` e `make check` usam o Python do `.venv` de cada sistema e funcionam no Windows com GNU Make; sem permissão de symlink, defina `REFLEX_BACKEND_ONLY=1` antes (ver abaixo).
 - O Reflex cria links simbólicos para assets compartilhados. Sem permissão para criar symlinks (por exemplo, sem o Modo de Desenvolvedor do Windows), a interface e parte dos testes falham com `WinError 1314`.
 - `tzdata` é instalado somente no Windows (marcador em `requirements.txt`), porque o sistema não fornece a base de fusos usada por `America/Sao_Paulo`.
 - Para executar os testes ou `reflex compile --dry` sem permissão de symlink, defina `$env:REFLEX_BACKEND_ONLY = "1"`; nesse modo a compilação não gera os assets compartilhados do frontend.

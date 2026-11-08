@@ -9,7 +9,7 @@
 
 ## Goals / Non-Goals
 
-**Goals:** SLA calculável e auditável a partir de fatos persistidos; encerramento automático decidido pelo Xano, idempotente e protegido contra rejeição concorrente.
+**Goals:** SLA calculável e auditável a partir de fatos persistidos; encerramento de chamados elegíveis decidido pelo Xano após disparo manual único, com resultado auditável e sem duplicidade.
 
 **Non-Goals:** persistir consumo; alterar o Save; reescrever histórico; calendário de dias úteis.
 
@@ -23,7 +23,7 @@ Para o chamado `c`: `T_c = [(criado_em, "Novo")]` seguido, em ordem de `criado_e
 
 ### D2. Consumo de SLA
 
-Estados que contam: `Novo`, `Em Atendimento`, `Aguardando Solicitante`, `Aguardando Mudança`, `Solução Rejeitada`. Status fora da lista canônica, como o legado `Aguardando Terceiro`, tornam o SLA não calculável até a decisão DE-6. Estado de pausa: `Resolvido`. Estados finais: `Encerrado`, `Cancelado`.
+Estados que contam: `Novo`, `Em Atendimento`, `Aguardando Solicitante`, `Aguardando Mudança`, `Solução Rejeitada`. Status fora da lista canônica tornam o SLA não calculável; não há regra adicional para estados legados nesta change. Estado de pausa: `Resolvido`. Estados finais: `Encerrado`, `Cancelado`.
 
 ```
 C_c(t) = Σ  | [s_j, min(s_{j+1}, t)) |   para cada segmento j de T_c cujo estado conta SLA
@@ -40,27 +40,27 @@ U_c(t) = C_c(t) / (sla_horas_aplicado × 3.600.000 ms)
 
 **Exemplo (sintético):** `S = 4 h`; `Novo` 08:00; `Em Atendimento` 08:30; `Resolvido` 10:00; `Solução Rejeitada` 13:00; `Em Atendimento` 14:00; `Resolvido` 15:00. `C = 2 h + 2 h = 4 h`, `U = 100%`. O intervalo 10:00–13:00 não conta.
 
-### D3. Encerramento automático
+### D3. Encerramento sob comando manual
 
 Função `service_desk/encerrar_chamados_resolvidos_elegiveis` e endpoint de automação (nome final no Apply):
 
-1. Autenticação por credencial de automação (DE-4), no padrão do Fiscal; nenhum perfil humano a executa.
+1. Autenticação por credencial própria de comando (DE-4), no padrão do Fiscal; nenhum perfil humano a executa como endpoint de produto.
 2. Candidatos: `status == "Resolvido"`.
 3. Para cada candidato: `t_r` = `criado_em` da última transição com `resultante = "Resolvido"` em `T_c` consistente. Sem `t_r` ⇒ não elegível (nenhum timestamp é inferido).
-4. **Vigência (DE-2):** elegível somente se `t_r ≥ T_v`, onde `T_v` é o instante de início de vigência do encerramento automático, definido explicitamente na publicação aprovada e registrado na evidência de publicação (armazenamento: DE-9). `T_v` nunca é derivado dos dados. Chamados com `t_r < T_v`, inclusive os que já estavam `Resolvido` na implantação, nunca são candidatos automáticos e continuam sujeitos ao encerramento manual pelo Save; se forem rejeitados e resolvidos de novo, a nova entrada em `Resolvido` é posterior a `T_v` e passa a valer.
+4. **Vigência (DE-2 e DE-9):** elegível somente se `t_r ≥ T_v`, onde `T_v` é uma constante versionada na função, fixada explicitamente no momento da publicação aprovada e registrada na evidência de publicação. `T_v` nunca é derivado dos dados. Chamados com `t_r < T_v`, inclusive os que já estavam `Resolvido` na implantação, nunca são candidatos ao comando e continuam sujeitos ao encerramento manual pelo Save; se forem rejeitados e resolvidos de novo, a nova entrada em `Resolvido` é posterior a `T_v` e passa a valer.
 5. **Prazo (DE-1):** elegível se `agora ≥ t_r + 72 h` (259.200.000 ms), em tempo corrido.
-6. Dentro de `db.transaction`, por chamado: releitura; revalidação de `status == "Resolvido"` e de `ultima_atualizacao_em` igual ao lido em 2; comentário público de sistema (DE-3; texto DE-3a; `usuarios_id` nulo); `db.patch` com `status = "Encerrado"` e `ultima_atualizacao_em = agora`; `alteracao_chamado` com `Resolvido → Encerrado`, `comentario_interacao_id` e `usuarios_id` nulo (autor `Sistema`). Três escritas: bloqueadas até a prova E0.3 (DT-1).
+6. Dentro de `db.transaction`, por chamado: releitura; revalidação de `status == "Resolvido"` e de `ultima_atualizacao_em` igual ao lido em 2; comentário público de sistema com texto exato "Chamado encerrado automaticamente após 72 horas em Resolvido sem rejeição da solução." (DE-3a; `usuarios_id` nulo e autor público `Sistema` por DE-3b); `db.patch` com `status = "Encerrado"` e `ultima_atualizacao_em = agora`; `alteracao_chamado` com `Resolvido → Encerrado`, `comentario_interacao_id` e `usuarios_id` nulo (autor `Sistema`). Três escritas: bloqueadas até a prova E0.3 (DT-1).
 7. Resposta: contagens de avaliados, encerrados, fora da vigência, prazo não vencido, não calculáveis e conflitos; nenhum dado pessoal.
 
-**Concorrência:** rejeição ou Save confirmados antes da revalidação mudam `status` ou `ultima_atualizacao_em` e impedem o encerramento; rejeição posterior ao encerramento recebe conflito (`Encerrado` é terminal). Sem isolamento comprovado no Free, a janela entre revalidação e escrita permanece e é registrada.
+O DTO público de comentários do Gerente projeta `autor = {nome: "Sistema"}` somente quando a relação entre o comentário e a transição `Resolvido` → `Encerrado` criada por esta operação comprovar a origem de sistema. Comentários sem autor cuja origem não seja comprovada permanecem com `autor = null`, conforme a capability `chamados-acompanhamento-gerente`.
 
-**Duplicidade e falhas:** a revalidação torna a operação idempotente; execuções perdidas são recuperadas na próxima execução, que encerra no instante em que roda (o SLA não é afetado, pois `Resolvido` já está pausado). O job não decide elegibilidade, não envia lista de chamados e não altera chamados fora da resposta do Xano.
+**Duplicidade e falhas:** a revalidação torna a operação idempotente; uma nova execução manual pode recuperar uma tentativa interrompida e encerra no instante em que roda (o SLA não é afetado, pois `Resolvido` já está pausado). Não há garantia de execução no limite de 72 horas. O comando não decide elegibilidade, não envia lista de chamados e não altera chamados fora da resposta do Xano. Testes de concorrência não fazem parte do escopo acadêmico aprovado.
 
 **Rejeição no limite do prazo:** vale a operação confirmada primeiro pelo Xano; a outra recebe conflito ou é pulada.
 
-### D4. Job
+### D4. Comando de execução única
 
-Conforme DE-4 (recomendado: script Python separado, no padrão do Fiscal: chama o endpoint, aguarda a resposta, registra contagens sem dados sensíveis e espera o intervalo DE-5). A disponibilidade de tarefas agendadas do Xano no plano Free não foi confirmada na documentação oficial consultada.
+Conforme DE-4 revista, `make encerrar-resolvidos` executa um script Python separado, no padrão do Fiscal: valida URL e credencial própria, chama o endpoint uma vez, aguarda a resposta, registra somente contagens e código HTTP sem dados sensíveis e termina com código de saída de sucesso ou falha. Não há loop, intervalo, cron nem tarefa agendada. DE-5 deixa de ser parâmetro: a frequência é escolhida por quem executa o comando.
 
 ### D5. Exposição do consumo por perfil (DE-8, decidida em 2026-11-08)
 
@@ -99,4 +99,4 @@ Pendências: indicadores do Gerente e da Diretoria dependem de DS-2 e DI-1 a DI-
 
 ## Migration Plan
 
-Decisões DE-3a, DE-3b, DE-4 a DE-9 → função de consumo com testes (sem dependência da prova) → prova E0.3 e relatório aprovado → encerramento com testes → validação MCP, dry-run e push aprovados → job Python → validação integrada. Sem schema e sem backfill. Reversão: parar o job e desativar o endpoint; encerramentos realizados permanecem registrados.
+Decisões DE-3a, DE-3b, DE-4, DE-5, DE-7 e DE-9 aprovadas → função de consumo com testes (sem dependência da prova) → prova E0.3 e relatório aprovado → encerramento com testes → validação MCP, dry-run e push aprovados → comando Python de execução única → validação integrada. Sem schema e sem backfill. Reversão: deixar de executar o comando e desativar o endpoint; encerramentos realizados permanecem registrados.

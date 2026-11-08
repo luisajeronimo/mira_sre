@@ -6,12 +6,12 @@
 - [x] 1.2 DE-1 aprovada: 72 horas corridas após a entrada em `Resolvido`.
 - [x] 1.3 DE-2 aprovada: sem encerramento em massa de chamados já resolvidos; regra técnica de vigência no design D3.
 - [x] 1.4 DE-3 aprovada: comentário público de sistema no encerramento automático.
-- [ ] 1.5 Decidir DE-3a (texto) e DE-3b (autor do comentário de sistema no DTO público).
-- [ ] 1.6 Decidir DE-4 e DE-5 (mecanismo e frequência do job). Evidência para a decisão (2026-11-08, `xano workspace pull` somente leitura de 16:28): o workspace `152692` contém somente documentos `api`, `function`, `table` e `workspace`, sem nenhuma tarefa agendada; hoje não existe mecanismo que dispare o encerramento. A disponibilidade de tarefas agendadas no plano Free não foi verificada.
-- [ ] 1.7 Decidir DE-6, DE-7 e DE-9. DE-8 decidida em 2026-11-08 (design D5).
+- [x] 1.5 DE-3a e DE-3b aprovadas: texto exato do comentário público registrado no design D3 e autor `Sistema` no DTO público.
+- [x] 1.6 DE-4 e DE-5 revistas: disparo manual único por `make encerrar-resolvidos`, script Python que chama a API; sem job periódico, frequência ou agendamento. O Xano decide e executa o encerramento.
+- [x] 1.7 DE-7 aprovada: preservar encerramento manual pelo Save; DE-9 aprovada: constante versionada de vigência, fixada na publicação; DE-8 já decidida (design D5). Nenhum trabalho adicional sobre status legado fora da lista canônica.
 - [ ] 1.8 Executar a prova E0.3 (DT-1) antes de 3.1 e obter aprovação do relatório. Em 2026-11-08 foi autorizado datasource próprio de teste no workspace `152692`, branch `v1`, como alternativa ao workspace separado; os registros são separados, mas schema e recursos publicados são compartilhados. Pacote e [plano de execução e rollback](../rejeicao-solucao-gerente/prova-e03/plano-execucao-rollback.md) preparados. **Não executado:** runtime, persistência e rollback continuam sem prova; o acesso à UI `app.xano.com` foi recusado pelo gate automático de navegador em 2026-11-08, e nenhum recurso remoto foi alterado.
 - [ ] 1.9 Esclarecer as dependências externas "4", "5" e "D3" do planejamento.
-- [ ] 1.10 Obter aprovação formal do Apply.
+- [x] 1.10 Apply autorizado pela responsável ao pedir execução até antes do Archive, com uso do Xano MCP e CLI e escopo acadêmico. Archive permanece fora desta autorização.
 
 ## 2. Xano — consumo de SLA
 
@@ -23,15 +23,15 @@
 
 > Runtime (2026-11-08, publicação autorizada da atualização): dry-run `~1 updated` somente desta função; delta de lógica restrito a `$agora` e à guarda `$t == null || $t == 0`; dry-run posterior "No changes to push". Testes nativos **20/20 PASS** (os 17 anteriores, "troca de categoria usa sla vigente" com 4 asserções, "instante omitido usa o instante atual" com 4 e "instante zero e tratado como ausente" com 2). Mutações locais detectadas: SLA anterior na troca, remoção da guarda de zero e ausência convertida em 0. Observação para revisão, sem bloquear a task: o motivo `ordem_temporal_inconsistente` é salvaguarda técnica. A função segue interna; a exposição (DE-8) está na seção 6.
 
-## 3. Xano — encerramento automático
+## 3. Xano — encerramento sob comando
 
-- [ ] 3.1 Somente após 1.8: função e endpoint de automação (design D3). Evidência: elegível, prazo não vencido (71 h 59 min), limite exato de 72 h, fora da vigência na primeira execução, nova resolução após a vigência, comentário público de sistema criado, entrada desconhecida, rejeição concorrente simulada pela revalidação, execução repetida, credencial ausente ou inválida, perfil humano negado.
+- [ ] 3.1 Somente após 1.8: função e endpoint de encerramento sob comando manual (design D3). Evidência: elegível, prazo não vencido (71 h 59 min), limite exato de 72 h, fora da vigência na primeira execução, nova resolução após a vigência, comentário público de sistema criado, entrada desconhecida, revalidação de status, execução repetida, credencial ausente ou inválida, perfil humano negado. Sem testes de concorrência.
 - [ ] 3.2 Validar no MCP, dry-run seletivo e publicação somente com aprovação.
 
-## 4. Job
+## 4. Comando manual
 
-- [ ] 4.1 Implementar o job conforme DE-4 e DE-5, sem registrar credenciais. Evidência: testes Python com cliente simulado (sucesso, falha de rede, resposta inválida).
-- [ ] 4.2 Documentar a variável de credencial em `.env.example` com placeholder, após aprovação.
+- [x] 4.1 `scripts/encerrar_resolvidos.py` e alvo `make encerrar-resolvidos` implementados para uma chamada única, sem loop e sem registrar credencial. Evidência: `tests/test_encerrar_resolvidos_comando.py`, 6/6 passaram em 2026-11-08 (sucesso, falha de rede, resposta inválida e chamada única). Endpoint real ainda não publicado.
+- [x] 4.2 `.env.example` contém `MIRA_ENCERRAMENTO_AUTOMATION_KEY` vazio e timeout seguro, sem segredo versionado.
 
 ## 5. Validação
 

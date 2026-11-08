@@ -253,11 +253,11 @@ Técnico, Diretoria e Administrador podem alterar o status de chamados não term
 `Resolvido` e `Encerrado` representam fases distintas:
 
 - `Resolvido`: a solução técnica foi aplicada e o serviço foi considerado restaurado;
-- `Encerrado`: a resolução foi aceita ou o prazo de fechamento automático expirou.
+- `Encerrado`: o chamado foi encerrado manualmente ou por uma verificação de prazo disparada por comando.
 
-Após três dias em `Resolvido`, sem rejeição da solução, o sistema deve alterar automaticamente o chamado para `Encerrado`. Um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade e efetiva a alteração do chamado. O retorno de telemetria não participa dessa regra.
+Após três dias corridos em `Resolvido`, sem rejeição da solução, o comando `make encerrar-resolvidos` pode disparar uma única verificação. O Xano avalia a elegibilidade e efetiva a alteração para `Encerrado`; não há agendamento, portanto o prazo sozinho não muda o status. O retorno de telemetria não participa dessa regra.
 
-Quando um solicitante humano entende que o problema persiste, pode rejeitar a resolução. A rejeição exige comentário obrigatório e altera o status para `Solução Rejeitada`, sem alterar automaticamente os demais dados do chamado.
+Quando o Gerente da própria Loja entende que o problema persiste, pode rejeitar a resolução. A rejeição exige justificativa pública obrigatória e altera o status para `Solução Rejeitada`, sem alterar automaticamente os demais dados do chamado. O solicitante sem esse perfil permanece somente leitura quanto ao status.
 
 O status `Aguardando Solicitante` é definido por Técnico, Diretoria ou Administrador e exige comentário público. O comentário posterior do solicitante atualiza o chamado, mas não muda automaticamente seu status.
 

@@ -2,7 +2,7 @@
 
 ## Why
 
-Cartão da Sprint 3 "Resolução, SLA e encerramento controlado" (estado informado: inexistente). O domínio define as regras de contagem de SLA e o encerramento automático em `Resolvido` (`docs/domain-model.md` §10 e §12), mas nada disso está implementado: não há cálculo de consumo, campos de resolução ou encerramento, nem automação de encerramento.
+Cartão da Sprint 3 "Resolução, SLA e encerramento controlado". O domínio define as regras de contagem de SLA e o encerramento após `Resolvido` (`docs/domain-model.md` §10 e §12). A função interna de consumo já foi publicada, mas ainda não é exposta aos perfis; o encerramento por prazo ainda não possui endpoint. A decisão acadêmica atual usa um comando manual de disparo único.
 
 Já existem e são preservados: bloqueio de edição funcional em `Encerrado` e `Cancelado` pelo Save; comentário público obrigatório para `Resolvido`, `Aguardando Solicitante` e `Cancelado`; telemetria que não resolve nem encerra chamado (`monitoramento-disponibilidade-totens`); `alteracao_chamado` com o par de status a cada mudança pelo Save, base do histórico projetado (H-1).
 
@@ -11,18 +11,20 @@ Já existem e são preservados: bloqueio de edição funcional em `Encerrado` e 
 - Nova capability `sla-encerramento-chamados`:
   - **consumo de SLA** em tempo corrido, calculado no Xano a partir de `criado_em` e da linha do tempo de status (`alteracao_chamado`), contando os estados de trabalho e espera, parando em `Resolvido`, `Encerrado` e `Cancelado`, e retomando o saldo quando o chamado sai de `Resolvido`, inclusive por `Solução Rejeitada`;
   - chamado cuja linha do tempo não reconstrói o status atual é **não calculável**, sem estimativa;
-  - **encerramento automático** de chamado `Resolvido` há 72 horas corridas sem rejeição, somente quando a entrada em `Resolvido` foi registrada após o início de vigência do encerramento; elegibilidade decidida e revalidada no Xano; job que apenas dispara a verificação; comentário público de sistema; autoria `Sistema`; proteção contra duplicidade.
+  - **encerramento sob comando manual** de chamado `Resolvido` há 72 horas corridas sem rejeição, somente quando a entrada em `Resolvido` foi registrada após o início de vigência do encerramento; elegibilidade decidida e revalidada no Xano; comando `make encerrar-resolvidos` que dispara uma única verificação por API, sem agendamento; comentário público de sistema; autoria `Sistema`; proteção contra duplicidade.
 - Nenhum dado histórico é reescrito; nenhum campo agregado de SLA é persistido.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `sla-encerramento-chamados`: consumo de SLA por estados e encerramento automático controlado.
+- `sla-encerramento-chamados`: consumo de SLA por estados e encerramento controlado por comando manual.
 
 ### Modified Capabilities
 
-Nenhuma nesta proposta até o Apply da exposição. A DE-8 (2026-11-08) define a exibição por perfil (design D5); os contratos e telas correspondentes ainda não foram implementados.
+- `chamados-acompanhamento-gerente`: comentário público do encerramento sob comando apresenta `autor.nome = "Sistema"`, sem mudar a projeção segura dos demais comentários.
+
+A DE-8 (2026-11-08) define a exibição de SLA por perfil (design D5); os contratos e telas correspondentes ainda não foram implementados.
 
 ## Decisões aprovadas (2026-11-04)
 
@@ -43,23 +45,24 @@ Nenhuma nesta proposta até o Apply da exposição. A DE-8 (2026-11-08) define a
 - Prova E0.3: datasource próprio de teste no workspace `152692`, branch `v1`, autorizado em 2026-11-08 como alternativa ao workspace separado. Registros separados; schema e recursos publicados compartilhados. Prova e aprovação do relatório ainda pendentes.
 - Dependências "4", "5" e "D3" do planejamento: sem origem documental no repositório; registradas como dependências externas não esclarecidas.
 
-## Decisões pendentes
+## Decisões complementares aprovadas em 2026-11-08
 
-| ID | Pergunta | Alternativas | Impacto |
-|---|---|---|---|
-| DE-3a | Texto do comentário público de sistema | Proposta: "Chamado encerrado automaticamente após 72 horas em Resolvido sem rejeição da solução." | Conteúdo visível ao Gerente |
-| DE-3b | Como o autor do comentário de sistema aparece | Manter o DTO público vigente (`autor = null`, apresentado como autor não informado); ampliar o DTO de comentário para identificar `Sistema` (MODIFIED de `chamados-acompanhamento-gerente`) | Contrato público de comentários |
-| DE-4 | Mecanismo do job | Script Python no padrão do Fiscal, com credencial própria (recomendado); ampliar o Fiscal; tarefa agendada do Xano (disponibilidade no Free não confirmada) | Arquitetura, credenciais, `.env.example` |
-| DE-5 | Frequência do job | Ex.: 15 min (atraso máximo de 15 min após as 72 h); 1 h | Pontualidade do encerramento |
-| DE-6 | `Aguardando Terceiro` (legado) conta SLA? | Conta como espera; manter não calculável (comportamento da spec até decidir) | Chamados legados |
-| DE-7 | Encerramento manual pelo Save a partir de qualquer estado não terminal permanece? | Manter (atual); restringir | Ciclo de vida |
-| DE-8 | Onde o consumo de SLA é exposto? | **Decidida em 2026-11-08** (design D5): Técnico na fila e no detalhe; Gerente nos chamados da própria Loja e em indicadores gerenciais; Diretoria em indicadores consolidados; Administrador em visão global; solicitante sem SLA nesta versão | Contratos e telas |
-| DE-9 | Onde fica o início de vigência do encerramento | Variável de ambiente do Xano (se disponível no Free, a validar no MCP); constante versionada na função, definida no Apply | Configuração e auditoria |
+| ID | Decisão | Impacto |
+|---|---|---|
+| DE-3a | Comentário público: "Chamado encerrado automaticamente após 72 horas em Resolvido sem rejeição da solução." | Conteúdo visível ao Gerente |
+| DE-3b | O DTO público mostra autor `Sistema` para o comentário gerado pelo encerramento | Contrato público de comentários |
+| DE-4 | Comando Python executado uma vez via `make encerrar-resolvidos`; chama endpoint próprio e não decide elegibilidade | Sem processo residente nem agendamento |
+| DE-5 | Não se aplica frequência: o comando é disparado manualmente quando se deseja verificar e encerrar elegíveis | Um chamado pode permanecer `Resolvido` depois de 72 h até a próxima execução manual |
+| DE-7 | Preservar o encerramento manual pelo Save a partir de estados não terminais | Ciclo de vida existente |
+| DE-8 | Técnico na fila e no detalhe; Gerente nos chamados da própria Loja e em indicadores gerenciais; Diretoria em indicadores consolidados; Administrador em visão global; solicitante sem SLA nesta versão | Contratos e telas |
+| DE-9 | Constante versionada na função Xano, fixada na publicação do encerramento | Configuração e auditoria |
+
+`Aguardando Terceiro` não integra a lista canônica vigente; não há decisão nem trabalho adicional sobre esse status nesta change. A regra geral de linha do tempo inconsistente permanece.
 
 ## Impact
 
 - Xano: função de cálculo de consumo (somente leitura); função e endpoint de encerramento autenticado por credencial de automação; nenhuma alteração no Save, schema ou dados históricos.
-- Python: script do job (conforme DE-4).
+- Python e Makefile: comando de disparo único (DE-4), sem loop nem scheduler.
 - Reflex: somente se DE-8 incluir telas.
 
 ## Fora do escopo

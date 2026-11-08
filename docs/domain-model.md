@@ -418,12 +418,12 @@ Os status aprovados para o domínio são:
 - `Cancelado` é terminal: não pode ser reaberto nem receber novas edições funcionais; comentários autorizados continuam possíveis;
 - `Encerrado` é terminal: não pode ser reaberto nem receber novas edições funcionais; comentários autorizados continuam possíveis;
 - `Resolvido` significa que a solução técnica foi aplicada e o serviço foi considerado restaurado;
-- enquanto `Resolvido`, o solicitante pode aceitar ou rejeitar a solução;
-- a aceitação leva o sistema a `Encerrado`;
-- se não houver rejeição durante três dias em `Resolvido`, o sistema deve alterar automaticamente o Chamado para `Encerrado`;
-- um job ou script periódico apenas dispara a verificação; o Xano avalia a elegibilidade e efetiva o encerramento;
+- enquanto `Resolvido`, o Gerente da Loja pode rejeitar a solução com justificativa pública obrigatória; o solicitante não altera o status;
+- não há aceite explícito da solução nesta versão;
+- após três dias corridos em `Resolvido` sem rejeição, um comando manual de execução única pode solicitar a verificação de encerramento; o Xano avalia a elegibilidade e efetiva a alteração para `Encerrado`;
+- sem execução desse comando, o prazo por si só não altera o status;
 - o retorno de telemetria não participa do encerramento automático;
-- Técnico, Diretoria e Administrador podem selecionar `Solução Rejeitada` no Save de chamado não terminal, com comentário humano obrigatório de visibilidade Pública ou Interna; aceite e rejeição pelo solicitante são fluxos futuros;
+- Técnico, Diretoria e Administrador podem selecionar `Solução Rejeitada` no Save de chamado não terminal, com comentário humano obrigatório de visibilidade Pública ou Interna; a rejeição específica do Gerente exige justificativa pública e autorização pela própria Loja;
 - essa transição operacional segue as regras gerais do Save: outras diferenças funcionais só são persistidas quando também forem informadas e autorizadas; o comentário e a última atualização são registrados;
 - se um problema reaparecer depois de `Encerrado` ou `Cancelado`, deve ser aberto um novo Chamado.
 

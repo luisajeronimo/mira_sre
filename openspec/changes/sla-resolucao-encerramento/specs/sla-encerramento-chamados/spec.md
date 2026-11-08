@@ -47,8 +47,8 @@ Quando a linha do tempo de status não começar em `Novo`, possuir transição c
 - **WHEN** o status atual não é reconstruível pelas transições registradas
 - **THEN** o SLA é reportado como não calculável, sem valor de consumo
 
-### Requirement: Encerramento automático é decidido e revalidado pelo Xano
-O sistema DEVE (MUST) encerrar automaticamente chamado `Resolvido` cuja entrada registrada em `Resolvido` ocorreu há pelo menos 72 horas corridas, sem rejeição posterior, desde que essa entrada seja igual ou posterior ao início de vigência do encerramento automático, definido explicitamente na publicação e nunca derivado dos dados. Uma automação DEVE (MUST) apenas disparar a verificação; o Xano DEVE (MUST) selecionar os candidatos, decidir a elegibilidade e, imediatamente antes de gravar, revalidar o status `Resolvido` e o `ultima_atualizacao_em` lido. O encerramento DEVE (MUST) registrar um comentário público de sistema, definir `Encerrado`, atualizar `ultima_atualizacao_em` e registrar `alteracao_chamado` com `Resolvido` → `Encerrado` e referência ao comentário, sem usuário, apresentado como `Sistema` no histórico. Chamado sem entrada em `Resolvido` registrada NÃO DEVE (MUST NOT) ser encerrado automaticamente por timestamp inferido. Retorno de telemetria NÃO DEVE (MUST NOT) participar da decisão.
+### Requirement: Encerramento sob comando manual é decidido pelo Xano
+O sistema DEVE (MUST) oferecer um comando manual de execução única para solicitar ao Xano a verificação de chamados `Resolvido`. Quando esse comando for executado, o Xano DEVE (MUST) encerrar os chamados cuja entrada registrada em `Resolvido` ocorreu há pelo menos 72 horas corridas, sem rejeição posterior, desde que essa entrada seja igual ou posterior ao início de vigência do encerramento, definido explicitamente na publicação e nunca derivado dos dados. O comando NÃO DEVE (MUST NOT) selecionar candidatos nem alterar chamados diretamente; o Xano DEVE (MUST) decidir a elegibilidade e revalidar o status `Resolvido` antes de gravar. O encerramento DEVE (MUST) registrar o comentário público "Chamado encerrado automaticamente após 72 horas em Resolvido sem rejeição da solução.", definir `Encerrado`, atualizar `ultima_atualizacao_em` e registrar `alteracao_chamado` com `Resolvido` → `Encerrado` e referência ao comentário, sem usuário, apresentado como `Sistema` no histórico e no comentário público. Chamado sem entrada em `Resolvido` registrada NÃO DEVE (MUST NOT) ser encerrado por timestamp inferido. Retorno de telemetria NÃO DEVE (MUST NOT) participar da decisão. Sem execução do comando, nenhum encerramento por prazo é prometido.
 
 #### Scenario: Chamado elegível
 - **WHEN** o chamado entrou em `Resolvido` após o início de vigência, há 72 horas ou mais, e a verificação é disparada
@@ -78,9 +78,13 @@ O sistema DEVE (MUST) encerrar automaticamente chamado `Resolvido` cuja entrada 
 - **WHEN** o chamado está `Resolvido` sem transição registrada para esse estado
 - **THEN** o Xano não o encerra automaticamente e o reporta como não elegível
 
-#### Scenario: Automação não decide
-- **WHEN** a automação dispara a verificação
-- **THEN** ela não envia identificadores de chamados nem altera chamados diretamente
+#### Scenario: Comando não decide
+- **WHEN** o comando manual dispara a verificação uma vez
+- **THEN** ele não envia identificadores de chamados, não altera chamados diretamente e termina após receber a resposta do Xano
+
+#### Scenario: Prazo vencido sem execução do comando
+- **WHEN** um chamado completa 72 horas em `Resolvido` e ninguém executa o comando
+- **THEN** ele permanece `Resolvido` até uma execução posterior ou alteração manual autorizada
 
 ### Requirement: Estados terminais permanecem bloqueados
 `Encerrado` e `Cancelado` DEVEM (MUST) continuar bloqueando reabertura e edição funcional por qualquer fluxo desta capacidade, inclusive o encerramento automático e a rejeição de solução.

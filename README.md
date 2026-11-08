@@ -21,15 +21,15 @@ O comportamento aprovado e vigente está em [`openspec/specs/`](openspec/specs/)
 
 ## Funcionalidades planejadas (ainda não implementadas)
 
-- Acompanhamento somente leitura dos chamados pelo solicitante e histórico público de status (Sprint 3: contratos publicados no Xano em 07/11; interface implementada localmente e desligada até a validação; ver tabela abaixo).
+- Acompanhamento somente leitura dos chamados pelo solicitante e histórico público de status (Sprint 3: contratos publicados no Xano em 07/11; interface Reflex implementada localmente, fora do repositório até a liberação condicionada K-B; ver tabela abaixo).
 - Rejeição de solução pelo Gerente da loja e encerramento automático após 72 horas corridas em `Resolvido` (Sprint 3, em especificação; dependem de prova de segurança transacional).
-- Contagem de SLA em tempo corrido (Sprint 3: cálculo publicado no Xano em 08/11 como função interna, sem endpoint nem exibição; exposição depende da DE-8) e indicadores de consumo.
+- Contagem de SLA em tempo corrido (Sprint 3: cálculo publicado no Xano em 08/11 como função interna, sem endpoint nem exibição; exposição por perfil decidida na DE-8 em 08/11 e ainda não implementada) e indicadores de consumo.
 - Aceitação explícita da solução (sem regra definida).
 - Dashboards de disponibilidade, incidentes, MTTD, MTTR e SLA.
 
 ## Estado da Sprint 3 (26/10 a 08/11/2026)
 
-Situação em 08/11/2026, na branch `explore-monitoramento-xano`. Publicados no Xano com autorização: Pacote A (2 GETs genéricos, 07/11 17:41), Pacote B (7 funções e 5 endpoints do solicitante e do histórico, 07/11 19:19) e a função interna `calcular_consumo_sla_chamado` (08/11). O restante continua local.
+Situação em 08/11/2026, na branch `explore-monitoramento-xano`. Publicados no Xano com autorização: Pacote A (2 GETs genéricos, 07/11 17:41), Pacote B (7 funções e 5 endpoints do solicitante e do histórico, 07/11 19:19) a função interna `calcular_consumo_sla_chamado` e quatro funções de leitura do Gerente, do solicitante e do Técnico (08/11). A correção C-1 dos GETs genéricos de `chamados` está versionada e aguarda publicação autorizada. O restante continua local.
 
 Categorias de evidência (não se misturam):
 
@@ -44,10 +44,11 @@ Categorias de evidência (não se misturam):
 |---|---|---|---|---|---|---|---|
 | GETs genéricos de interações negam o Gerente | Sim | Sim (mutação contra o `HEAD`) | Válido | — | HTTP: Gerente, Diretoria e Administrador 403; Técnico 200/404 | Não se aplica | **Sim** (Pacote A, 07/11) |
 | Contratos do solicitante e do histórico de status | Sim (Xano) | Sim | Válido | Testes nativos 14/14 PASS | HTTP parcial: 404 uniforme e 403; caminho com chamado próprio não executado (sem dados) | Não se aplica (somente leitura) | **Sim** (Pacote B, 07/11) |
-| Interface do solicitante e seção de histórico | Sim (Reflex) | Sim | Não se aplica | Sim (cliente, State, rotas, navegação) | Não se aplica | Não se aplica | Desligada por `MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO=false` até a validação dos contratos publicados |
+| Interface do solicitante e seção de histórico | Somente local (Reflex), fora do repositório até K-B | Sim, localmente | Não se aplica | Sim, localmente (cliente, State, rotas, navegação) | Não se aplica | Não se aplica | Não; o código entra no repositório, com a flag de liberação, depois da validação dos contratos (task 5.8) |
 | Confirmação de publicação de comentário do Gerente | Sim (Reflex) | — | Não se aplica | Sim | Não se aplica | Não se aplica | Não |
-| Consumo de SLA (`calcular_consumo_sla_chamado`), **interna**, sem endpoint (DE-8 pendente) | Sim (Xano) | Sim (modelo de referência) | Válido | Testes nativos 17/17 PASS (08/11) | Sem HTTP (não há endpoint) | Não se aplica (somente leitura) | **Sim** (função interna, 08/11) |
+| Consumo de SLA (`calcular_consumo_sla_chamado`), **interna**, sem endpoint (DE-8 decidida, exposição não implementada) | Sim (Xano); 3 testes novos locais (troca de Categoria, instante omitido e instante 0) | Sim (modelo de referência) | Válido | Testes nativos 17/17 PASS (08/11) na versão publicada; os 3 novos não executados | Sem HTTP (não há endpoint) | Não se aplica (somente leitura) | **Sim** (função interna, 08/11) |
 | Prova E0.3 (atomicidade) | Pacote de prova preparado | Sim (coerência da matriz) | Válido | Não se aplica | Não executado | **Não comprovado** | Nunca no workspace compartilhado |
+| GETs genéricos de `chamados` pela Loja histórica (correção C-1) | Sim (Xano; change `corrigir-gerente-gets-genericos-loja-historica`) | Sim (contrato, modelo de referência e mutação) | Bloqueada (MCP indisponível na sessão) | 7 testes nativos escritos, não executados | Não executado (E2E somente leitura preparado) | Não se aplica | **Não**: pacote seletivo aguarda autorização; a vulnerabilidade segue no publicado |
 | Rejeição de solução e encerramento automático | Não: dependem da E0.3 (DT-1) e das decisões DE-3a/b e DE-4 a DE-9 | — | — | — | — | — | Não |
 | Loja histórica do Totem (regra já publicada no Xano) | Regularização local em andamento (change `regularizar-loja-historica-totem`) | Sim (contrato e mutação) | Válido | Testes nativos 36/36 PASS (9 funções somente leitura) e 14/14 PASS das escritas com `mock` (`abrir_chamado_manual`, `transferir_totem`, 08/11) | HTTP: Gerente 403 em chamados sem Loja histórica; cenários de escrita não executados | Não se aplica | Já estava publicada; nenhum push nesta change |
 

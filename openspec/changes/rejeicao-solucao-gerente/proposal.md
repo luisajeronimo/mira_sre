@@ -7,7 +7,7 @@ Cartão da Sprint 3 "Acompanhamento e retorno do solicitante" (estado informado:
 Relação com as demais changes:
 
 - O acompanhamento já está implementado e consolidado (lista, detalhe e comentários públicos do Gerente pela Loja, inclusive em terminal) ou em proposta em `acompanhamento-solicitante-historico-status` (histórico público projetado de `alteracao_chamado`, consulta do solicitante, GETs genéricos).
-- A versão anterior da rejeição (com `Reaberto` e evento `alteracao_status`) está preservada, inativa, em `acompanhamento-solicitante-historico-status/referencias/rejeicao-solucao-versao-anterior/`. Esta change não a restaura.
+- A versão anterior da rejeição (com `Reaberto` e evento `alteracao_status`) está preservada, inativa, no histórico Git (commit `1f27556`, pasta `acompanhamento-solicitante-historico-status/referencias/rejeicao-solucao-versao-anterior/`, removida da árvore em 2026-11-08 para não duplicar specs superadas; ex.: `git show 1f27556:openspec/changes/acompanhamento-solicitante-historico-status/referencias/rejeicao-solucao-versao-anterior/README.md`). Esta change não a restaura.
 - Os efeitos da rejeição sobre o SLA pertencem a `sla-resolucao-encerramento`.
 
 ## What Changes

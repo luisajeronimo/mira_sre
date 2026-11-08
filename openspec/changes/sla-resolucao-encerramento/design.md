@@ -62,6 +62,33 @@ Função `service_desk/encerrar_chamados_resolvidos_elegiveis` e endpoint de aut
 
 Conforme DE-4 (recomendado: script Python separado, no padrão do Fiscal: chama o endpoint, aguarda a resposta, registra contagens sem dados sensíveis e espera o intervalo DE-5). A disponibilidade de tarefas agendadas do Xano no plano Free não foi confirmada na documentação oficial consultada.
 
+### D5. Exposição do consumo por perfil (DE-8, decidida em 2026-11-08)
+
+Fonte única: `calcular_consumo_sla_chamado` (D1–D2). Nenhuma camada recalcula, estima ou completa valores.
+
+| Perfil | Onde | O que |
+|---|---|---|
+| Técnico | Fila e detalhe | Percentual consumido, tempo restante e situação |
+| Gerente | Lista e detalhe dos chamados da própria Loja histórica; indicadores gerenciais | Percentual, tempo restante, situação e alerta de proximidade ou vencimento |
+| Diretoria | Indicadores consolidados e evolução por período | Agregados de cumprimento (fórmula depende de DS-2) |
+| Administrador | Visão global, respeitando as permissões vigentes | Mesmos campos do Técnico |
+| Solicitante | Nenhum nesta versão | Somente status; o SLA interno não é exposto |
+
+Situação apresentada, derivada do retorno da função sem regra nova:
+
+| Situação | Condição |
+|---|---|
+| Dentro do SLA | `calculavel` e `faixa = normal` |
+| Próximo do vencimento | `calculavel` e `faixa` em `risco` ou `critico` (domínio §12) |
+| Vencido | `calculavel` e `faixa = violado` |
+| Pausado | `estado_contagem = pausada` (em `Resolvido`); a faixa no instante da pausa continua visível |
+| Encerrado | `estado_contagem = encerrada` (`Encerrado` ou `Cancelado`) |
+| Não calculável | `calculavel = false`; exibir o motivo, sem percentual nem prazo |
+
+Percentual: `fracao_consumida × 100`. Tempo restante: `sla_horas_aplicado × 3 600 000 − consumo_ms`, exibido somente em contagem; valor negativo é apresentado como tempo excedido. A autorização de cada consulta permanece no Xano: o Gerente só recebe consumo de chamados autorizados pela Loja histórica; o solicitante não recebe campos de SLA.
+
+Pendências: indicadores do Gerente e da Diretoria dependem de DS-2 e DI-1 a DI-5 (change `indicadores-governanca-formulas`); o desenho dos contratos de exposição (campos novos nos DTOs existentes ou consulta própria) é decidido no Apply desta parte, com testes.
+
 ## Risks / Trade-offs
 
 - [Transação não comprovada] → prova E0.3 obrigatória (DT-1) para as três escritas; ambiente isolado ainda não autorizado.

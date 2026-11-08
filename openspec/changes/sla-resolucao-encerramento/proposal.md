@@ -22,7 +22,7 @@ Já existem e são preservados: bloqueio de edição funcional em `Encerrado` e 
 
 ### Modified Capabilities
 
-Nenhuma nesta proposta. A exibição do consumo de SLA em telas ou DTOs existentes depende de DE-8.
+Nenhuma nesta proposta até o Apply da exposição. A DE-8 (2026-11-08) define a exibição por perfil (design D5); os contratos e telas correspondentes ainda não foram implementados.
 
 ## Decisões aprovadas (2026-11-04)
 
@@ -53,7 +53,7 @@ Nenhuma nesta proposta. A exibição do consumo de SLA em telas ou DTOs existent
 | DE-5 | Frequência do job | Ex.: 15 min (atraso máximo de 15 min após as 72 h); 1 h | Pontualidade do encerramento |
 | DE-6 | `Aguardando Terceiro` (legado) conta SLA? | Conta como espera; manter não calculável (comportamento da spec até decidir) | Chamados legados |
 | DE-7 | Encerramento manual pelo Save a partir de qualquer estado não terminal permanece? | Manter (atual); restringir | Ciclo de vida |
-| DE-8 | Onde o consumo de SLA é exposto? | Somente no futuro dashboard; detalhe técnico; detalhe do Gerente | Contratos e telas |
+| DE-8 | Onde o consumo de SLA é exposto? | **Decidida em 2026-11-08** (design D5): Técnico na fila e no detalhe; Gerente nos chamados da própria Loja e em indicadores gerenciais; Diretoria em indicadores consolidados; Administrador em visão global; solicitante sem SLA nesta versão | Contratos e telas |
 | DE-9 | Onde fica o início de vigência do encerramento | Variável de ambiente do Xano (se disponível no Free, a validar no MCP); constante versionada na função, definida no Apply | Configuração e auditoria |
 
 ## Impact

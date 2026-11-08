@@ -8,7 +8,7 @@
 - [x] 1.4 DE-3 aprovada: comentário público de sistema no encerramento automático.
 - [ ] 1.5 Decidir DE-3a (texto) e DE-3b (autor do comentário de sistema no DTO público).
 - [ ] 1.6 Decidir DE-4 e DE-5 (mecanismo e frequência do job). Evidência para a decisão (2026-11-08, `xano workspace pull` somente leitura de 16:28): o workspace `152692` contém somente documentos `api`, `function`, `table` e `workspace`, sem nenhuma tarefa agendada; hoje não existe mecanismo que dispare o encerramento. A disponibilidade de tarefas agendadas no plano Free não foi verificada.
-- [ ] 1.7 Decidir DE-6, DE-7, DE-8 e DE-9.
+- [ ] 1.7 Decidir DE-6, DE-7 e DE-9. DE-8 decidida em 2026-11-08 (design D5).
 - [ ] 1.8 Obter autorização de ambiente isolado e executar a prova E0.3 (DT-1) antes de 3.1. Investigação de 2026-11-05 ([validacao-xano-2026-11.md](../acompanhamento-solicitante-historico-status/validacao-xano-2026-11.md)): `xano sandbox` exige plano pago; `xano ephemeral` cria tenant dentro do workspace compartilhado `152692`, o único da conta. Nenhum ambiente criado; segue bloqueada por ambiente. Pacote de prova preparado em 2026-11-07: [prova-e03/](../rejeicao-solucao-gerente/prova-e03/README.md) (tabela, funções e teste de workflow com a matriz `db.add`, `db.patch`, `function.run`, duas escritas e tipos de erro; concorrência não coberta). Validação estática MCP: 4/4; teste local de coerência: `tests/test_prova_e03_pacote.py`. **Não executado:** runtime, persistência e rollback continuam sem prova.
 - [ ] 1.9 Esclarecer as dependências externas "4", "5" e "D3" do planejamento.
 - [ ] 1.10 Obter aprovação formal do Apply.
@@ -18,6 +18,8 @@
 - [ ] 2.1 Função somente leitura de linha do tempo e consumo (design D1–D2). Evidência: testes XanoScript dos exemplos e cenários do design (sem pausa, rejeição, múltiplas pausas, espera, `Encerrado` direto, `Cancelado`, troca de Categoria, linha do tempo inconsistente, limites de 70%, 90% e 100%); teste estático sem escrita.
 
 > Progresso de 2.1 (2026-11-05 a 07, Apply local autorizado): `xano/function/service_desk/calcular_consumo_sla_chamado.xs` implementa D1–D2 somente para leitura, com entrada `chamados_id` e `instante_referencia` opcional (padrão: instante atual) e saída `{chamados_id, calculavel, motivo, consumo_ms, sla_horas_aplicado, fracao_consumida, faixa, estado_contagem, calculado_em}`; faixas do domínio §12. É **interna**: nenhum endpoint a chama, porque a exposição depende de DE-8. Possui 17 blocos `test` XanoScript (exemplo do design, sem pausa, múltiplas pausas, espera, `Encerrado`, `Cancelado`, linha do tempo inconsistente, status fora da lista, limites de 70%, 90% e 100%, sem SLA, sem `criado_em`, transição anterior à abertura, inexistente). Validação MCP: válida após substituir `num_min` e `num_max`, inexistentes no XanoScript, por condicionais. `tests/test_consumo_sla_xanoscript.py` (21 testes) recalcula os esperados com um modelo de referência das regras e verifica que a função é somente leitura e sem chamadores; a checagem de mutação detectou 3 de 3 valores alterados. **Runtime (2026-11-08, publicação autorizada):** dry-run imediatamente anterior com exatamente `+1 created` (`CREATE function service_desk/calcular_consumo_sla_chamado`), sem update nem remoção; publicação somente deste arquivo; dry-run posterior "No changes to push"; `xano workspace pull` confirmou `db.query chamados` e `db.query interacoes_chamado` reais (o aviso de referência não resolvida do push parcial era falso positivo). Os 17 testes nativos (função `358602`) passaram: **17/17 PASS**. A função continua interna, sem endpoint. **Aberta:** troca de Categoria é coberta somente por usar o `sla_horas_aplicado` vigente, sem teste dedicado. O motivo `ordem_temporal_inconsistente` (transição anterior a `criado_em`) é uma salvaguarda técnica para não somar intervalo negativo e precisa de confirmação na revisão.
+
+> Atualização de 2026-11-08 (local, não publicada): 3 testes novos, totalizando 20 blocos `test`: "troca de categoria usa sla vigente" (SLA anterior de 8 h resultaria em `normal`; reinício na troca, em 1 h), "instante omitido usa o instante atual" e "instante zero e tratado como ausente" (achado M-4). A ausência de `instante_referencia` passa a ser reconhecida também quando o inteiro chega como 0, com o instante atual lido uma vez em `$agora` (mockável); a regra de cálculo não muda. Modelo de referência atualizado (26 testes locais) e verificação de mutação (remoção da guarda e alteração do instante mockado detectadas). **Não executado no Xano:** a versão publicada tem 17 testes (17/17 PASS); a nova exige publicação autorizada.
 
 ## 3. Xano — encerramento automático
 
@@ -33,3 +35,9 @@
 
 - [ ] 5.1 Suíte completa, `openspec validate sla-resolucao-encerramento --strict` e `git diff --check`, com classificação dos resultados.
 - [ ] 5.2 Teste integrado em ambiente autorizado; sem autorização, registrar como não executado.
+
+## 6. Exposição do consumo (DE-8, design D5)
+
+- [ ] 6.1 Contratos Xano por perfil (Técnico, Gerente pela Loja histórica, Administrador), sem campos de SLA para o solicitante. Evidência: testes nativos e de contrato para cada perfil, inclusive negação.
+- [ ] 6.2 Apresentação no Reflex das situações do design D5 (dentro, próximo, vencido, pausado, encerrado, não calculável). Evidência: testes de State e página.
+- [ ] 6.3 Indicadores do Gerente e da Diretoria, depois de DS-2 e DI-1 a DI-5.

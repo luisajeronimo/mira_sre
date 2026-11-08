@@ -7,33 +7,16 @@ query interacoes_chamado verb=GET {
   }
 
   stack {
+    // O Gerente lê interações somente pelos contratos funcionais filtrados;
+    // esta consulta genérica não filtra visibilidade nem tipo de evento.
     function.run "autorizacao/exigir_perfil" {
       input = {
         usuarios_id: $auth.id,
-        gerente: true,
         tecnico: true
       }
     } as $usuario
 
-    precondition ($usuario.role != "gerente" || $usuario.lojas_id != null) {
-      error_type = "accessdenied"
-      error = "Acesso não autorizado."
-    }
-
     db.query interacoes_chamado {
-      join = {
-        chamado: {
-          table: "chamados",
-          type: "left",
-          where: $db.interacoes_chamado.chamados_id == $db.chamado.id
-        },
-        ativo: {
-          table: "ativos_referencia",
-          type: "left",
-          where: $db.chamado.ativos_referencia_id == $db.ativo.id
-        }
-      }
-      where = $usuario.role == "tecnico" || ($usuario.role == "gerente" && $db.ativo.lojas_id == $usuario.lojas_id)
       return = {type: "list"}
     } as $interacoes_chamado
   }

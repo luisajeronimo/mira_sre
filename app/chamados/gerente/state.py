@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import datetime
 from typing import Any, TypedDict
 from zoneinfo import ZoneInfo
@@ -13,13 +14,17 @@ from app.chamados.shared import (
     ChamadoView,
     ComentarioView,
     DetalheView,
+    HistoricoStatusView,
     _detalhe_para_dict,
     _resumo_para_dict,
     comentario_publico_para_dict,
+    consumo_sla_para_dict,
+    historico_status_para_dict,
 )
 from app.services.service_desk import PRIORIDADES_CHAMADO, criar_cliente_service_desk
 from app.services.xano import (
     XanoContratoInvalido,
+    XanoConflito,
     XanoEntradaInvalida,
     XanoIndisponivel,
     XanoNaoAutenticado,
@@ -46,6 +51,16 @@ class ChamadosGerenteState(AuthState):
     chamado: DetalheView = {}
     comentarios: list[ComentarioView] = []
     rascunho_comentario: str = ""
+    historico_status: list[HistoricoStatusView] = []
+    consumo_sla: dict[str, str] = {}
+    justificativa_rejeicao: str = ""
+    enviando_rejeicao: bool = False
+    carregando_historico: bool = False
+    carregando_sla: bool = False
+    mensagem_historico: str = ""
+    mensagem_sla: str = ""
+    mensagem_rejeicao: str = ""
+    mensagem_sucesso_rejeicao: str = ""
 
     filtro_numero: str = ""
     filtro_status: list[str] = []
@@ -119,6 +134,12 @@ class ChamadosGerenteState(AuthState):
         self.chamado = {}
         self.comentarios = []
         self.rascunho_comentario = ""
+        self.historico_status = []
+        self.consumo_sla = {}
+        self.justificativa_rejeicao = ""
+        self.enviando_rejeicao = False
+        self.carregando_historico = False
+        self.carregando_sla = False
         self._limpar_filtros()
         self.filtro_numero_confirmado = ""
         self.filtro_status_confirmado = []
@@ -209,6 +230,10 @@ class ChamadosGerenteState(AuthState):
         self.mensagem_detalhe = ""
         self.mensagem_comentarios = ""
         self.mensagem_sucesso = ""
+        self.mensagem_historico = ""
+        self.mensagem_sla = ""
+        self.mensagem_rejeicao = ""
+        self.mensagem_sucesso_rejeicao = ""
 
     def _registrar_erro(self, erro: Exception, destino: str) -> str | None:
         if isinstance(erro, XanoNaoAutenticado):
@@ -807,6 +832,9 @@ class ChamadosGerenteState(AuthState):
         self.chamado = {}
         self.comentarios = []
         self.rascunho_comentario = ""
+        self.historico_status = []
+        self.consumo_sla = {}
+        self.justificativa_rejeicao = ""
         self._limpar_mensagens_funcionais()
         yield
         destino = await self._garantir_gerente()
@@ -856,6 +884,37 @@ class ChamadosGerenteState(AuthState):
             finally:
                 if self._contexto_sessao_gerente() == contexto:
                     self.carregando_comentarios = False
+            self.carregando_sla = True
+            try:
+                consumo = await cliente.obter_consumo_sla_gerente(self._auth_token, chamado_id)
+                if not self._contexto_gerente_atual(contexto):
+                    return
+                self.consumo_sla = consumo_sla_para_dict(consumo)
+            except Exception as erro:  # noqa: BLE001
+                if not self._contexto_gerente_atual(contexto):
+                    return
+                destino = self._registrar_erro(erro, "mensagem_sla")
+                if destino is not None:
+                    yield rx.redirect(destino)
+                    return
+            finally:
+                self.carregando_sla = False
+            if os.getenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false").lower() == "true":
+                self.carregando_historico = True
+                try:
+                    itens = await cliente.listar_historico_status_gerente(self._auth_token, chamado_id)
+                    if not self._contexto_gerente_atual(contexto):
+                        return
+                    self.historico_status = [historico_status_para_dict(item) for item in itens]
+                except Exception as erro:  # noqa: BLE001
+                    if not self._contexto_gerente_atual(contexto):
+                        return
+                    destino = self._registrar_erro(erro, "mensagem_historico")
+                    if destino is not None:
+                        yield rx.redirect(destino)
+                        return
+                finally:
+                    self.carregando_historico = False
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             if not self._contexto_gerente_atual(contexto):
                 return
@@ -903,10 +962,7 @@ class ChamadosGerenteState(AuthState):
                 return
             self.comentarios = [comentario_publico_para_dict(comentario)] + self.comentarios
             self.rascunho_comentario = ""
-            resultado = await cliente.obter_chamado(self._auth_token, chamado_id)
-            if not self._contexto_gerente_atual(contexto):
-                return
-            self.chamado = _detalhe_para_dict(resultado)
+            self.mensagem_sucesso = "Comentário publicado."
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             if not self._contexto_gerente_atual(contexto):
                 return
@@ -914,9 +970,123 @@ class ChamadosGerenteState(AuthState):
             if destino is not None:
                 self.enviando_comentario = False
                 yield rx.redirect(destino)
+            self.enviando_comentario = False
+            return
+        try:
+            resultado = await cliente.obter_chamado(self._auth_token, chamado_id)
+            if not self._contexto_gerente_atual(contexto):
+                return
+            self.chamado = _detalhe_para_dict(resultado)
+        except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
+            if not self._contexto_gerente_atual(contexto):
+                return
+            destino = self._registrar_erro(erro, "mensagem_detalhe")
+            if destino is not None:
+                self.enviando_comentario = False
+                yield rx.redirect(destino)
                 return
         if self._contexto_sessao_gerente() == contexto:
             self.enviando_comentario = False
+
+    @rx.event
+    def alterar_justificativa_rejeicao(self, valor: str):
+        self.justificativa_rejeicao = valor
+
+    @rx.event
+    async def rejeitar_solucao(self):
+        if self.enviando_rejeicao:
+            return
+        self.mensagem_rejeicao = ""
+        self.mensagem_sucesso_rejeicao = ""
+        justificativa = self.justificativa_rejeicao.strip()
+        if not justificativa:
+            self.mensagem_rejeicao = "Informe a justificativa da rejeição."
+            return
+        if not self.detalhe_carregado or self.chamado.get("status") != "Resolvido":
+            self.mensagem_rejeicao = "O chamado não está Resolvido."
+            return
+        self.enviando_rejeicao = True
+        yield
+        destino = await self._garantir_gerente()
+        if destino is not None:
+            self.enviando_rejeicao = False
+            yield rx.redirect(destino)
+            return
+        contexto = self._contexto_sessao_gerente()
+        chamado_id = self.chamado["id"]
+        try:
+            cliente = criar_cliente_service_desk()
+            confirmado = await cliente.rejeitar_solucao(
+                self._auth_token, chamado_id, justificativa=justificativa,
+                ultima_atualizacao_em=self.chamado["ultima_atualizacao_em"],
+            )
+            if not self._contexto_gerente_atual(contexto):
+                return
+            self.chamado = _detalhe_para_dict(confirmado)
+            self.justificativa_rejeicao = ""
+            self.mensagem_sucesso_rejeicao = "Solução rejeitada."
+            self.consumo_sla = {}
+            self.historico_status = []
+            try:
+                comentarios = await cliente.listar_comentarios_publicos(self._auth_token, chamado_id)
+                if self._contexto_gerente_atual(contexto):
+                    self.comentarios = [comentario_publico_para_dict(item) for item in comentarios]
+            except Exception as erro:  # noqa: BLE001
+                destino = self._registrar_erro(erro, "mensagem_comentarios")
+                if destino is not None:
+                    yield rx.redirect(destino)
+                    return
+            if not self._contexto_gerente_atual(contexto):
+                return
+            try:
+                consumo = await cliente.obter_consumo_sla_gerente(self._auth_token, chamado_id)
+                if self._contexto_gerente_atual(contexto):
+                    self.consumo_sla = consumo_sla_para_dict(consumo)
+            except Exception as erro:  # noqa: BLE001
+                destino = self._registrar_erro(erro, "mensagem_sla")
+                if destino is not None:
+                    yield rx.redirect(destino)
+                    return
+            if not self._contexto_gerente_atual(contexto):
+                return
+            if os.getenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false").lower() == "true":
+                try:
+                    itens = await cliente.listar_historico_status_gerente(self._auth_token, chamado_id)
+                    if self._contexto_gerente_atual(contexto):
+                        self.historico_status = [historico_status_para_dict(item) for item in itens]
+                except Exception as erro:  # noqa: BLE001
+                    destino = self._registrar_erro(erro, "mensagem_historico")
+                    if destino is not None:
+                        yield rx.redirect(destino)
+                        return
+        except XanoConflito:
+            if self._contexto_gerente_atual(contexto):
+                self.mensagem_rejeicao = "O chamado mudou. Confira o detalhe atualizado antes de tentar novamente."
+                try:
+                    atualizado = await cliente.obter_chamado(self._auth_token, chamado_id)
+                    if self._contexto_gerente_atual(contexto):
+                        self.chamado = _detalhe_para_dict(atualizado)
+                        self.consumo_sla = {}
+                        self.historico_status = []
+                        try:
+                            consumo = await cliente.obter_consumo_sla_gerente(self._auth_token, chamado_id)
+                            if self._contexto_gerente_atual(contexto):
+                                self.consumo_sla = consumo_sla_para_dict(consumo)
+                        except Exception as erro:  # noqa: BLE001
+                            destino = self._registrar_erro(erro, "mensagem_sla")
+                            if destino is not None:
+                                yield rx.redirect(destino)
+                                return
+                except Exception as erro:  # noqa: BLE001
+                    self._registrar_erro(erro, "mensagem_detalhe")
+        except Exception as erro:  # noqa: BLE001
+            if self._contexto_gerente_atual(contexto):
+                destino = self._registrar_erro(erro, "mensagem_rejeicao")
+                if destino is not None:
+                    yield rx.redirect(destino)
+        finally:
+            if self._contexto_sessao_gerente() == contexto:
+                self.enviando_rejeicao = False
 
     @rx.event
     def descartar_rascunho_comentario(self):

@@ -50,8 +50,8 @@ def test_workflow_exercita_cada_cenario_e_le_depois():
         assert f'$db.e03_prova.rotulo == "{marcador}"' in texto
     assert len({m for _, m in chamados}) == len(chamados)
     assert texto.count("expect.to_throw") == len(MATRIZ)
-    assert 'datasource = "mira_e03"' in texto
-    assert 'datasource = "live"' not in texto
+    assert 'datasource = "live"' in texto
+    assert 'datasource = "mira_e03"' not in texto
 
 
 def test_controle_exige_persistencia_e_demais_exigem_zero_efeito():

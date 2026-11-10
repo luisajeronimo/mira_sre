@@ -52,7 +52,7 @@ Nomes finais confirmados no Apply, sem alterar comportamento:
 | Endpoint | Função | Resposta |
 |---|---|---|
 | `GET /solicitante/chamados` | `listar_chamados_solicitante` | `{items}` com o mesmo DTO de item da lista do Gerente, filtrado por `solicitante_id == $usuario.id`, ordenado por `ultima_atualizacao_em` DESC e `id` DESC, sem filtros, preferências ou paginação |
-| `GET /solicitante/chamados/{chamados_id}` | `obter_chamado_solicitante` | `{chamado}` com os campos funcionais do detalhe do Gerente, exceto `resumo_totem = null` e `solicitante` e `tecnico` limitados a `{nome}` (nulos quando ausentes) |
+| `GET /solicitante/chamados/{chamados_id}` | `obter_chamado_solicitante` | `{chamado}` com os campos funcionais do detalhe do Gerente, exceto `resumo_totem = null`, `solicitante` e `tecnico` limitados a `{nome}` (nulos quando ausentes), e sem `sla_horas_aplicado` conforme DE-8 |
 | `GET /solicitante/chamados/{chamados_id}/comentarios` | `listar_comentarios_publicos_solicitante` | `{items}` com filtro e DTO idênticos aos de `listar_comentarios_publicos_gerente` |
 | `GET /solicitante/chamados/{chamados_id}/historico-status` | `listar_historico_status` (D3) | `{items}` |
 
@@ -113,7 +113,7 @@ Negar em vez de filtrar: não há consumidor e os contratos funcionais cobrem a 
 | Inferido | Comentário em `assumir_chamado_tecnico` e troca de `error_type` sugerem expectativa de rollback, sem evidência anexada |
 | Desconhecido | Rollback runtime após escrita seguida de `precondition`, `throw` ou erro em `function.run`; isolamento; concorrência; influência de `error_type` |
 
-Plano de prova revisto pela decisão humana de 2026-11-08 (ainda não executado): datasource próprio de teste no workspace `152692`, branch `v1`, sem registros reais e sem torná-lo ativo. Os registros ficam separados, mas schema e recursos publicados são compartilhados; somente tabela, funções e workflow test temporários `e03` podem ser publicados, após backup e dry-run seletivo. O workflow test seleciona explicitamente o datasource de prova. Experimentos: escrita seguida de `precondition(false)`, `throw`, erro em `function.run` e falha na segunda de duas escritas, com `error_type` `standard` e `inputerror`; leitura posterior fora da transação; critério de zero efeito parcial. O pacote atual não cobre concorrência, que permanece desconhecida. Relatório com execução, respostas e contagens; resultado positivo não libera R1 nem as novas escritas automaticamente. Detalhes e rollback: [plano-execucao-rollback.md](../rejeicao-solucao-gerente/prova-e03/plano-execucao-rollback.md).
+O plano de prova previa datasource próprio de teste no workspace `152692`, branch `v1`, sem registros reais e sem torná-lo ativo. A API do Xano recusou a publicação do `workflow_test` temporário com `Please upgrade to access workflow tests`; a prova de rollback em runtime ficou **bloqueada por restrição do plano Free**. Em 2026-11-08 a responsável aceitou formalmente essa limitação para prosseguir sem upgrade pago. Os experimentos planejados e o rollback não foram executados; concorrência também permanece desconhecida. Esta decisão não transforma análise estática em prova de rollback e não libera R1 por inferência. Detalhes: [plano-execucao-rollback.md](../rejeicao-solucao-gerente/prova-e03/plano-execucao-rollback.md).
 
 ## Risks / Trade-offs
 

@@ -210,7 +210,7 @@ def test_item_da_lista_do_solicitante_tem_os_campos_do_gerente():
 def test_detalhe_do_solicitante_tem_os_campos_do_gerente_sem_telemetria_nem_ids():
     gerente = campos_projecao(logica(DETALHE_GERENTE), "var $chamado")
     texto = logica(DETALHE_SOLICITANTE)
-    assert campos_projecao(texto, "var $chamado") == gerente
+    assert set(campos_projecao(texto, "var $chamado")) == set(gerente) - {"sla_horas_aplicado"}
     assert "resumo_totem: null" in texto
     assert "telemetria" not in texto
     assert "value = {nome: $registro.solicitante_nome}" in texto

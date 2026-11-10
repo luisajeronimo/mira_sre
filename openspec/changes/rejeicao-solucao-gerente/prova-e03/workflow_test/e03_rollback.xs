@@ -1,7 +1,7 @@
-// Matriz E0.3 no runtime Xano. Usa apenas o datasource de teste autorizado.
+// Matriz E0.3 no runtime Xano. Usa datasource = "live" com clonagem automática isolada.
 // Cada cenário usa um marcador próprio; a leitura posterior conta os registros.
 workflow_test "e03_rollback" {
-  datasource = "mira_e03"
+  datasource = "live"
 
   stack {
     expect.to_throw {

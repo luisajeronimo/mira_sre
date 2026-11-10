@@ -162,8 +162,8 @@ def test_funcao_e_somente_leitura_interna_e_sem_filtros_rejeitados():
     assert not re.search(r"\bdb\.(add|edit|patch|del|bulk|transaction)\b", texto)
     assert "num_min" not in texto and "num_max" not in texto
     assert "alteracao_status" not in texto
-    chamadores = [p for p in (ROOT / "xano").rglob("*.xs") if p != FUNCAO and "calcular_consumo_sla_chamado" in p.read_text(encoding="utf-8")]
-    assert chamadores == [], "exposição depende da decisão DE-8"
+    chamadores = sorted([p.name for p in (ROOT / "xano").rglob("*.xs") if p != FUNCAO and "calcular_consumo_sla_chamado" in p.read_text(encoding="utf-8")])
+    assert chamadores == ["obter_consumo_sla_gerente.xs", "obter_consumo_sla_tecnico.xs"], "exposição por DE-8 autorizada para Gerente e Técnico/Admin"
 
 
 def test_estados_e_faixas_seguem_dominio_e_design():

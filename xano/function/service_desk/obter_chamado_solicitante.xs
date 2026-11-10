@@ -145,7 +145,6 @@ function "service_desk/obter_chamado_solicitante" {
         criador_sistema: $registro.criador_sistema,
         criado_em: $registro.criado_em,
         ultima_atualizacao_em: $registro.ultima_atualizacao_em,
-        sla_horas_aplicado: $registro.sla_horas_aplicado,
         ativo: {id: $registro.ativo_id, nome_ativo: $registro.ativo_nome},
         categoria: {id: $registro.categoria_id, nome: $registro.categoria_nome},
         solicitante: $solicitante,

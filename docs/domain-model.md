@@ -96,7 +96,7 @@ Identificar quem acessa o sistema, seu papel e o escopo de atuação permitido.
 - abre chamados manuais sobre Totens da própria Loja;
 - consulta todos os chamados da própria Loja, inclusive históricos;
 - não acessa chamados de outras Lojas;
-- pode comentar nos chamados da própria Loja, inclusive terminais, mas não altera diretamente o status; aceite e rejeição pelo solicitante permanecem na visão futura.
+- pode comentar nos chamados da própria Loja, inclusive terminais, e rejeitar a solução de um chamado `Resolvido` com justificativa pública; não altera diretamente o status por outros meios. O aceite pelo solicitante permanece na visão futura.
 
 #### Técnico
 

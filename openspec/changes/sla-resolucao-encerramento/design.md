@@ -49,7 +49,7 @@ Função `service_desk/encerrar_chamados_resolvidos_elegiveis` e endpoint de aut
 3. Para cada candidato: `t_r` = `criado_em` da última transição com `resultante = "Resolvido"` em `T_c` consistente. Sem `t_r` ⇒ não elegível (nenhum timestamp é inferido).
 4. **Vigência (DE-2 e DE-9):** elegível somente se `t_r ≥ T_v`, onde `T_v` é uma constante versionada na função, fixada explicitamente no momento da publicação aprovada e registrada na evidência de publicação. `T_v` nunca é derivado dos dados. Chamados com `t_r < T_v`, inclusive os que já estavam `Resolvido` na implantação, nunca são candidatos ao comando e continuam sujeitos ao encerramento manual pelo Save; se forem rejeitados e resolvidos de novo, a nova entrada em `Resolvido` é posterior a `T_v` e passa a valer.
 5. **Prazo (DE-1):** elegível se `agora ≥ t_r + 72 h` (259.200.000 ms), em tempo corrido.
-6. Dentro de `db.transaction`, por chamado: releitura; revalidação de `status == "Resolvido"` e de `ultima_atualizacao_em` igual ao lido em 2; comentário público de sistema com texto exato "Chamado encerrado automaticamente após 72 horas em Resolvido sem rejeição da solução." (DE-3a; `usuarios_id` nulo e autor público `Sistema` por DE-3b); `db.patch` com `status = "Encerrado"` e `ultima_atualizacao_em = agora`; `alteracao_chamado` com `Resolvido → Encerrado`, `comentario_interacao_id` e `usuarios_id` nulo (autor `Sistema`). Três escritas: bloqueadas até a prova E0.3 (DT-1).
+6. Dentro de `db.transaction`, por chamado: releitura; revalidação de `status == "Resolvido"` e de `ultima_atualizacao_em` igual ao lido em 2; comentário público de sistema com texto exato "Chamado encerrado automaticamente após 72 horas em Resolvido sem rejeição da solução." (DE-3a; `usuarios_id` nulo e autor público `Sistema` por DE-3b); `db.patch` com `status = "Encerrado"` e `ultima_atualizacao_em = agora`; `alteracao_chamado` com `Resolvido → Encerrado`, `comentario_interacao_id` e `usuarios_id` nulo (autor `Sistema`). A prova E0.3 de rollback em runtime foi bloqueada por restrição do plano Free; a responsável aceitou a limitação em 2026-11-08 para prosseguir sem essa evidência.
 7. Resposta: contagens de avaliados, encerrados, fora da vigência, prazo não vencido, não calculáveis e conflitos; nenhum dado pessoal.
 
 O DTO público de comentários do Gerente projeta `autor = {nome: "Sistema"}` somente quando a relação entre o comentário e a transição `Resolvido` → `Encerrado` criada por esta operação comprovar a origem de sistema. Comentários sem autor cuja origem não seja comprovada permanecem com `autor = null`, conforme a capability `chamados-acompanhamento-gerente`.
@@ -91,7 +91,7 @@ Pendências: indicadores do Gerente e da Diretoria dependem de DS-2 e DI-1 a DI-
 
 ## Risks / Trade-offs
 
-- [Transação não comprovada] → prova E0.3 obrigatória (DT-1) para as três escritas; datasource de teste no `v1` autorizado em 2026-11-08, mas runtime e relatório ainda pendentes. Os recursos da prova compartilham o schema do workspace.
+- [Transação não comprovada] → prova E0.3 bloqueada porque `workflow_test` exige plano pago; limitação aceita em 2026-11-08. O rollback após falha posterior a escrita permanece sem prova em runtime.
 - [Chamados anteriores ao Save sem linha do tempo] → não calculáveis e não elegíveis, reportados.
 - [Primeiro encerramento em massa de chamados já vencidos] → impedido pela vigência `T_v` (DE-2).
 - [Corrida com rejeição] → revalidação; janela residual registrada.
@@ -99,4 +99,4 @@ Pendências: indicadores do Gerente e da Diretoria dependem de DS-2 e DI-1 a DI-
 
 ## Migration Plan
 
-Decisões DE-3a, DE-3b, DE-4, DE-5, DE-7 e DE-9 aprovadas → função de consumo com testes (sem dependência da prova) → prova E0.3 e relatório aprovado → encerramento com testes → validação MCP, dry-run e push aprovados → comando Python de execução única → validação integrada. Sem schema e sem backfill. Reversão: deixar de executar o comando e desativar o endpoint; encerramentos realizados permanecem registrados.
+Decisões DE-3a, DE-3b, DE-4, DE-5, DE-7 e DE-9 aprovadas → função de consumo com testes → bloqueio E0.3 e aceitação formal da limitação → encerramento com testes → validação MCP, dry-run e push aprovados → comando Python de execução única → validação integrada. Sem schema e sem backfill. Reversão: deixar de executar o comando e desativar o endpoint; encerramentos realizados permanecem registrados.

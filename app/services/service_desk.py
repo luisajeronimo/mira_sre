@@ -248,6 +248,46 @@ class DetalheChamadoTecnico:
     tecnicos: list[ReferenciaUsuario]
 
 
+@dataclass(frozen=True, slots=True)
+class HistoricoStatusItem:
+    id: int
+    status_anterior: str
+    status_resultante: str
+    criado_em: int
+    autor: AutorHistoricoStatus | None
+
+
+@dataclass(frozen=True, slots=True)
+class AutorHistoricoStatus:
+    nome: str
+    perfil: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenciaUsuarioPublico:
+    nome: str
+
+
+@dataclass(frozen=True, slots=True)
+class ChamadoDetalheSolicitante(ChamadoDetalhe):
+    solicitante: ReferenciaUsuarioPublico | None
+    tecnico: ReferenciaUsuarioPublico | None
+    resumo_totem: None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ConsumoSLADTO:
+    chamados_id: int
+    calculavel: bool
+    motivo: str | None
+    consumo_ms: int | None
+    sla_horas_aplicado: float | None
+    fracao_consumida: float | None
+    faixa: str | None
+    estado_contagem: str | None
+    calculado_em: int
+
+
 def _inteiro(valor: Any, campo: str) -> int:
     if not isinstance(valor, int) or isinstance(valor, bool) or valor <= 0:
         raise XanoContratoInvalido(f"Campo inválido na resposta: {campo}.")
@@ -825,6 +865,90 @@ def _comentario_publico(dados: Any) -> ComentarioPublico:
     )
 
 
+def _referencia_usuario_publico(valor: Any, campo: str) -> ReferenciaUsuarioPublico | None:
+    if valor is None:
+        return None
+    dados = _objeto_exato(valor, campo, {"nome"})
+    return ReferenciaUsuarioPublico(nome=_texto(dados["nome"], f"{campo}.nome"))
+
+
+def _detalhe_solicitante(dados: dict[str, Any]) -> ChamadoDetalheSolicitante:
+    campos = {"id", "titulo", "descricao", "status", "prioridade", "origem",
+              "criador_sistema", "criado_em", "ultima_atualizacao_em",
+              "ativo", "categoria", "solicitante",
+              "tecnico", "loja", "resumo_totem"}
+    dados = _objeto_exato(dados, "chamado", campos)
+    if dados["resumo_totem"] is not None:
+        raise XanoContratoInvalido("O detalhe do solicitante contém telemetria.")
+    return ChamadoDetalheSolicitante(
+        id=_inteiro(dados["id"], "chamado.id"),
+        titulo=_texto(dados["titulo"], "chamado.titulo"),
+        descricao=_texto_opcional(dados["descricao"], "chamado.descricao"),
+        status=_texto(dados["status"], "chamado.status"),
+        prioridade=_texto(dados["prioridade"], "chamado.prioridade"),
+        origem=_origem(dados["origem"]),
+        criado_em=_inteiro(dados["criado_em"], "chamado.criado_em"),
+        ultima_atualizacao_em=_inteiro(dados["ultima_atualizacao_em"], "chamado.ultima_atualizacao_em"),
+        sla_horas_aplicado=None,
+        ativo=_referencia_ativo(dados["ativo"]),
+        categoria=_referencia_categoria(dados["categoria"]),
+        solicitante=_referencia_usuario_publico(dados["solicitante"], "chamado.solicitante"),
+        tecnico=_referencia_usuario_publico(dados["tecnico"], "chamado.tecnico"),
+        criador_sistema=_criador_sistema(dados["criador_sistema"]),
+        loja=_referencia_loja(dados["loja"]),
+    )
+
+
+def _historico_status(dados: dict[str, Any]) -> list[HistoricoStatusItem]:
+    if set(dados) != {"items"} or not isinstance(dados["items"], list):
+        raise XanoContratoInvalido("O histórico de status é incompatível.")
+    resultado = []
+    for valor in dados["items"]:
+        item = _objeto_exato(valor, "historico", {"id", "status_anterior", "status_resultante", "criado_em", "autor"})
+        anterior = _texto(item["status_anterior"], "historico.status_anterior")
+        resultante = _texto(item["status_resultante"], "historico.status_resultante")
+        if anterior == resultante:
+            raise XanoContratoInvalido("O histórico contém transição inválida.")
+        autor = None
+        if item["autor"] is not None:
+            dados_autor = _objeto_exato(item["autor"], "historico.autor", {"nome", "perfil"})
+            perfil = dados_autor["perfil"]
+            if perfil is not None and perfil not in {"Gerente", "Técnico", "Diretoria", "Administrador"}:
+                raise XanoContratoInvalido("O histórico contém perfil inválido.")
+            autor = AutorHistoricoStatus(_texto(dados_autor["nome"], "historico.autor.nome"), perfil)
+        resultado.append(HistoricoStatusItem(
+            _inteiro(item["id"], "historico.id"), anterior, resultante,
+            _inteiro(item["criado_em"], "historico.criado_em"), autor,
+        ))
+    return resultado
+
+
+def _consumo_sla(dados: dict[str, Any]) -> ConsumoSLADTO:
+    consumo = _objeto_exato(dados.get("consumo_sla"), "consumo_sla", {
+        "chamados_id", "calculavel", "motivo", "consumo_ms", "sla_horas_aplicado",
+        "fracao_consumida", "faixa", "estado_contagem", "calculado_em",
+    })
+    if not isinstance(consumo["calculavel"], bool):
+        raise XanoContratoInvalido("O consumo de SLA é incompatível.")
+    calculavel = consumo["calculavel"]
+    motivo = _texto_opcional(consumo["motivo"], "consumo_sla.motivo")
+    consumo_ms = _contagem(consumo["consumo_ms"], "consumo_sla.consumo_ms") if calculavel else None
+    fracao = _numero(consumo["fracao_consumida"], "consumo_sla.fracao_consumida") if calculavel else None
+    faixa = consumo["faixa"]
+    estado = consumo["estado_contagem"]
+    if (calculavel and (motivo is not None or faixa not in {"normal", "risco", "critico", "violado"}
+                       or estado not in {"em_contagem", "pausada", "encerrada"} or fracao < 0)
+        or not calculavel and (motivo is None or any(consumo[c] is not None for c in ("consumo_ms", "fracao_consumida", "faixa", "estado_contagem")))):
+        raise XanoContratoInvalido("O consumo de SLA é incompatível.")
+    return ConsumoSLADTO(
+        chamados_id=_inteiro(consumo["chamados_id"], "consumo_sla.chamados_id"),
+        calculavel=calculavel, motivo=motivo, consumo_ms=consumo_ms,
+        sla_horas_aplicado=_numero_opcional(consumo["sla_horas_aplicado"], "consumo_sla.sla_horas_aplicado"),
+        fracao_consumida=fracao, faixa=faixa, estado_contagem=estado,
+        calculado_em=_inteiro(consumo["calculado_em"], "consumo_sla.calculado_em"),
+    )
+
+
 class XanoServiceDeskCliente(XanoCliente):
     """Adaptador tipado dos contratos funcionais do Service Desk."""
 
@@ -1057,6 +1181,56 @@ class XanoServiceDeskCliente(XanoCliente):
             erro_400_como_entrada=True,
         )
         return _comentario_publico(dados.get("comentario"))
+
+    async def rejeitar_solucao(
+        self, token: str, chamado_id: int, *, justificativa: str,
+        ultima_atualizacao_em: int,
+    ) -> ChamadoDetalhe:
+        dados = await self._requisitar(
+            "POST", f"/gerente/chamados/{chamado_id}/rejeitar-solucao",
+            token=token,
+            json={"justificativa": justificativa, "ultima_atualizacao_em": ultima_atualizacao_em},
+            erro_400_como_entrada=True,
+        )
+        if set(dados) != {"sucesso", "chamado"} or dados["sucesso"] is not True:
+            raise XanoContratoInvalido("A rejeição não foi confirmada pelo Xano.")
+        return _detalhe_gerente(_objeto(dados["chamado"], "chamado"))
+
+    async def listar_historico_status_gerente(self, token: str, chamado_id: int) -> list[HistoricoStatusItem]:
+        dados = await self._requisitar("GET", f"/gerente/chamados/{chamado_id}/historico-status", token=token)
+        return _historico_status(dados)
+
+    async def obter_consumo_sla_gerente(self, token: str, chamado_id: int) -> ConsumoSLADTO:
+        dados = await self._requisitar("GET", f"/gerente/chamados/{chamado_id}/consumo-sla", token=token)
+        return _consumo_sla(dados)
+
+    async def obter_consumo_sla_tecnico(self, token: str, chamado_id: int) -> ConsumoSLADTO:
+        dados = await self._requisitar("GET", f"/tecnico/chamados/{chamado_id}/consumo-sla", token=token)
+        return _consumo_sla(dados)
+
+    async def listar_chamados_solicitante(self, token: str) -> list[ChamadoResumo]:
+        dados = await self._requisitar("GET", "/solicitante/chamados", token=token)
+        if set(dados) != {"items"}:
+            raise XanoContratoInvalido("A lista do solicitante é incompatível.")
+        campos = {"id", "titulo", "descricao", "status", "prioridade", "origem",
+                  "criado_em", "ultima_atualizacao_em", "ativo", "categoria"}
+        return [_resumo_gerente(_objeto_exato(item, "item", campos)) for item in _colecao(dados)]
+
+    async def obter_chamado_solicitante(self, token: str, chamado_id: int) -> ChamadoDetalheSolicitante:
+        dados = await self._requisitar("GET", f"/solicitante/chamados/{chamado_id}", token=token)
+        if set(dados) != {"chamado"}:
+            raise XanoContratoInvalido("O detalhe do solicitante é incompatível.")
+        return _detalhe_solicitante(dados["chamado"])
+
+    async def listar_comentarios_publicos_solicitante(self, token: str, chamado_id: int) -> list[ComentarioPublico]:
+        dados = await self._requisitar("GET", f"/solicitante/chamados/{chamado_id}/comentarios", token=token)
+        if set(dados) != {"items"}:
+            raise XanoContratoInvalido("Os comentários do solicitante são incompatíveis.")
+        return [_comentario_publico(item) for item in _colecao(dados)]
+
+    async def listar_historico_status_solicitante(self, token: str, chamado_id: int) -> list[HistoricoStatusItem]:
+        dados = await self._requisitar("GET", f"/solicitante/chamados/{chamado_id}/historico-status", token=token)
+        return _historico_status(dados)
 
     async def listar_chamados_tecnico(
         self, token: str, *, numero: int | None = None,

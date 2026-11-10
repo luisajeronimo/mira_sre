@@ -11,7 +11,7 @@ from tests.test_e2e_isolamento_interacoes_gerente import Sessao, _publico, pytes
 
 PERFIS = ("tecnico", "gerente", "diretoria", "administrador")
 CAMPOS_ITEM = {"id", "titulo", "descricao", "status", "prioridade", "origem", "criado_em", "ultima_atualizacao_em", "ativo", "categoria"}
-CAMPOS_DETALHE = CAMPOS_ITEM | {"criador_sistema", "sla_horas_aplicado", "solicitante", "tecnico", "loja", "resumo_totem"}
+CAMPOS_DETALHE = CAMPOS_ITEM | {"criador_sistema", "solicitante", "tecnico", "loja", "resumo_totem"}
 CAMPOS_HISTORICO = {"id", "status_anterior", "status_resultante", "criado_em", "autor"}
 INEXISTENTE = 999999999
 

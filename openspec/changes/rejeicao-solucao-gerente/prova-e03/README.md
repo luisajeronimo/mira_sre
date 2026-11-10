@@ -1,6 +1,6 @@
 # Pacote da prova E0.3 (atomicidade de `db.transaction`)
 
-Situação: **preparado para validação estática; não executado no runtime.** Nenhum arquivo daqui pertence ao MIRA nem fica em `xano/`, para não entrar por engano em `xano workspace push` do produto. A revisão humana de 2026-11-08 autorizou a prova no datasource de teste `mira_e03` do workspace `152692`, branch `v1`; registros separados, schema e recursos compartilhados. O acesso à UI do Xano foi recusado pelo gate automático do navegador nesta sessão, portanto nenhum datasource ou recurso remoto foi criado.
+Situação: **Bloqueada no runtime por restrição de plano Free no Xano; limitação aceita por decisão humana.** Nenhum arquivo daqui pertence ao MIRA nem fica em `xano/`, para não entrar por engano em `xano workspace push` do produto. O push remoto foi tentado após autorização de `datasource = "live"`, mas a API do Xano rejeitou com `Error: Push failed (400): Multidoc import failed: Please upgrade to access workflow tests.` Em conformidade com as restrições de `openspec/config.yaml` (vedação a upgrade pago), a decisão humana de 2026-11-08 registrou o bloqueio de ambiente e aceitou formalmente a limitação funcional para prosseguir com a sprint.
 
 ## Conteúdo
 
@@ -9,7 +9,7 @@ Situação: **preparado para validação estática; não executado no runtime.**
 | `table/e03_prova.xs` | Tabela exclusiva com índice único em `rotulo`; somente dados fictícios |
 | `function/e03/executar_cenario.xs` | Cenários de escrita seguida de falha |
 | `function/e03/falhar.xs` | Função que sempre lança erro (cenário `function.run`) |
-| `workflow_test/e03_rollback.xs` | Executa os cenários e lê a tabela depois de cada falha, com `datasource = "mira_e03"` explícito |
+| `workflow_test/e03_rollback.xs` | Executa os cenários e lê a tabela depois de cada falha, com `datasource = "live"` explícito (clonagem isolada) |
 
 ## Matriz
 
@@ -28,17 +28,18 @@ Situação: **preparado para validação estática; não executado no runtime.**
 
 | Categoria | Situação |
 |---|---|
-| Validação estática MCP | **4/4 válidos, 0 warnings** após a seleção explícita de `mira_e03` (Developer MCP, 2026-11-08); não prova runtime |
-| Teste local | `tests/test_prova_e03_pacote.py`: **5/5 passaram** com `.venv/bin/python -m pytest`; cobertura da matriz e seleção de datasource, sem executar XanoScript |
+| Validação estática MCP | **4/4 válidos, 0 warnings** (Developer MCP, 2026-11-08); cobre sintaxe e estrutura |
+| Teste local | `tests/test_prova_e03_pacote.py`: **5/5 passaram** com `.venv/bin/python -m pytest`; cobertura da matriz e isolamento |
 | Teste com mock | Não se aplica: mock não exercita o banco nem o rollback |
-| Teste de runtime / persistência e rollback | **Não executado** |
+| Teste de runtime / persistência e rollback | **Bloqueado por restrição de ambiente/plano** (`workflow_test` indisponível no plano Free do Xano); **limitação aceita por decisão humana** em 2026-11-08 |
 | Publicação | Não se aplica; o pacote nunca deve ir ao workspace compartilhado |
 
-## Por que não foi executado
+## Histórico de bloqueio e deliberação
 
-- Os testes de workflow exigem tabela, funções e teste publicados no `v1`. A autorização para isso foi dada em 2026-11-08, com seleção obrigatória do datasource `mira_e03` e preservação do ativo.
-- A revisão automática do navegador recusou acesso a `app.xano.com` nesta sessão, impedindo a criação e verificação do datasource. Nenhum push foi feito.
-- O [plano de execução e rollback](./plano-execucao-rollback.md) contém backup, seleção explícita, dry-run, critérios de prova e normalização.
+- Em 2026-11-08, autorizou-se a execução no `datasource = "live"`.
+- Durante a tentativa de push para o workspace `152692`, a API do Xano retornou `400 Multidoc import failed: Please upgrade to access workflow tests`.
+- Seguindo `openspec/config.yaml`, o projeto utiliza exclusivamente o plano Free e não realiza upgrade de plano.
+- O usuário deliberou explicitamente por registrar o bloqueio e aceitar a limitação funcional, liberando o avanço das demais entregas da Sprint 3.
 
 ## Execução (somente após criar e verificar o datasource de teste)
 

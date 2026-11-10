@@ -201,6 +201,24 @@ def test_postagem_atualiza_state_com_dto_servidor_e_descarta_rascunho(monkeypatc
     assert estado.chamado["ultima_atualizacao_em_texto"] != "Não informado"
 
 
+def test_falha_na_recarga_preserva_comentario_confirmado(monkeypatch):
+    liberar_validacao(monkeypatch)
+
+    class ClienteComFalhaNaRecarga(ClienteComentariosFalso):
+        async def obter_chamado(self, token, chamado_id):
+            raise XanoNaoEncontrado("falha na recarga")
+
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", ClienteComFalhaNaRecarga)
+    estado = novo_estado()
+    estado.rascunho_comentario = "Comentário confirmado"
+    executar_evento(ChamadosGerenteState.publicar_comentario, estado)
+
+    assert estado.rascunho_comentario == ""
+    assert estado.comentarios[0]["conteudo"] == "Comentário confirmado"
+    assert estado.mensagem_sucesso == "Comentário publicado."
+    assert estado.mensagem_detalhe == "Chamado não encontrado."
+
+
 def test_erro_de_comentario_e_sanitizado_sem_limpar_rascunho(monkeypatch):
     liberar_validacao(monkeypatch)
     cliente = ClienteComentariosFalso(erro=XanoEntradaInvalida("interno"))
@@ -212,6 +230,7 @@ def test_erro_de_comentario_e_sanitizado_sem_limpar_rascunho(monkeypatch):
 
     assert estado.rascunho_comentario == "   "
     assert estado.mensagem_comentarios == "Os dados informados são inválidos."
+    assert estado.mensagem_sucesso == ""
 
 
 def test_troca_de_rota_com_erro_limpa_detalhe_e_comentarios_residuais(monkeypatch):

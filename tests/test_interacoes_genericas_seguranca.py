@@ -118,7 +118,7 @@ def test_contrato_funcional_entrega_somente_comentario_publico_da_propria_loja()
     assert '$db.interacoes_chamado.visibilidade == "publica"' in comentarios
     assert '$db.interacoes_chamado.tipo_evento == "comentario"' in comentarios
     assert '$db.interacoes_chamado.mensagem != ""' in comentarios
-    projecao = comentarios[comentarios.index("var $items"):]
+    projecao = comentarios[comentarios.index("array.push $items"):]
     for campo_privado in ("visibilidade:", "alteracoes", "usuarios_id", "email", "role"):
         assert campo_privado not in projecao.split("response =")[0]
 

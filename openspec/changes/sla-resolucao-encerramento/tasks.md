@@ -9,7 +9,7 @@
 - [x] 1.5 DE-3a e DE-3b aprovadas: texto exato do comentário público registrado no design D3 e autor `Sistema` no DTO público.
 - [x] 1.6 DE-4 e DE-5 revistas: disparo manual único por `make encerrar-resolvidos`, script Python que chama a API; sem job periódico, frequência ou agendamento. O Xano decide e executa o encerramento.
 - [x] 1.7 DE-7 aprovada: preservar encerramento manual pelo Save; DE-9 aprovada: constante versionada de vigência, fixada na publicação; DE-8 já decidida (design D5). Nenhum trabalho adicional sobre status legado fora da lista canônica.
-- [ ] 1.8 Executar a prova E0.3 (DT-1) antes de 3.1 e obter aprovação do relatório. Em 2026-11-08 foi autorizado datasource próprio de teste no workspace `152692`, branch `v1`, como alternativa ao workspace separado; os registros são separados, mas schema e recursos publicados são compartilhados. Pacote e [plano de execução e rollback](../rejeicao-solucao-gerente/prova-e03/plano-execucao-rollback.md) preparados. **Não executado:** runtime, persistência e rollback continuam sem prova; o acesso à UI `app.xano.com` foi recusado pelo gate automático de navegador em 2026-11-08, e nenhum recurso remoto foi alterado.
+- [x] 1.8 Resolver o gate E0.3 (DT-1) antes de 3.1. Em 2026-11-08 a API do Xano recusou `workflow_test` com `Please upgrade to access workflow tests`; a responsável aceitou formalmente a limitação funcional no plano Free para prosseguir. **Bloqueado por restrição de ambiente/plano:** runtime, persistência e rollback não foram comprovados. Pacote, validação estática e [plano de execução e rollback](../rejeicao-solucao-gerente/prova-e03/plano-execucao-rollback.md) registrados sem publicar recursos temporários.
 - [ ] 1.9 Esclarecer as dependências externas "4", "5" e "D3" do planejamento.
 - [x] 1.10 Apply autorizado pela responsável ao pedir execução até antes do Archive, com uso do Xano MCP e CLI e escopo acadêmico. Archive permanece fora desta autorização.
 
@@ -25,21 +25,23 @@
 
 ## 3. Xano — encerramento sob comando
 
-- [ ] 3.1 Somente após 1.8: função e endpoint de encerramento sob comando manual (design D3). Evidência: elegível, prazo não vencido (71 h 59 min), limite exato de 72 h, fora da vigência na primeira execução, nova resolução após a vigência, comentário público de sistema criado, entrada desconhecida, revalidação de status, execução repetida, credencial ausente ou inválida, perfil humano negado. Sem testes de concorrência.
-- [ ] 3.2 Validar no MCP, dry-run seletivo e publicação somente com aprovação.
+- [ ] 3.1 Após a deliberação de 1.8: função e endpoint de encerramento sob comando manual (design D3). Evidência: elegível, prazo não vencido (71 h 59 min), limite exato de 72 h, fora da vigência na primeira execução, nova resolução após a vigência, comentário público de sistema criado, entrada desconhecida, revalidação de status, execução repetida, credencial ausente ou inválida, perfil humano negado. Sem testes de concorrência; rollback após falha permanece sem prova em runtime.
+- [x] 3.2 Validar no MCP, dry-run seletivo e publicação somente com aprovação. Função e endpoint foram publicados seletivamente após validação MCP e prévia revisada; o dry-run posterior ficou limpo. A constante de vigência publicada é `1794181165000`. Ver [registro de validação](../../../docs/sprint3-validacao-publicacao-2026-11-10.md).
+
+> Atualização de 3.1 (10/11/2026): função e endpoint estão publicados; testes locais e nativos cobrem a lógica de seleção, vigência, prazo, revalidação, comentário e evento. Em HTTP real, chave ausente ou inválida retorna `401`. A task permanece aberta: a chave válida ainda não foi confirmada no ambiente Xano e nenhum chamado de teste completou 72 horas para observar o encerramento, o comentário e a repetição em runtime. A prova E0.3 de rollback segue como limitação aceita, sem ser marcada como passou.
 
 ## 4. Comando manual
 
-- [x] 4.1 `scripts/encerrar_resolvidos.py` e alvo `make encerrar-resolvidos` implementados para uma chamada única, sem loop e sem registrar credencial. Evidência: `tests/test_encerrar_resolvidos_comando.py`, 6/6 passaram em 2026-11-08 (sucesso, falha de rede, resposta inválida e chamada única). Endpoint real ainda não publicado.
+- [x] 4.1 `scripts/encerrar_resolvidos.py` e alvo `make encerrar-resolvidos` implementados para uma chamada única, sem loop e sem registrar credencial. Evidência: `tests/test_encerrar_resolvidos_comando.py`, 6/6 passaram em 2026-11-08 (sucesso, falha de rede, resposta inválida e chamada única). Endpoint real publicado em 2026-11-08; a execução com chave válida aguarda configuração remota.
 - [x] 4.2 `.env.example` contém `MIRA_ENCERRAMENTO_AUTOMATION_KEY` vazio e timeout seguro, sem segredo versionado.
 
 ## 5. Validação
 
-- [ ] 5.1 Suíte completa, `openspec validate sla-resolucao-encerramento --strict` e `git diff --check`, com classificação dos resultados.
-- [ ] 5.2 Teste integrado em ambiente autorizado; sem autorização, registrar como não executado.
+- [x] 5.1 Suíte completa, `openspec validate sla-resolucao-encerramento --strict` e `git diff --check`, com classificação dos resultados. Em 2026-11-08: pytest **passou** (652 passaram, 26 E2E pulados), OpenSpec strict **passou**, diff check **passou**.
+- [ ] 5.2 Teste integrado em ambiente autorizado. **Parcial** em 10/11/2026: E2E HTTP com quatro perfis passou para consumo e autenticação negativa do comando; chave válida e encerramento de chamado elegível não executados, conforme [registro de validação](../../../docs/sprint3-validacao-publicacao-2026-11-10.md).
 
 ## 6. Exposição do consumo (DE-8, design D5)
 
-- [ ] 6.1 Contratos Xano por perfil (Técnico, Gerente pela Loja histórica, Administrador), sem campos de SLA para o solicitante. Evidência: testes nativos e de contrato para cada perfil, inclusive negação.
-- [ ] 6.2 Apresentação no Reflex das situações do design D5 (dentro, próximo, vencido, pausado, encerrado, não calculável). Evidência: testes de State e página.
+- [x] 6.1 Contratos Xano por perfil (Técnico, Gerente pela Loja histórica, Administrador), sem campos de SLA para o solicitante. Evidência: testes locais de contrato e E2E HTTP com quatro perfis, incluindo negação a Diretoria, solicitante sem campo de SLA e Gerente fora da Loja; testes nativos da função de cálculo passaram.
+- [x] 6.2 Apresentação no Reflex das situações do design D5 (dentro, próximo, vencido, pausado, encerrado, não calculável). Evidência: `tests/test_frontend_sprint3.py` para seis combinações de faixa/estado, não calculável e carregamento no State; compilação com K-B ligado e desligado e inspeção visual de SLA pausado no chamado 98.
 - [ ] 6.3 Indicadores do Gerente e da Diretoria, depois de DS-2 e DI-1 a DI-5.

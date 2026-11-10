@@ -480,6 +480,30 @@ def _detalhe_tecnico() -> rx.Component:
             ),
         ),
         rx.cond(
+            ChamadosTecnicoState.detalhe_tecnico_carregado,
+            rx.card(
+                rx.vstack(
+                    rx.heading("Consumo de SLA", size="4"),
+                    erro(ChamadosTecnicoState.mensagem_sla),
+                    rx.cond(
+                        ChamadosTecnicoState.carregando_sla,
+                        rx.spinner(size="2"),
+                        rx.cond(
+                            ChamadosTecnicoState.consumo_sla.length() > 0,
+                            rx.vstack(
+                                rx.text(ChamadosTecnicoState.consumo_sla["situacao"], weight="medium"),
+                                rx.text(ChamadosTecnicoState.consumo_sla["percentual"]),
+                                rx.text(ChamadosTecnicoState.consumo_sla["prazo"]),
+                                rx.text(ChamadosTecnicoState.consumo_sla["motivo"]),
+                                align="start", spacing="1",
+                            ),
+                        ),
+                    ),
+                    align="start", width="100%",
+                ), width="100%",
+            ),
+        ),
+        rx.cond(
             (ChamadosTecnicoState.carregando_detalhe_tecnico == False)
             & (ChamadosTecnicoState.mensagem_detalhe_tecnico == "")
             & ChamadosTecnicoState.detalhe_tecnico_carregado,

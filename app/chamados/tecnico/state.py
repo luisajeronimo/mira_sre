@@ -13,6 +13,7 @@ from app.chamados.shared import (
     TimelineView,
     _detalhe_para_dict,
     _tecnico_para_dict,
+    consumo_sla_para_dict,
     evento_timeline_para_dict,
 )
 from app.services.service_desk import (
@@ -108,6 +109,9 @@ class ChamadosTecnicoState(AuthState):
     mensagem_detalhe_tecnico: str = ""
     mensagem_tratativa: str = ""
     mensagem_sucesso_tratativa: str = ""
+    consumo_sla: dict[str, str] = {}
+    mensagem_sla: str = ""
+    carregando_sla: bool = False
 
     @staticmethod
     def status_filtros() -> list[str]:
@@ -210,6 +214,7 @@ class ChamadosTecnicoState(AuthState):
         self.mensagem_detalhe_tecnico = ""
         self.mensagem_tratativa = ""
         self.mensagem_sucesso_tratativa = ""
+        self.mensagem_sla = ""
 
     def _valor_responsavel_confirmado(self) -> str:
         return str(self.responsavel_confirmado_id or 0)
@@ -841,6 +846,7 @@ class ChamadosTecnicoState(AuthState):
         self.carregando_detalhe_tecnico = True
         self.detalhe_tecnico_carregado = False
         self.chamado = {}
+        self.consumo_sla = {}
         self.timeline = []
         self.tecnicos = []
         self.categorias_tratativa = []
@@ -884,6 +890,17 @@ class ChamadosTecnicoState(AuthState):
                     for categoria in categorias
                 ],
             )
+            self.carregando_sla = True
+            try:
+                consumo = await cliente.obter_consumo_sla_tecnico(self._auth_token, chamado_id)
+                self.consumo_sla = consumo_sla_para_dict(consumo)
+            except Exception as erro:  # noqa: BLE001
+                destino = self._registrar_erro_tecnico(erro, "mensagem_sla")
+                if destino is not None:
+                    yield rx.redirect(destino)
+                    return
+            finally:
+                self.carregando_sla = False
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             destino = self._registrar_erro_tecnico(erro, "mensagem_detalhe_tecnico")
             if destino is not None:

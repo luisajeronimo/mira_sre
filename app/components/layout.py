@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import reflex as rx
 
 from app.components.navegacao import ITENS_NAVEGACAO, ItemNavegacao
@@ -120,7 +121,11 @@ def _marca() -> rx.Component:
 
 def _itens_navegacao() -> rx.Component:
     return rx.vstack(
-        *[_link_navegacao(item) for item in ITENS_NAVEGACAO],
+        *[
+            _link_navegacao(item) for item in ITENS_NAVEGACAO
+            if item.rota != "/chamados/solicitados"
+            or os.getenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false").lower() == "true"
+        ],
         width="100%",
         spacing="1",
         align="start",

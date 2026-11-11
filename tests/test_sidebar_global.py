@@ -37,8 +37,7 @@ def novo_estado() -> MonitoramentoState:
         ),
     ],
 )
-def test_matriz_central_de_navegacao_por_perfil(perfil, rotas, rotulos, monkeypatch):
-    monkeypatch.setenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false")
+def test_matriz_central_de_navegacao_por_perfil(perfil, rotas, rotulos):
     itens = itens_visiveis(perfil)
 
     assert [item.rota for item in itens] == rotas
@@ -76,15 +75,10 @@ def test_monitoramento_e_administracao_so_ativam_nas_rotas_configuradas():
     assert item_esta_ativo(inicio, "/administracao/gestao") is False
 
 
-def test_chamados_solicitados_so_aparecem_com_gate_publicado(monkeypatch):
-    monkeypatch.setenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "true")
+def test_chamados_solicitados_nao_criam_destino_proprio():
     for perfil in ("gerente", "tecnico", "diretoria", "administrador"):
         itens = itens_visiveis(perfil)
-        solicitados = next(item for item in itens if item.rota == "/chamados/solicitados")
-        assert item_esta_ativo(solicitados, "/chamados/solicitados")
-        assert item_esta_ativo(solicitados, "/chamados/solicitados/[chamado_id]")
-    monkeypatch.setenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false")
-    assert all(item.rota != "/chamados/solicitados" for item in itens_visiveis("gerente"))
+        assert all(item.rota != "/chamados/solicitados" for item in itens)
 
 
 def test_asset_do_logo_corresponde_exatamente_a_referencia_oficial():

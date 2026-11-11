@@ -16,7 +16,6 @@ from app.monitoramento.pages import monitoramento
 from app.monitoramento.state import MonitoramentoState
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
-from app.chamados.solicitante import ChamadosSolicitanteState, chamados_solicitados, detalhe_chamado_solicitado
 from app.pages.gestao_administrativa import GestaoAdministrativaState, gestao_administrativa
 from app.states.auth import AuthState
 from app.components.visual import CANVAS, FONTE_INTERFACE, TEXTO
@@ -63,18 +62,6 @@ app.add_page(
     route="/chamados/novo",
     title="Novo chamado | MIRA",
     on_load=AuthState.carregar_novo_chamado,
-)
-app.add_page(
-    chamados_solicitados,
-    route="/chamados/solicitados",
-    title="Chamados solicitados | MIRA",
-    on_load=ChamadosSolicitanteState.carregar_lista,
-)
-app.add_page(
-    detalhe_chamado_solicitado,
-    route="/chamados/solicitados/[chamado_id]",
-    title="Chamado solicitado | MIRA",
-    on_load=ChamadosSolicitanteState.carregar_detalhe,
 )
 app.add_page(
     detalhe_chamado_canonico,

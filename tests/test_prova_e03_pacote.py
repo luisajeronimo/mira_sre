@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[1]
-PACOTE = ROOT / "openspec/changes/rejeicao-solucao-gerente/prova-e03"
+PACOTE = ROOT / "openspec/changes/archive/2026-11-11-rejeicao-solucao-gerente/prova-e03"
 CENARIOS = PACOTE / "function/e03/executar_cenario.xs"
 WORKFLOW = PACOTE / "workflow_test/e03_rollback.xs"
 

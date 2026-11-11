@@ -172,30 +172,34 @@ Todo chamado criado pelos fluxos manual e automático DEVE (MUST) persistir `ult
 - **THEN** o DTO funcional retorna `ultima_atualizacao_em` igual a `criado_em`, sem expor `created_at`
 
 ### Requirement: Gerente acompanha todos os chamados da própria Loja
-O sistema DEVE (MUST) fornecer `GET /gerente/chamados` e `GET /gerente/chamados/{chamados_id}` no grupo `mira-service-desk`. A lista DEVE (MUST) retornar `items` com resumo funcional e `total` correspondente à consulta atual; o detalhe DEVE (MUST) retornar um objeto `chamado` com os campos do contrato de criação. Ambos DEVEM (MUST) determinar pertencimento pela Loja histórica demonstrável no `criado_em` do chamado, independentemente de solicitante e origem; sem comprovação, o acesso do Gerente falha fechado.
+O sistema DEVE (MUST) fornecer `GET /gerente/chamados` e `GET /gerente/chamados/{chamados_id}` no grupo `mira-service-desk`. A lista DEVE (MUST) retornar `items` com resumo funcional e `total` correspondente à consulta atual; o detalhe DEVE (MUST) retornar um objeto `chamado` com os campos do contrato de criação. Ambos DEVEM (MUST) determinar pertencimento à Loja pela Loja resolvida pelo vínculo histórico do Totem no `criado_em` do chamado (`vinculo-historico-totem-loja`), independentemente do solicitante e da origem. Chamado sem Loja resolvida NÃO DEVE (MUST NOT) aparecer na lista nem ser autorizado no detalhe de nenhum Gerente.
 
 #### Scenario: Lista da Loja
 - **WHEN** um Gerente autenticado consulta a lista de chamados
-- **THEN** o Xano retorna todos os chamados comprovadamente abertos na sua Loja, incluindo chamados de outros solicitantes e automáticos, sem retornar chamados de outras Lojas ou de vínculo indeterminado
+- **THEN** o Xano retorna todos os chamados cuja Loja resolvida é a sua, incluindo chamados de outros solicitantes e chamados automáticos, sem retornar chamados de outras Lojas nem chamados sem Loja resolvida
 
 #### Scenario: Detalhe da própria Loja
-- **WHEN** um Gerente consulta o identificador de um chamado comprovadamente aberto em sua Loja
-- **THEN** o Xano retorna o detalhe funcional do chamado
+- **WHEN** um Gerente consulta o identificador de um chamado cuja Loja resolvida é a sua
+- **THEN** o Xano retorna o detalhe funcional do chamado com a Loja histórica
 
 #### Scenario: Detalhe de outra Loja
-- **WHEN** um Gerente consulta o identificador de um chamado comprovadamente aberto em outra Loja
+- **WHEN** um Gerente consulta o identificador de um chamado cuja Loja resolvida é outra Loja
 - **THEN** o Xano rejeita a operação como não autorizada sem retornar os dados do chamado
 
-#### Scenario: Chamado inexistente
-- **WHEN** um Gerente consulta um identificador de chamado que não existe
-- **THEN** o Xano responde como recurso não encontrado
+#### Scenario: Detalhe sem Loja histórica
+- **WHEN** um Gerente consulta o identificador de um chamado cuja Loja resolvida é nula
+- **THEN** o Xano rejeita a operação como não autorizada sem retornar os dados do chamado
 
 #### Scenario: Loja histórica indeterminada
 - **WHEN** o chamado legado não possui vínculo de Loja demonstrável em `criado_em`
 - **THEN** o Xano não o atribui à Loja atual do Totem nem o expõe ao Gerente
 
+#### Scenario: Chamado inexistente
+- **WHEN** um Gerente consulta um identificador de chamado que não existe
+- **THEN** o Xano responde como recurso não encontrado
+
 ### Requirement: Contratos funcionais preservam autenticação e negação por padrão
-Todas as operações de `mira-service-desk` DEVEM (MUST) exigir autenticação da tabela `usuarios`, autorizar somente o perfil Gerente nesta capacidade e aplicar o escopo persistido de Loja no Xano. Os contratos funcionais NÃO DEVEM (MUST NOT) reabrir os endpoints genéricos de POST, PATCH ou DELETE nem atribuir autorização ao Reflex.
+Todas as operações de `mira-service-desk` DEVEM (MUST) exigir autenticação da tabela `usuarios`, autorizar somente o perfil Gerente nesta capacidade e aplicar o escopo persistido de Loja no Xano. Em `POST /gerente/chamados`, a autorização do perfil Gerente DEVE (MUST) ocorrer no próprio contrato, antes de executar a abertura manual. Os contratos funcionais NÃO DEVEM (MUST NOT) reabrir os endpoints genéricos de POST, PATCH ou DELETE nem atribuir autorização ao Reflex.
 
 #### Scenario: Token ausente ou inválido
 - **WHEN** uma operação funcional recebe uma requisição sem token válido
@@ -204,6 +208,10 @@ Todas as operações de `mira-service-desk` DEVEM (MUST) exigir autenticação d
 #### Scenario: Perfil autenticado sem permissão
 - **WHEN** um Técnico ou usuário da Diretoria chama uma operação funcional reservada ao Gerente
 - **THEN** o Xano responde como não autorizado sem executar a operação
+
+#### Scenario: Administrador no contrato funcional do Gerente
+- **WHEN** um Administrador autenticado chama `POST /gerente/chamados`
+- **THEN** o Xano responde como não autorizado antes de executar a abertura manual, sem criar chamado
 
 #### Scenario: Mutação genérica direta
 - **WHEN** um usuário tenta usar os CRUDs genéricos existentes para criar, editar ou excluir chamado

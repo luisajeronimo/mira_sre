@@ -29,7 +29,7 @@ O sistema DEVE (MUST) negar qualquer consulta técnica global destinada a usuár
 - **THEN** o Xano não atribui permissões de um perfil oficial à requisição
 
 ### Requirement: Gerente acessa somente sua unidade
-O sistema DEVE (MUST) restringir o Gerente à unidade à qual ele estiver associado e aos dados relacionados a essa unidade, incluindo seus ativos e chamados que o Gerente esteja autorizado a acompanhar.
+O sistema DEVE (MUST) restringir o Gerente à unidade à qual ele estiver associado e aos dados relacionados a essa unidade, incluindo seus ativos e chamados que o Gerente esteja autorizado a acompanhar. Para chamados, a unidade DEVE (MUST) ser a Loja resolvida pelo vínculo histórico do Totem no `criado_em` do chamado, conforme `vinculo-historico-totem-loja`; chamado sem Loja resolvida NÃO DEVE (MUST NOT) ser tratado como pertencente à unidade de nenhum Gerente.
 
 #### Scenario: Gerente consulta a própria unidade
 - **WHEN** um Gerente autenticado consulta dados pertencentes à sua unidade associada
@@ -43,8 +43,16 @@ O sistema DEVE (MUST) restringir o Gerente à unidade à qual ele estiver associ
 - **WHEN** um Gerente autenticado solicita uma operação dependente de unidade e não possui uma associação válida com uma Loja
 - **THEN** o Xano rejeita a operação sem ampliar seu escopo de acesso
 
+#### Scenario: Chamado de Totem transferido depois da abertura
+- **WHEN** o Totem de um chamado foi transferido para a Loja do Gerente depois do `criado_em` do chamado
+- **THEN** o chamado pertence à Loja vigente na abertura e o Xano rejeita o acesso do Gerente da nova Loja
+
+#### Scenario: Chamado sem Loja histórica
+- **WHEN** um Gerente consulta chamado cuja Loja resolvida é nula
+- **THEN** o Xano rejeita o acesso como não autorizado, sem usar a Loja atual do Totem
+
 ### Requirement: CRUDs genéricos não ampliam permissões
-O sistema NÃO DEVE (MUST NOT) permitir que endpoints CRUD genéricos contornem as regras de autorização ou concedam operações administrativas e destrutivas não previstas para os perfis oficiais. A criação de usuário administrativo DEVE permanecer no contrato funcional específico autorizado apenas a Administrador.
+O sistema NÃO DEVE (MUST NOT) permitir que endpoints CRUD genéricos contornem as regras de autorização ou concedam operações administrativas e destrutivas não previstas para os perfis oficiais. A criação de usuário administrativo DEVE permanecer no contrato funcional específico autorizado apenas a Administrador. As consultas genéricas de `interacoes_chamado`, por lista ou por identificador, NÃO DEVEM (MUST NOT) atender o Gerente e DEVEM (MUST) negá-lo antes de ler qualquer interação; o Gerente lê interações exclusivamente pelos contratos funcionais de comentários públicos e de histórico público de status. Os demais perfis mantêm o comportamento vigente dessas consultas.
 
 #### Scenario: Acesso direto a mutação genérica
 - **WHEN** um usuário autenticado chama diretamente um endpoint genérico de criação, alteração ou exclusão sem permissão funcional correspondente
@@ -53,6 +61,18 @@ O sistema NÃO DEVE (MUST NOT) permitir que endpoints CRUD genéricos contornem 
 #### Scenario: Consulta genérica fora do escopo
 - **WHEN** uma consulta genérica poderia retornar dados além do escopo autorizado ao usuário
 - **THEN** o Xano aplica o filtro de escopo no backend ou rejeita a consulta sem expor esses dados
+
+#### Scenario: Gerente lista interações pelo CRUD genérico
+- **WHEN** um Gerente autenticado chama `GET /interacoes_chamado`
+- **THEN** o Xano responde como não autorizado sem retornar comentários públicos, comentários internos ou eventos operacionais
+
+#### Scenario: Gerente consulta interação por identificador no CRUD genérico
+- **WHEN** um Gerente autenticado chama `GET /interacoes_chamado/{interacoes_chamado_id}` para interação de chamado da própria Loja, comentário público, comentário interno, evento operacional ou identificador inexistente
+- **THEN** o Xano responde como não autorizado sem ler nem retornar a interação
+
+#### Scenario: Demais perfis preservados
+- **WHEN** Técnico, Diretoria ou Administrador utiliza as consultas genéricas de `interacoes_chamado`
+- **THEN** o resultado permanece o mesmo vigente antes desta change
 
 ### Requirement: Automações permanecem fora desta autorização de usuários
 O sistema NÃO DEVE (MUST NOT) alterar, nesta capacidade, o acesso utilizado pelo Simulator para envio de telemetria nem pelo Fiscal para disparo da verificação de heartbeat.
@@ -220,7 +240,7 @@ O Xano DEVE (MUST) permitir a Administrador criar chamado manual para Totem de q
 - **THEN** o Xano ignora ou rejeita esses valores sem atribuir identidade ou Loja indevidas
 
 ### Requirement: Gerente usa Loja histórica comprovada do chamado
-O Xano DEVE (MUST) autorizar o Gerente em lista, detalhe e comentários pela Loja comprovada na abertura de cada chamado. A Loja atual do Totem NÃO DEVE (MUST NOT) conceder acesso a chamado antigo de outra Loja. Sem Loja histórica demonstrável, o acesso do Gerente DEVE (MUST) falhar fechado.
+O Xano DEVE (MUST) autorizar o Gerente em lista, detalhe e comentários pela Loja comprovada na abertura de cada chamado, inclusive nos contratos genéricos de consulta de `chamados`. A Loja atual do Totem NÃO DEVE (MUST NOT) conceder acesso a chamado antigo de outra Loja. Sem Loja histórica demonstrável, o acesso do Gerente DEVE (MUST) falhar fechado.
 
 #### Scenario: Totem transferido
 - **WHEN** Gerente da Loja de destino solicita chamado anterior à transferência
@@ -229,3 +249,77 @@ O Xano DEVE (MUST) autorizar o Gerente em lista, detalhe e comentários pela Loj
 #### Scenario: Origem indeterminada
 - **WHEN** a Loja histórica de um chamado legado não pode ser demonstrada
 - **THEN** nenhum Gerente recebe acesso por inferência da Loja atual do Totem
+
+#### Scenario: Lista genérica restrita à Loja histórica
+- **WHEN** um Gerente autenticado solicita `GET /chamados`
+- **THEN** o Xano devolve somente chamados cuja Loja comprovada na abertura é a Loja do Gerente, sem usar a Loja atual do Totem
+
+#### Scenario: Detalhe genérico de chamado de outra Loja histórica
+- **WHEN** um Gerente autenticado solicita `GET /chamados/{chamados_id}` de chamado cuja Loja comprovada na abertura é outra ou não pode ser demonstrada
+- **THEN** o Xano rejeita a operação antes de ler e retornar o registro do chamado
+
+#### Scenario: Consulta genérica global preservada
+- **WHEN** Técnico ou Diretoria autenticados solicitam `GET /chamados` ou `GET /chamados/{chamados_id}`
+- **THEN** o Xano mantém a consulta global, e Administrador e perfis não oficiais continuam negados nesses contratos
+
+### Requirement: Consulta do solicitante é autorizada pelo vínculo com o chamado
+O Xano DEVE (MUST) autorizar os contratos de consulta do solicitante somente quando ocorrerem cumulativamente: autenticação válida de `usuarios`; troca obrigatória de senha não pendente; perfil oficial Gerente, Técnico, Diretoria ou Administrador; `chamados.solicitante_id` não nulo; e `chamados.solicitante_id` igual à identidade autenticada. A autorização NÃO DEVE (MUST NOT) depender da Loja atual do usuário, e o vínculo NÃO DEVE (MUST NOT) conceder acesso a outros chamados, inclusive aos da Loja anterior do usuário. Chamado inexistente e chamado não associado ao usuário DEVEM (MUST) receber a mesma resposta de recurso não encontrado, sem revelar a existência do chamado. Identificadores, Loja ou perfil enviados pelo cliente NÃO DEVEM (MUST NOT) conceder autorização. Esses contratos são somente leitura e NÃO DEVEM (MUST NOT) conceder comentário, rejeição de solução, Save, atribuição ou acesso à fila e ao detalhe técnicos.
+
+#### Scenario: Solicitante associado
+- **WHEN** um usuário com perfil oficial consulta chamado do qual é o solicitante
+- **THEN** o Xano autoriza a consulta
+
+#### Scenario: Solicitante de outra Loja
+- **WHEN** o solicitante pertence hoje a Loja diferente da Loja do Totem do chamado
+- **THEN** o Xano autoriza a consulta pelo vínculo, sem considerar a Loja atual
+
+#### Scenario: Perfil global como solicitante
+- **WHEN** Técnico, Diretoria ou Administrador consulta pelo contrato do solicitante chamado do qual é o solicitante
+- **THEN** o Xano autoriza a consulta somente desse chamado
+
+#### Scenario: Chamado de outra pessoa
+- **WHEN** um usuário com perfil oficial consulta pelo contrato do solicitante chamado cujo solicitante é outro usuário, inclusive da mesma Loja ou da Loja anterior do usuário
+- **THEN** o Xano responde como recurso não encontrado, sem retornar dados
+
+#### Scenario: Chamado inexistente
+- **WHEN** o identificador não corresponde a chamado existente
+- **THEN** o Xano responde com a mesma resposta de recurso não encontrado dada a chamado de outra pessoa
+
+#### Scenario: Chamado sem solicitante humano
+- **WHEN** o chamado possui `solicitante_id` nulo
+- **THEN** nenhum usuário é autorizado pelo contrato do solicitante e a resposta é de recurso não encontrado
+
+#### Scenario: Perfil não oficial
+- **WHEN** um usuário autenticado sem perfil oficial usa o contrato do solicitante, ainda que seja o solicitante do chamado
+- **THEN** o Xano responde como não autorizado sem consultar chamados
+
+#### Scenario: Troca de senha pendente
+- **WHEN** um usuário com troca obrigatória pendente usa o contrato do solicitante
+- **THEN** o Xano responde como não autorizado sem consultar chamados
+
+#### Scenario: Identificador inválido
+- **WHEN** o identificador do chamado é ausente, não numérico ou menor que 1
+- **THEN** o Xano rejeita a entrada antes de qualquer consulta
+
+### Requirement: Rejeição de solução é autorizada somente ao Gerente da Loja do chamado
+O Xano DEVE (MUST) autorizar a rejeição de solução somente ao usuário autenticado, sem troca de senha pendente, com perfil Gerente e Loja associada igual à Loja do Totem do chamado resolvida pelo vínculo histórico no `criado_em` do chamado (`vinculo-historico-totem-loja`). Técnico, Diretoria, Administrador e usuários sem perfil oficial NÃO DEVEM (MUST NOT) receber essa permissão. A permissão de rejeitar NÃO DEVE (MUST NOT) conceder ao Gerente Save operacional, mudança direta de status, atribuição, comentário interno ou acesso à fila e ao detalhe técnicos. Identificador, Loja ou perfil enviados pelo cliente e a visibilidade da ação no Reflex NÃO DEVEM (MUST NOT) conceder autorização.
+
+#### Scenario: Gerente da Loja
+- **WHEN** um Gerente rejeita chamado ligado a Totem da própria Loja
+- **THEN** o Xano autoriza a operação
+
+#### Scenario: Gerente de outra Loja
+- **WHEN** um Gerente tenta rejeitar chamado de outra Loja
+- **THEN** o Xano nega a operação sem retornar nem alterar dados
+
+#### Scenario: Gerente sem Loja
+- **WHEN** um Gerente sem Loja associada tenta rejeitar
+- **THEN** o Xano nega a operação
+
+#### Scenario: Perfil operacional
+- **WHEN** Técnico, Diretoria ou Administrador usa a operação de rejeição
+- **THEN** o Xano nega a operação
+
+#### Scenario: Gerente tenta alterar status pelo Save
+- **WHEN** um Gerente chama o Save operacional ou um endpoint genérico de alteração
+- **THEN** o Xano continua negando a operação

@@ -8,13 +8,11 @@ import httpx
 import pytest
 
 import app.chamados.gerente.state as gerente_module
-import app.chamados.solicitante.state as solicitante_module
 from app.chamados.gerente.state import ChamadosGerenteState
-from app.chamados.solicitante.state import ChamadosSolicitanteState
 from app.chamados.shared import _detalhe_para_dict, consumo_sla_para_dict
 from app.services.service_desk import (
     AutorHistoricoStatus, ConsumoSLADTO, HistoricoStatusItem, XanoServiceDeskCliente,
-    _detalhe_gerente, _detalhe_solicitante, _resumo_gerente,
+    _detalhe_gerente,
 )
 from app.services.xano import (
     XanoConflito, XanoContratoInvalido, XanoEntradaInvalida,
@@ -293,176 +291,18 @@ def test_conflito_recarrega_detalhe_e_preserva_justificativa(monkeypatch):
     assert "mudou" in estado.mensagem_rejeicao
 
 
-def _estado_solicitante():
-    estado = ChamadosSolicitanteState(_reflex_internal_init=True)
-    object.__setattr__(estado, "_auth_token", "token")
-    object.__setattr__(estado, "sessao_confirmada", True)
-    object.__setattr__(estado, "usuario_id", 8)
-    object.__setattr__(estado, "role", "gerente")
-    object.__setattr__(estado, "chamado_id", "101")
-    return estado
-
-
-def test_gate_desligado_redireciona_sem_consultar_backend(monkeypatch):
-    estado = _estado_solicitante()
-    monkeypatch.setattr(solicitante_module, "acompanhamento_publicado", lambda: False)
-    monkeypatch.setattr(solicitante_module, "criar_cliente_service_desk", lambda: pytest.fail("Backend não deve ser chamado"))
-    eventos = _executar_evento(ChamadosSolicitanteState.carregar_lista, estado)
-    assert any('"/inicio"' in str(evento) for evento in eventos)
-    assert estado.chamados == []
-
-
-def test_solicitante_carrega_lista_e_detalhe_sem_acoes(monkeypatch):
-    estado = _estado_solicitante()
-    monkeypatch.setattr(solicitante_module, "acompanhamento_publicado", lambda: True)
-
-    async def revalidar(_):
-        return None
-
-    class Falso:
-        async def listar_chamados_solicitante(self, token):
-            dados = detalhe_solicitante()
-            item = {campo: dados[campo] for campo in (
-                "id", "titulo", "descricao", "status", "prioridade", "origem",
-                "criado_em", "ultima_atualizacao_em", "ativo", "categoria",
-            )}
-            return [_resumo_gerente({**item, "id": 102}), _resumo_gerente(item)]
-
-        async def obter_chamado_solicitante(self, token, chamado_id):
-            return _detalhe_solicitante(detalhe_solicitante())
-
-        async def listar_comentarios_publicos_solicitante(self, token, chamado_id):
-            return []
-
-        async def listar_historico_status_solicitante(self, token, chamado_id):
-            return []
-
-    monkeypatch.setattr(ChamadosSolicitanteState, "_revalidar", revalidar)
-    monkeypatch.setattr(solicitante_module, "criar_cliente_service_desk", Falso)
-    _executar_evento(ChamadosSolicitanteState.carregar_lista, estado)
-    _executar_evento(ChamadosSolicitanteState.carregar_detalhe, estado)
-    assert [item["id"] for item in estado.chamados] == [102, 101]
-    assert estado.detalhe_carregado
-    assert estado.chamado["tecnico_nome"] == "Técnico"
-    assert estado.comentarios == []
-    assert estado.historico_status == []
-
-
-def test_solicitante_404_nao_mantem_dados_de_outro_chamado(monkeypatch):
-    estado = _estado_solicitante()
-    estado.chamado = {"id": 99, "titulo": "Anterior"}
-    estado.detalhe_carregado = True
-    monkeypatch.setattr(solicitante_module, "acompanhamento_publicado", lambda: True)
-
-    async def revalidar(_):
-        return None
-
-    class Falso:
-        async def obter_chamado_solicitante(self, token, chamado_id):
-            raise XanoNaoEncontrado("interno")
-
-    monkeypatch.setattr(ChamadosSolicitanteState, "_revalidar", revalidar)
-    monkeypatch.setattr(solicitante_module, "criar_cliente_service_desk", Falso)
-    _executar_evento(ChamadosSolicitanteState.carregar_detalhe, estado)
-    assert estado.chamado == {}
-    assert not estado.detalhe_carregado
-    assert estado.mensagem_detalhe == "Chamado não encontrado."
-
-
-def test_rotas_do_solicitante_sao_estaticas_e_revalidam_sessao(monkeypatch):
+def test_interface_propria_do_solicitante_nao_esta_registrada():
     from app.app import app
 
-    rotas = list(app._unevaluated_pages)
-    assert rotas.index("chamados/solicitados") < rotas.index("chamados/[chamado_id]")
-    assert rotas.index("chamados/solicitados/[chamado_id]") < rotas.index("chamados/[chamado_id]")
-    assert app._unevaluated_pages["chamados/solicitados"].on_load.fn is ChamadosSolicitanteState.carregar_lista.fn
-    assert app._unevaluated_pages["chamados/solicitados/[chamado_id]"].on_load.fn is ChamadosSolicitanteState.carregar_detalhe.fn
-
-    monkeypatch.setattr(solicitante_module, "acompanhamento_publicado", lambda: True)
-    for destino in ("/login", "/primeiro-acesso"):
-        async def revalidar(_, destino=destino):
-            return destino
-
-        monkeypatch.setattr(ChamadosSolicitanteState, "_revalidar", revalidar)
-        monkeypatch.setattr(solicitante_module, "criar_cliente_service_desk", lambda: pytest.fail("Backend não deve ser chamado"))
-        for handler in (ChamadosSolicitanteState.carregar_lista, ChamadosSolicitanteState.carregar_detalhe):
-            eventos = _executar_evento(handler, _estado_solicitante())
-            assert any(f'"{destino}"' in str(evento) for evento in eventos)
-
-
-def test_lista_solicitante_acessivel_aos_quatro_perfis_oficiais(monkeypatch):
-    monkeypatch.setattr(solicitante_module, "acompanhamento_publicado", lambda: True)
-
-    async def revalidar(_):
-        return None
-
-    class Falso:
-        async def listar_chamados_solicitante(self, token):
-            return []
-
-    monkeypatch.setattr(ChamadosSolicitanteState, "_revalidar", revalidar)
-    monkeypatch.setattr(solicitante_module, "criar_cliente_service_desk", Falso)
-    for perfil in ("gerente", "tecnico", "diretoria", "administrador"):
-        estado = _estado_solicitante()
-        object.__setattr__(estado, "role", perfil)
-        _executar_evento(ChamadosSolicitanteState.carregar_lista, estado)
-        assert estado.chamados == []
-        assert estado.mensagem_lista == ""
-
-
-def test_pagina_do_solicitante_e_somente_leitura():
-    from app.chamados.solicitante.pages import _detalhe, _lista
-
-    fonte = inspect.getsource(_detalhe) + inspect.getsource(_lista)
-    assert "Histórico de status" in fonte
-    assert "Comentários públicos" in fonte
-    for proibido in ("on_click=", "text_area", "rx.drawer", "Detalhe do Totem",
-                     "Rejeitar solução", "Salvar", "Atribuir", "Linha do tempo", "SLA"):
-        assert proibido not in fonte
-
-
-def test_historico_solicitante_carregado_e_erro_isolado(monkeypatch):
-    estado = _estado_solicitante()
-    monkeypatch.setattr(solicitante_module, "acompanhamento_publicado", lambda: True)
-
-    async def revalidar(_):
-        return None
-
-    class Falso:
-        erro_historico = False
-
-        async def obter_chamado_solicitante(self, token, chamado_id):
-            return _detalhe_solicitante(detalhe_solicitante())
-
-        async def listar_comentarios_publicos_solicitante(self, token, chamado_id):
-            return []
-
-        async def listar_historico_status_solicitante(self, token, chamado_id):
-            if self.erro_historico:
-                raise XanoIndisponivel("interno")
-            return [HistoricoStatusItem(
-                id=9, status_anterior="Novo", status_resultante="Resolvido",
-                criado_em=1780000005000, autor=AutorHistoricoStatus("Técnico", "Técnico"),
-            )]
-
-    falso = Falso()
-    monkeypatch.setattr(ChamadosSolicitanteState, "_revalidar", revalidar)
-    monkeypatch.setattr(solicitante_module, "criar_cliente_service_desk", lambda: falso)
-    _executar_evento(ChamadosSolicitanteState.carregar_detalhe, estado)
-    assert estado.historico_status[0]["autor_nome"] == "Técnico"
-    assert estado.historico_status[0]["autor_perfil"] == "Técnico"
-
-    falso.erro_historico = True
-    _executar_evento(ChamadosSolicitanteState.carregar_detalhe, estado)
-    assert estado.detalhe_carregado
-    assert estado.chamado["id"] == 101
-    assert estado.historico_status == []
-    assert estado.mensagem_historico != ""
+    rotas = set(app._unevaluated_pages)
+    assert "chamados/solicitados" not in rotas
+    assert "chamados/solicitados/[chamado_id]" not in rotas
+    assert "inicio" in rotas
+    assert "chamados/[chamado_id]" in rotas
 
 
 def test_historico_gerente_carrega_independente_dos_comentarios(monkeypatch):
     estado = _estado_gerente()
-    monkeypatch.setenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "true")
 
     async def garantir(_):
         return None

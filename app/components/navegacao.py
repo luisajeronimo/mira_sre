@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 
 
 PERFIS_OFICIAIS = frozenset(
@@ -43,13 +42,6 @@ ITENS_NAVEGACAO = (
         frozenset({"/monitoramento"}),
     ),
     ItemNavegacao(
-        "Chamados solicitados",
-        "/chamados/solicitados",
-        "clipboard-list",
-        PERFIS_OFICIAIS,
-        frozenset({"/chamados/solicitados", "/chamados/solicitados/[chamado_id]"}),
-    ),
-    ItemNavegacao(
         "Administração",
         "/administracao/gestao",
         "settings",
@@ -66,7 +58,6 @@ def itens_visiveis(role: str) -> tuple[ItemNavegacao, ...]:
     return tuple(
         item for item in ITENS_NAVEGACAO
         if role in item.perfis
-        and (item.rota != "/chamados/solicitados" or os.getenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false").lower() == "true")
     )
 
 

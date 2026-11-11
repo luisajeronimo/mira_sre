@@ -8,7 +8,7 @@ from typing import Any, TypedDict
 
 import reflex as rx
 
-from app.components.visual import TEXTO, TEXTO_SECUNDARIO
+from app.components.visual import FOCO_VISIVEL, TEXTO, TEXTO_SECUNDARIO, rotulo_campo
 
 from app.services.service_desk import (
     ChamadoDetalhe,
@@ -158,6 +158,69 @@ def consumo_sla_para_dict(consumo: ConsumoSLADTO) -> dict[str, str]:
         restante = consumo.sla_horas_aplicado * 3600000 - consumo.consumo_ms
         prazo = f"{abs(restante) / 3600000:.1f} h {'restantes' if restante >= 0 else 'excedidas'}"
     return {"situacao": situacao, "percentual": percentual, "prazo": prazo, "motivo": ""}
+
+
+def campo_sla_com_consumo(
+    sla_aplicado: Any,
+    consumo: Any,
+    carregando: Any,
+    mensagem_erro: Any,
+) -> rx.Component:
+    """Mantém o valor aplicado visível e revela o consumo sob demanda."""
+    return rx.vstack(
+        rx.hstack(
+            rotulo_campo("SLA aplicado"),
+            rx.popover.root(
+                rx.popover.trigger(
+                    rx.icon_button(
+                        rx.icon("info", size=16),
+                        variant="ghost",
+                        size="2",
+                        radius="full",
+                        color=TEXTO_SECUNDARIO,
+                        aria_label="Ver consumo de SLA",
+                        title="Ver consumo de SLA",
+                        _focus_visible=FOCO_VISIVEL,
+                    )
+                ),
+                rx.popover.content(
+                    rx.vstack(
+                        rx.text("Consumo de SLA", size="2", weight="bold"),
+                        rx.cond(
+                            carregando,
+                            rx.hstack(rx.spinner(size="1"), rx.text("Calculando consumo...", size="2")),
+                            rx.cond(
+                                mensagem_erro != "",
+                                rx.text(mensagem_erro, size="2", color="#B42318"),
+                                rx.cond(
+                                    consumo.length() > 0,
+                                    rx.vstack(
+                                        rx.text(consumo["situacao"], weight="medium"),
+                                        rx.cond(consumo["percentual"] != "", rx.text(consumo["percentual"], size="2"), rx.fragment()),
+                                        rx.cond(consumo["prazo"] != "", rx.text(consumo["prazo"], size="2"), rx.fragment()),
+                                        rx.cond(consumo["motivo"] != "", rx.text(consumo["motivo"], size="2"), rx.fragment()),
+                                        align="start", spacing="1",
+                                    ),
+                                    rx.text("Consumo indisponível.", size="2"),
+                                ),
+                            ),
+                        ),
+                        align="start", spacing="2", width="100%",
+                    ),
+                    side="top",
+                    align="start",
+                    width="20rem",
+                    max_width="90vw",
+                ),
+            ),
+            align="center", spacing="1",
+        ),
+        rx.box(sla_aplicado, color=TEXTO, width="100%"),
+        spacing="1",
+        align="start",
+        padding_y="0.25rem",
+        width="100%",
+    )
 
 
 def evento_timeline_para_dict(

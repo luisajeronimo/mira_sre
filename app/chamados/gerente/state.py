@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import datetime
 from typing import Any, TypedDict
 from zoneinfo import ZoneInfo
@@ -899,22 +898,21 @@ class ChamadosGerenteState(AuthState):
                     return
             finally:
                 self.carregando_sla = False
-            if os.getenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false").lower() == "true":
-                self.carregando_historico = True
-                try:
-                    itens = await cliente.listar_historico_status_gerente(self._auth_token, chamado_id)
-                    if not self._contexto_gerente_atual(contexto):
-                        return
-                    self.historico_status = [historico_status_para_dict(item) for item in itens]
-                except Exception as erro:  # noqa: BLE001
-                    if not self._contexto_gerente_atual(contexto):
-                        return
-                    destino = self._registrar_erro(erro, "mensagem_historico")
-                    if destino is not None:
-                        yield rx.redirect(destino)
-                        return
-                finally:
-                    self.carregando_historico = False
+            self.carregando_historico = True
+            try:
+                itens = await cliente.listar_historico_status_gerente(self._auth_token, chamado_id)
+                if not self._contexto_gerente_atual(contexto):
+                    return
+                self.historico_status = [historico_status_para_dict(item) for item in itens]
+            except Exception as erro:  # noqa: BLE001
+                if not self._contexto_gerente_atual(contexto):
+                    return
+                destino = self._registrar_erro(erro, "mensagem_historico")
+                if destino is not None:
+                    yield rx.redirect(destino)
+                    return
+            finally:
+                self.carregando_historico = False
         except Exception as erro:  # noqa: BLE001 - convertido em erro sanitizado
             if not self._contexto_gerente_atual(contexto):
                 return
@@ -1049,16 +1047,15 @@ class ChamadosGerenteState(AuthState):
                     return
             if not self._contexto_gerente_atual(contexto):
                 return
-            if os.getenv("MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO", "false").lower() == "true":
-                try:
-                    itens = await cliente.listar_historico_status_gerente(self._auth_token, chamado_id)
-                    if self._contexto_gerente_atual(contexto):
-                        self.historico_status = [historico_status_para_dict(item) for item in itens]
-                except Exception as erro:  # noqa: BLE001
-                    destino = self._registrar_erro(erro, "mensagem_historico")
-                    if destino is not None:
-                        yield rx.redirect(destino)
-                        return
+            try:
+                itens = await cliente.listar_historico_status_gerente(self._auth_token, chamado_id)
+                if self._contexto_gerente_atual(contexto):
+                    self.historico_status = [historico_status_para_dict(item) for item in itens]
+            except Exception as erro:  # noqa: BLE001
+                destino = self._registrar_erro(erro, "mensagem_historico")
+                if destino is not None:
+                    yield rx.redirect(destino)
+                    return
         except XanoConflito:
             if self._contexto_gerente_atual(contexto):
                 self.mensagem_rejeicao = "O chamado mudou. Confira o detalhe atualizado antes de tentar novamente."

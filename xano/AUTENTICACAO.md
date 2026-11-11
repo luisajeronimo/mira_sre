@@ -1,5 +1,13 @@
 # Autenticação e autorização no Xano
 
+> **Documento histórico.** Registra o contrato e o plano da change arquivada
+> `2026-09-13-autenticacao-perfis-autorizacao`, com o acréscimo das credenciais
+> das automações em 2026-09-30, e não acompanha as mudanças seguintes. Entre elas: o perfil oficial Administrador (quatro perfis:
+> Gerente, Técnico, Diretoria e Administrador) e a restrição das consultas
+> genéricas de `interacoes_chamado` ao Técnico. O comportamento vigente está em
+> `openspec/specs/autenticacao-usuarios/`, `openspec/specs/autorizacao-perfis/`
+> e `openspec/specs/autenticacao-automacoes/`.
+
 Este documento registra o contrato local e o plano operacional aprovado pela change
 `autenticacao-perfis-autorizacao`. Ele não contém credenciais e não executa nenhuma
 alteração remota.

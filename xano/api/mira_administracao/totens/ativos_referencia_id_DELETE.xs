@@ -19,6 +19,7 @@ query "administracao/totens/{ativos_referencia_id}" verb=DELETE {
           field_value = $input.ativos_referencia_id
           lock = true
         } as $totem
+
         precondition ($totem != null) {
           error_type = "notfound"
           error = "Totem não encontrado."
@@ -28,18 +29,22 @@ query "administracao/totens/{ativos_referencia_id}" verb=DELETE {
           where = $db.chamados.ativos_referencia_id == $totem.id
           return = {type: "exists"}
         } as $tem_chamado
+
         db.query telemetria_equipamentos {
           where = $db.telemetria_equipamentos.ativos_referencia_id == $totem.id
           return = {type: "exists"}
         } as $tem_telemetria
+
         db.query historico_disponibilidade_totens {
           where = $db.historico_disponibilidade_totens.ativos_referencia_id == $totem.id
           return = {type: "exists"}
         } as $tem_disponibilidade
+
         db.query preferencias_fila_chamados {
           where = $db.preferencias_fila_chamados.ativos_referencia_id == $totem.id
           return = {type: "exists"}
         } as $tem_preferencia
+
         db.query historico_vinculos_totem_loja {
           where = $db.historico_vinculos_totem_loja.ativos_referencia_id == $totem.id
           sort = {historico_vinculos_totem_loja.efetivado_em: "asc"}
@@ -50,6 +55,7 @@ query "administracao/totens/{ativos_referencia_id}" verb=DELETE {
           error_type = "inputerror"
           error = "Totem possui vínculos ou histórico impeditivos."
         }
+
         precondition (($vinculos|count) == 0 || (($vinculos|count) == 1 && $vinculos[0].tipo == "criacao")) {
           error_type = "inputerror"
           error = "Totem possui transferência histórica."
@@ -63,6 +69,7 @@ query "administracao/totens/{ativos_referencia_id}" verb=DELETE {
             }
           }
         }
+
         db.del ativos_referencia {
           field_name = "id"
           field_value = $totem.id

@@ -13,24 +13,26 @@ query "administracao/totens/{ativos_referencia_id}" verb=PATCH {
   stack {
     function.run "administracao/transferir_totem" {
       input = {
-        usuarios_id: $auth.id
+        usuarios_id         : $auth.id
         ativos_referencia_id: $input.ativos_referencia_id
-        loja_destino_id: $input.lojas_id
-        identificacao: $input.identificacao
-        nome: $input.nome
+        loja_destino_id     : $input.lojas_id
+        identificacao       : $input.identificacao
+        nome                : $input.nome
       }
     } as $transferencia
+
     db.get ativos_referencia {
       field_name = "id"
       field_value = $input.ativos_referencia_id
     } as $totem
+
     var $resposta {
       value = {
-        id: $totem.id
+        id           : $totem.id
         identificacao: $totem.identificacao
-        nome: $totem.nome_ativo
-        lojas_id: $totem.lojas_id
-        status_atual: $totem.status_atual
+        nome         : $totem.nome_ativo
+        lojas_id     : $totem.lojas_id
+        status_atual : $totem.status_atual
       }
     }
   }

@@ -11,7 +11,10 @@ query "interacoes_chamado/{interacoes_chamado_id}" verb=GET {
     // Autoriza antes de qualquer leitura. O Gerente lê interações somente
     // pelos contratos funcionais filtrados; esta consulta não filtra visibilidade.
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $auth.id, tecnico: true}
+      input = {
+        usuarios_id: $auth.id,
+        tecnico: true
+      }
     } as $usuario
 
     db.get interacoes_chamado {

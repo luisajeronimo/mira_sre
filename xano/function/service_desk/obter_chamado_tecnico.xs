@@ -4,99 +4,82 @@ function "service_desk/obter_chamado_tecnico" {
     int usuarios_id {
       table = "usuarios"
     }
+
     int chamados_id
   }
 
   stack {
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
+      input = {
+        usuarios_id  : $input.usuarios_id
+        tecnico      : true
+        diretoria    : true
+        administrador: true
+      }
+
       mock = {
-        "retorna detalhe": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "retorna detalhe legado": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "retorna detalhe automático": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "retorna timeline cronológica decrescente com legado": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "retorna detalhe Diretoria": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "retorna detalhe Administrador": ```
-          {id: 13, nome: "Administradora", email: "admin@example.test", role: "administrador", lojas_id: null}
-          ```
-        "rejeita inexistente": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
+        "retorna detalhe"                                     : {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+        "retorna detalhe legado"                              : {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+        "retorna detalhe automático"                         : {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+        "retorna timeline cronológica decrescente com legado": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+        "retorna detalhe Diretoria"                           : {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
+        "retorna detalhe Administrador"                       : {id: 13, nome: "Administradora", email: "admin@example.test", role: "administrador", lojas_id: null}
+        "rejeita inexistente"                                 : {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
       }
     } as $usuario
 
     db.query chamados {
       join = {
-        ativo: {
+        ativo      : {
           table: "ativos_referencia"
-          type: "left"
+          type : "left"
           where: $db.chamados.ativos_referencia_id == $db.ativo.id
         }
-        loja: {
+        loja       : {
           table: "lojas"
-          type: "left"
+          type : "left"
           where: $db.ativo.lojas_id == $db.loja.id
         }
-        categoria: {
+        categoria  : {
           table: "categorias_servico"
-          type: "left"
+          type : "left"
           where: $db.chamados.categorias_servico_id == $db.categoria.id
         }
         solicitante: {
           table: "usuarios"
-          type: "left"
+          type : "left"
           where: $db.chamados.solicitante_id == $db.solicitante.id
         }
-        tecnico: {
+        tecnico_usuario: {
           table: "usuarios"
-          type: "left"
-          where: $db.chamados.tecnico_id == $db.tecnico.id
+          type : "left"
+          where: $db.chamados.tecnico_id == $db.tecnico_usuario.id
         }
       }
-      eval = {
-        ativo_id: $db.ativo.id
-        ativo_nome: $db.ativo.nome_ativo
-        loja_id: $db.loja.id
-        loja_nome: $db.loja.nome
-        categoria_id: $db.categoria.id
-        categoria_nome: $db.categoria.nome
-        solicitante_usuario_id: $db.solicitante.id
-        solicitante_nome: $db.solicitante.nome
-        tecnico_usuario_id: $db.tecnico.id
-        tecnico_nome: $db.tecnico.nome
-      }
+
       where = $db.chamados.id == $input.chamados_id
+      eval = {
+        ativo_id              : $db.ativo.id
+        ativo_nome            : $db.ativo.nome_ativo
+        loja_id               : $db.loja.id
+        loja_nome             : $db.loja.nome
+        categoria_id          : $db.categoria.id
+        categoria_nome        : $db.categoria.nome
+        solicitante_usuario_id: $db.solicitante.id
+        solicitante_nome      : $db.solicitante.nome
+        tecnico_usuario_id    : $db.tecnico_usuario.id
+        tecnico_nome          : $db.tecnico_usuario.nome
+      }
+
       return = {type: "single"}
       mock = {
-        "retorna detalhe": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: 3, loja_nome: "Loja Centro", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "retorna detalhe legado": ```
-          {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "retorna detalhe automático": ```
-          {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 1, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "retorna timeline cronológica decrescente com legado": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Em Atendimento", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000002000, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: 12, tecnico_nome: "Técnico"}
-          ```
-        "retorna detalhe Diretoria": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "retorna detalhe Administrador": ```
-          {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
-          ```
-        "rejeita inexistente": null
+        "retorna detalhe"                                     : {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: 3, loja_nome: "Loja Centro", categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+        "retorna detalhe legado"                              : {id: 16, titulo: "Legado", descricao: null, status: "Novo", prioridade: "Urgente", origem: null, criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: null, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+        "retorna detalhe automático"                         : {id: 17, titulo: "Totem sem heartbeat", descricao: null, status: "Novo", prioridade: "Urgente", origem: "automatico", criador_sistema: "bot_fiscalizacao", criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 1, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 1, categoria_nome: "Totem Offline / Sem Heartbeat", solicitante_usuario_id: null, solicitante_nome: null, tecnico_usuario_id: null, tecnico_nome: null}
+        "retorna timeline cronológica decrescente com legado": {id: 101, titulo: "Falha", descricao: "Descrição", status: "Em Atendimento", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: 1780000002000, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: 12, tecnico_nome: "Técnico"}
+        "retorna detalhe Diretoria"                           : {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+        "retorna detalhe Administrador"                       : {id: 101, titulo: "Falha", descricao: "Descrição", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, atribuido_em: null, ativo_id: 1, ativo_nome: "Totem 01", loja_id: null, loja_nome: null, categoria_id: 2, categoria_nome: "Falha de Rede", solicitante_usuario_id: 8, solicitante_nome: "Gerente", tecnico_usuario_id: null, tecnico_nome: null}
+        "rejeita inexistente"                                 : null
       }
     } as $registro
 
@@ -108,32 +91,41 @@ function "service_desk/obter_chamado_tecnico" {
     function.run "administracao/resolver_loja_totem_no_instante" {
       input = {
         ativos_referencia_id: $registro.ativo_id
-        instante: $registro.criado_em
+        instante            : $registro.criado_em
       }
+
       mock = {
-        "retorna detalhe": {lojas_id: 3}
-        "retorna detalhe legado": {lojas_id: null}
-        "retorna detalhe automático": {lojas_id: null}
+        "retorna detalhe"                                     : {lojas_id: 3}
+        "retorna detalhe legado"                              : {lojas_id: null}
+        "retorna detalhe automático"                         : {lojas_id: null}
         "retorna timeline cronológica decrescente com legado": {lojas_id: null}
-        "retorna detalhe Diretoria": {lojas_id: null}
-        "retorna detalhe Administrador": {lojas_id: null}
+        "retorna detalhe Diretoria"                           : {lojas_id: null}
+        "retorna detalhe Administrador"                       : {lojas_id: null}
       }
     } as $historico
-    var $loja_historica_nome { value = null }
+
+    var $loja_historica_nome {
+      value = null
+    }
+
     conditional {
       if ($historico.lojas_id != null) {
         db.get lojas {
           field_name = "id"
           field_value = $historico.lojas_id
-          mock = {
-            "retorna detalhe": {id: 3, nome: "Loja Centro"}
-          }
+          mock = {"retorna detalhe": {id: 3, nome: "Loja Centro"}}
         } as $loja_historica
-        var.update $loja_historica_nome { value = $loja_historica.nome }
+
+        var.update $loja_historica_nome {
+          value = $loja_historica.nome
+        }
       }
     }
+
     var.update $registro {
-      value = $registro|set:"loja_id":$historico.lojas_id|set:"loja_nome":$loja_historica_nome
+      value = $registro
+        |set:"loja_id":$historico.lojas_id
+        |set:"loja_nome":$loja_historica_nome
     }
 
     function.run "service_desk/construir_dto_chamado_tecnico" {
@@ -142,35 +134,37 @@ function "service_desk/obter_chamado_tecnico" {
 
     db.query interacoes_chamado {
       join = {
-        autor: {
+        autor           : {
           table: "usuarios"
-          type: "left"
+          type : "left"
           where: $db.interacoes_chamado.usuarios_id == $db.autor.id
         }
         tecnico_anterior: {
           table: "usuarios"
-          type: "left"
+          type : "left"
           where: $db.interacoes_chamado.tecnico_anterior_id == $db.tecnico_anterior.id
         }
-        tecnico_novo: {
+        tecnico_novo    : {
           table: "usuarios"
-          type: "left"
+          type : "left"
           where: $db.interacoes_chamado.tecnico_novo_id == $db.tecnico_novo.id
         }
       }
-      eval = {
-        autor_id: $db.autor.id
-        autor_nome: $db.autor.nome
-        tecnico_anterior_nome: $db.tecnico_anterior.nome
-        tecnico_novo_nome: $db.tecnico_novo.nome
-      }
+
       where = $db.interacoes_chamado.chamados_id == $registro.id
       sort = {interacoes_chamado.id: "asc"}
+      eval = {
+        autor_id             : $db.autor.id
+        autor_nome           : $db.autor.nome
+        tecnico_anterior_nome: $db.tecnico_anterior.nome
+        tecnico_novo_nome    : $db.tecnico_novo.nome
+      }
+
       return = {type: "list"}
       mock = {
-        "retorna detalhe": []
-        "retorna detalhe legado": []
-        "retorna detalhe automático": []
+        "retorna detalhe"                                     : []
+        "retorna detalhe legado"                              : []
+        "retorna detalhe automático"                         : []
         "retorna timeline cronológica decrescente com legado": ```
           [
             {id: 11, mensagem: "Comentário legado", criado_em: null, created_at: 1780000001000, tipo_evento: null, alteracoes: null, visibilidade: "publica", chamados_id: 101, usuarios_id: 8, autor_id: 8, autor_nome: "Gerente", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null},
@@ -180,24 +174,26 @@ function "service_desk/obter_chamado_tecnico" {
             {id: 15, mensagem: null, criado_em: 1780000005000, created_at: 1780000005001, tipo_evento: "alteracao_chamado", alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}}, visibilidade: "interna", chamados_id: 101, usuarios_id: 12, autor_id: 12, autor_nome: "Técnico", tecnico_anterior_id: null, tecnico_anterior_nome: null, tecnico_novo_id: null, tecnico_novo_nome: null}
           ]
           ```
-        "retorna detalhe Diretoria": []
-        "retorna detalhe Administrador": []
+        "retorna detalhe Diretoria"                           : []
+        "retorna detalhe Administrador"                       : []
       }
     } as $interacoes
 
     var $eventos {
-      value = $interacoes|map:{
-        id: $$.id,
-        tipo: ($$.tipo_evento == null || $$.tipo_evento == "") ? "comentario" : $$.tipo_evento,
-        conteudo: $$.mensagem,
-        alteracoes: $$.alteracoes,
-        visibilidade: ($$.tipo_evento == null || $$.tipo_evento == "" || $$.tipo_evento == "comentario") ? $$.visibilidade : null,
-        criado_em: ($$.criado_em ?? $$.created_at),
-        ordenacao: (($$.criado_em ?? $$.created_at)|to_text) ~ "-" ~ ($$.id|to_text),
-        autor: ($$.autor_id != null && $$.autor_id != 0) ? {id: $$.autor_id, nome: $$.autor_nome} : null,
-        tecnico_anterior: ($$.tecnico_anterior_id != null && $$.tecnico_anterior_id != 0) ? {id: $$.tecnico_anterior_id, nome: $$.tecnico_anterior_nome} : null,
-        tecnico_novo: ($$.tecnico_novo_id != null && $$.tecnico_novo_id != 0) ? {id: $$.tecnico_novo_id, nome: $$.tecnico_novo_nome} : null
-      }
+      value = ```
+        $interacoes|map:{
+                id: $$.id,
+                tipo: ($$.tipo_evento == null || $$.tipo_evento == "") ? "comentario" : $$.tipo_evento,
+                conteudo: $$.mensagem,
+                alteracoes: $$.alteracoes,
+                visibilidade: ($$.tipo_evento == null || $$.tipo_evento == "" || $$.tipo_evento == "comentario") ? $$.visibilidade : null,
+                criado_em: ($$.criado_em ?? $$.created_at),
+                ordenacao: (($$.criado_em ?? $$.created_at)|to_text) ~ "-" ~ ($$.id|to_text),
+                autor: ($$.autor_id != null && $$.autor_id != 0) ? {id: $$.autor_id, nome: $$.autor_nome} : null,
+                tecnico_anterior: ($$.tecnico_anterior_id != null && $$.tecnico_anterior_id != 0) ? {id: $$.tecnico_anterior_id, nome: $$.tecnico_anterior_nome} : null,
+                tecnico_novo: ($$.tecnico_novo_id != null && $$.tecnico_novo_id != 0) ? {id: $$.tecnico_novo_id, nome: $$.tecnico_novo_nome} : null
+              }
+        ```
     }
 
     // A chave natural combina o instante efetivo e o id, garantindo o desempate.
@@ -207,17 +203,19 @@ function "service_desk/obter_chamado_tecnico" {
     }
 
     var $timeline {
-      value = $eventos_ordenados|map:{
-        id: $$.id,
-        tipo: $$.tipo,
-        conteudo: $$.conteudo,
-        alteracoes: $$.alteracoes,
-        visibilidade: $$.visibilidade,
-        criado_em: $$.criado_em,
-        autor: $$.autor,
-        tecnico_anterior: $$.tecnico_anterior,
-        tecnico_novo: $$.tecnico_novo
-      }
+      value = ```
+        $eventos_ordenados|map:{
+                id: $$.id,
+                tipo: $$.tipo,
+                conteudo: $$.conteudo,
+                alteracoes: $$.alteracoes,
+                visibilidade: $$.visibilidade,
+                criado_em: $$.criado_em,
+                autor: $$.autor,
+                tecnico_anterior: $$.tecnico_anterior,
+                tecnico_novo: $$.tecnico_novo
+              }
+        ```
     }
 
     db.query usuarios {
@@ -225,12 +223,12 @@ function "service_desk/obter_chamado_tecnico" {
       sort = {usuarios.nome: "asc", usuarios.id: "asc"}
       return = {type: "list"}
       mock = {
-        "retorna detalhe": [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}]
-        "retorna detalhe legado": []
-        "retorna detalhe automático": []
+        "retorna detalhe"                                     : [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}]
+        "retorna detalhe legado"                              : []
+        "retorna detalhe automático"                         : []
         "retorna timeline cronológica decrescente com legado": [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}]
-        "retorna detalhe Diretoria": [{id: 12, nome: "Técnico"}]
-        "retorna detalhe Administrador": [{id: 12, nome: "Técnico"}]
+        "retorna detalhe Diretoria"                           : [{id: 12, nome: "Técnico"}]
+        "retorna detalhe Administrador"                       : [{id: 12, nome: "Técnico"}]
       }
     } as $tecnicos_registros
 
@@ -239,21 +237,38 @@ function "service_desk/obter_chamado_tecnico" {
     }
   }
 
-  response = {chamado: $chamado, timeline: $timeline, tecnicos: $tecnicos}
+  response = {
+    chamado : $chamado
+    timeline: $timeline
+    tecnicos: $tecnicos
+  }
 
   test "retorna detalhe" {
     input = {usuarios_id: 12, chamados_id: 101}
-    expect.to_equal ($response.chamado.id) { value = 101 }
+
+    expect.to_equal ($response.chamado.id) {
+      value = 101
+    }
+
     expect.to_be_null ($response.chamado.criador_sistema)
     expect.to_be_null ($response.chamado.tecnico)
     expect.to_be_null ($response.chamado.atribuido_em)
-    expect.to_equal ($response.chamado.loja) { value = {id: 3, nome: "Loja Centro"} }
+    expect.to_equal ($response.chamado.loja) {
+      value = {id: 3, nome: "Loja Centro"}
+    }
+
     expect.to_be_empty ($response.timeline)
-    expect.to_equal ($response.tecnicos) { value = [{id: 10, nome: "Outro Técnico"}, {id: 12, nome: "Técnico"}] }
+    expect.to_equal ($response.tecnicos) {
+      value = [
+        {id: 10, nome: "Outro Técnico"}
+        {id: 12, nome: "Técnico"}
+      ]
+    }
   }
 
   test "retorna detalhe legado" {
     input = {usuarios_id: 12, chamados_id: 16}
+
     expect.to_be_null ($response.chamado.descricao)
     expect.to_be_null ($response.chamado.origem)
     expect.to_be_null ($response.chamado.criador_sistema)
@@ -263,19 +278,26 @@ function "service_desk/obter_chamado_tecnico" {
 
   test "retorna detalhe automático" {
     input = {usuarios_id: 12, chamados_id: 17}
-    expect.to_equal ($response.chamado.origem) { value = "automatico" }
+
+    expect.to_equal ($response.chamado.origem) {
+      value = "automatico"
+    }
+
     expect.to_be_null ($response.chamado.solicitante)
-    expect.to_equal ($response.chamado.criador_sistema) { value = "bot_fiscalizacao" }
+    expect.to_equal ($response.chamado.criador_sistema) {
+      value = "bot_fiscalizacao"
+    }
   }
 
   test "retorna timeline cronológica decrescente com legado" {
     input = {usuarios_id: 12, chamados_id: 101}
+
     expect.to_equal ($response.timeline) {
       value = [
-        {id: 15, tipo: "alteracao_chamado", conteudo: null, alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}}, visibilidade: null, criado_em: 1780000005000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
-        {id: 12, tipo: "comentario", conteudo: "Comentário recente", alteracoes: null, visibilidade: "interna", criado_em: 1780000004000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null},
-        {id: 14, tipo: "reatribuicao", conteudo: null, alteracoes: null, visibilidade: null, criado_em: 1780000002000, autor: {id: 4, nome: "Diretoria"}, tecnico_anterior: {id: 12, nome: "Técnico"}, tecnico_novo: {id: 10, nome: "Outro Técnico"}},
-        {id: 13, tipo: "atribuicao", conteudo: null, alteracoes: null, visibilidade: null, criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}},
+        {id: 15, tipo: "alteracao_chamado", conteudo: null, alteracoes: {status: {anterior: "Novo", resultante: "Em Atendimento"}, prioridade: {anterior: "Média", resultante: "Alta"}}, visibilidade: null, criado_em: 1780000005000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null}
+        {id: 12, tipo: "comentario", conteudo: "Comentário recente", alteracoes: null, visibilidade: "interna", criado_em: 1780000004000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: null}
+        {id: 14, tipo: "reatribuicao", conteudo: null, alteracoes: null, visibilidade: null, criado_em: 1780000002000, autor: {id: 4, nome: "Diretoria"}, tecnico_anterior: {id: 12, nome: "Técnico"}, tecnico_novo: {id: 10, nome: "Outro Técnico"}}
+        {id: 13, tipo: "atribuicao", conteudo: null, alteracoes: null, visibilidade: null, criado_em: 1780000002000, autor: {id: 12, nome: "Técnico"}, tecnico_anterior: null, tecnico_novo: {id: 12, nome: "Técnico"}}
         {id: 11, tipo: "comentario", conteudo: "Comentário legado", alteracoes: null, visibilidade: "publica", criado_em: 1780000001000, autor: {id: 8, nome: "Gerente"}, tecnico_anterior: null, tecnico_novo: null}
       ]
     }
@@ -283,17 +305,26 @@ function "service_desk/obter_chamado_tecnico" {
 
   test "retorna detalhe Diretoria" {
     input = {usuarios_id: 4, chamados_id: 101}
-    expect.to_equal ($response.chamado.id) { value = 101 }
+
+    expect.to_equal ($response.chamado.id) {
+      value = 101
+    }
   }
 
   test "retorna detalhe Administrador" {
     input = {usuarios_id: 13, chamados_id: 101}
-    expect.to_equal ($response.chamado.id) { value = 101 }
+
+    expect.to_equal ($response.chamado.id) {
+      value = 101
+    }
   }
 
   test "rejeita inexistente" {
     input = {usuarios_id: 12, chamados_id: 999}
-    expect.to_throw { exception = "" }
+
+    expect.to_throw {
+      exception = ""
+    }
   }
 
   guid = "miraDetalheTecnico01"

@@ -148,6 +148,8 @@ Conforme a área alterada, valide:
 Em validações runtime, diferencie claramente: **passou**, **falhou**, **não executado**, **bloqueado por ambiente/ferramenta/credencial** e **limitação aceita**.
 Nunca registre “não executado” como “passou”.
 
+Validações que dependem do Xano Developer MCP só podem ser feitas em sessão com o MCP disponível. Sem ele, registre a validação como bloqueada por ferramenta e não a substitua por análise estática ou inferência.
+
 ## Segurança e ambiente
 
 - Mantenha credenciais, tokens, senhas e segredos fora do versionamento.

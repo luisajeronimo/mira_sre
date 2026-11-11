@@ -66,7 +66,7 @@ O sistema DEVE (MUST) oferecer ao Gerente autenticado um formulário com seleç�
 - **THEN** o Reflex envia uma nova requisição sem aplicar deduplicação local
 
 ### Requirement: Gerente pode consultar o detalhe básico do chamado
-O sistema DEVE (MUST) fornecer uma página de detalhe que consulte `GET /gerente/chamados/{chamados_id}` e apresente identificação, título, descrição, status, prioridade, origem, abertura, última atualização, SLA aplicado, ativo, Loja, categoria, solicitante e técnico quando houver. A página DEVE (MUST) oferecer botão Detalhe do Totem que abre drawer lateral direito, com superfície própria, largura adequada e rolagem interna, fechável por X, com o resumo autorizado do Totem. A telemetria NÃO DEVE (MUST NOT) duplicar-se no corpo do chamado. A página DEVE (MUST) consultar e apresentar separadamente os comentários públicos autorizados do chamado, sem oferecer edição do chamado, mudança de status, atribuição, diagnóstico, solução ou resolução nesta capacidade.
+O sistema DEVE (MUST) fornecer uma página de detalhe que consulte `GET /gerente/chamados/{chamados_id}` e apresente identificação, título, descrição, status, prioridade, origem, abertura, última atualização, SLA aplicado, ativo, Loja, categoria, solicitante e técnico quando houver. A página DEVE (MUST) oferecer botão Detalhe do Totem que abre drawer lateral direito, com superfície própria, largura adequada e rolagem interna, fechável por X, com o resumo autorizado do Totem. A telemetria NÃO DEVE (MUST NOT) duplicar-se no corpo do chamado. A página DEVE (MUST) consultar e apresentar separadamente os comentários públicos autorizados do chamado, sem oferecer edição do chamado, mudança de status, atribuição, diagnóstico, solução ou resolução nesta capacidade, com a única exceção da ação específica de rejeitar solução em chamado `Resolvido`.
 
 #### Scenario: Detalhe carregado
 - **WHEN** o Xano retorna um chamado autorizado da Loja
@@ -89,11 +89,15 @@ O sistema DEVE (MUST) fornecer uma página de detalhe que consulte `GET /gerente
 - **WHEN** a consulta de comentários públicos do chamado é aceita
 - **THEN** o Reflex apresenta somente os comentários retornados, do mais recente ao mais antigo
 
+#### Scenario: Sem ações técnicas
+- **WHEN** o detalhe está em qualquer status
+- **THEN** o Reflex não oferece Save operacional, mudança direta de status, atribuição ou comentário interno ao Gerente
+
 ### Requirement: Reflex permite comentar chamado autorizado com rascunho descartável
-O Reflex DEVE (MUST) oferecer ao Gerente autenticado envio de comentário para o contrato funcional específico e descarte exclusivamente local do rascunho. A interface NÃO DEVE (MUST NOT) enviar autor, Loja, visibilidade, timestamp ou status como dados sob controle do cliente.
+O Reflex DEVE (MUST) oferecer ao Gerente autenticado envio de comentário para o contrato funcional específico e descarte exclusivamente local do rascunho, em chamado autorizado da própria Loja em qualquer status, inclusive `Encerrado` e `Cancelado`. A interface NÃO DEVE (MUST NOT) enviar autor, Loja, visibilidade, timestamp ou status como dados sob controle do cliente.
 
 #### Scenario: Envio de comentário público
-- **WHEN** o Gerente envia conteúdo de comentário não vazio em chamado autorizado
+- **WHEN** o Gerente envia conteúdo de comentário não vazio em chamado autorizado da própria Loja
 - **THEN** o Reflex chama o contrato específico, apresenta o comentário retornado e atualiza a visualização sem inventar dados locais
 
 #### Scenario: Descarte do rascunho
@@ -102,7 +106,7 @@ O Reflex DEVE (MUST) oferecer ao Gerente autenticado envio de comentário para o
 
 #### Scenario: Chamado terminal
 - **WHEN** o detalhe informa status `Encerrado` ou `Cancelado`
-- **THEN** o Reflex mantém os comentários públicos visíveis e oferece envio de comentário Público autorizado, sem permitir edição dos campos funcionais
+- **THEN** o Reflex mantém os comentários públicos visíveis e oferece envio de comentário público pelo contrato autorizado, sem reabrir ou editar o chamado
 
 ### Requirement: Jornada possui estados seguros de carregamento e falha
 O sistema DEVE (MUST) concluir o estado de carregamento da lista em sucesso,
@@ -407,3 +411,64 @@ O Reflex DEVE (MUST) descartar dados protegidos, rascunhos e preferências em me
 #### Scenario: Sessão expira durante consulta
 - **WHEN** a sessão do Gerente é invalidada enquanto uma consulta está em andamento
 - **THEN** a resposta antiga não repovoa o estado da nova sessão nem é apresentada na rota protegida
+
+### Requirement: Detalhe apresenta histórico público de status
+O Reflex DEVE (MUST) consultar o contrato de histórico público de status do Gerente e apresentá-lo em seção própria, distinta dos comentários, com status anterior, status resultante, data e autor, na ordem retornada pelo backend. O autor DEVE (MUST) ser apresentado como nome e perfil retornados, somente pelo nome quando `perfil` for nulo, como `Sistema` quando o backend assim o identificar, ou como autor não informado quando `autor` for nulo, sem inferir autoria ou perfil. A interface NÃO DEVE (MUST NOT) consumir a timeline técnica nem combinar comentários e transições em uma coleção derivada no cliente. A falha do histórico NÃO DEVE (MUST NOT) impedir a apresentação do detalhe nem dos comentários.
+
+#### Scenario: Histórico carregado
+- **WHEN** o contrato retorna transições
+- **THEN** o Reflex apresenta a seção de histórico separada dos comentários
+
+#### Scenario: Autor sem perfil reconhecido
+- **WHEN** a transição retorna `autor` com nome e `perfil` nulo
+- **THEN** o Reflex apresenta somente o nome, sem rotular como `Sistema`
+
+#### Scenario: Histórico vazio
+- **WHEN** o contrato retorna lista vazia
+- **THEN** o Reflex informa que não há transições registradas e que transições anteriores à implantação do Save operacional não são exibidas
+
+#### Scenario: Falha do histórico
+- **WHEN** a consulta do histórico falha por motivo diferente de autenticação
+- **THEN** o Reflex apresenta erro sanitizado na seção e mantém detalhe e comentários
+
+#### Scenario: Histórico no detalhe do Gerente
+- **WHEN** o Gerente abre chamado autorizado da própria Loja
+- **THEN** o Reflex apresenta o histórico pelo contrato de histórico do Gerente, sem ações adicionais
+
+### Requirement: Publicação de comentário confirma gravação independentemente da atualização do detalhe
+Após o contrato de criação confirmar a persistência de comentário público, o Reflex DEVE (MUST) apresentar confirmação visual explícita, preservar na lista o DTO retornado pelo Xano e limpar o rascunho. Uma falha posterior ao consultar novamente o detalhe NÃO DEVE (MUST NOT) ser apresentada como falha da publicação já confirmada; o resultado da atualização do detalhe DEVE (MUST) ser comunicado separadamente.
+
+#### Scenario: Publicação confirmada
+- **WHEN** a criação do comentário público retorna sucesso confirmado pelo Xano
+- **THEN** o Reflex apresenta confirmação visual, inclui o comentário retornado pelo servidor e limpa o rascunho
+
+#### Scenario: Publicação não confirmada
+- **WHEN** a criação do comentário público falha ou não retorna confirmação válida
+- **THEN** o Reflex não apresenta sucesso nem descarta o rascunho e apresenta erro sanitizado da publicação
+
+#### Scenario: Falha ao atualizar detalhe após publicação confirmada
+- **WHEN** a publicação foi confirmada e a consulta posterior do detalhe falha
+- **THEN** o Reflex mantém o comentário retornado e a confirmação de publicação e informa separadamente que o detalhe não foi atualizado
+
+### Requirement: Gerente rejeita solução pelo detalhe do chamado
+O Reflex DEVE (MUST) apresentar no detalhe do Gerente a ação "Rejeitar solução" somente quando o status do detalhe for `Resolvido`. A interface DEVE (MUST) exigir justificativa não vazia após trim antes do envio, transmitir somente a justificativa e o `ultima_atualizacao_em` do detalhe confirmado e NÃO DEVE (MUST NOT) enviar autor, Loja, status, visibilidade ou timestamp funcional. A condição visual e a validação local NÃO DEVEM (MUST NOT) ser tratadas como autorização. A interface DEVE (MUST) apresentar carregamento, sucesso e erro sem simular a transição.
+
+#### Scenario: Rejeição confirmada
+- **WHEN** o Gerente envia justificativa válida e o Xano confirma
+- **THEN** o Reflex apresenta sucesso, atualiza o detalhe com o status retornado e a justificativa entre os comentários públicos e limpa o campo
+
+#### Scenario: Justificativa vazia
+- **WHEN** a justificativa está vazia ou contém somente espaços
+- **THEN** o Reflex informa a validação e não chama o contrato
+
+#### Scenario: Ação indisponível fora de Resolvido
+- **WHEN** o detalhe apresenta status diferente de `Resolvido`
+- **THEN** o Reflex não oferece a ação
+
+#### Scenario: Envio em andamento
+- **WHEN** a rejeição está em processamento
+- **THEN** o Reflex impede envio duplicado e informa o carregamento
+
+#### Scenario: Rejeição recusada
+- **WHEN** o Xano recusa por autorização, justificativa, status ou detalhe desatualizado
+- **THEN** o Reflex não altera o status localmente, preserva a justificativa e apresenta erro sanitizado; em conflito, informa e recarrega o detalhe

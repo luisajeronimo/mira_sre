@@ -1,5 +1,6 @@
 """Harness local dos contratos XanoScript de administração, sem dados reais."""
 
+import re
 from pathlib import Path
 
 
@@ -105,7 +106,8 @@ def test_opcoes_lojas_aplicam_gate_admin_e_retornam_apenas_id_e_nome():
     assert 'function.run "autorizacao/exigir_perfil"' in OPCOES_LOJAS
     assert "administrador: true" in OPCOES_LOJAS
     assert 'db.query lojas' in OPCOES_LOJAS
-    projecao = OPCOES_LOJAS.split("value = $lojas|map:{", 1)[1].split("}", 1)[0]
+    # A exportação do Xano pode envolver a expressão em ``` ; localiza o map sem depender da formatação.
+    projecao = re.search(r"\$lojas\|map:\{(.*?)\}", OPCOES_LOJAS, re.S).group(1)
     assert "id: $$.id" in projecao
     assert "nome: $$.nome" in projecao
     assert "endereco" not in projecao

@@ -9,6 +9,13 @@ import re
 
 
 ROOT = Path(__file__).parents[1]
+
+
+def compacto(texto):
+    """Ignora espaços e delimitadores ``` de formatação do XanoScript exportado pelo Xano."""
+    return re.sub(r"\s+|```", "", texto)
+
+
 ASSUMIR = (ROOT / "xano/function/service_desk/assumir_chamado_tecnico.xs").read_text(
     encoding="utf-8"
 )
@@ -73,9 +80,9 @@ def test_liberacao_envia_nulos_explicitos_antes_do_evento_na_transacao():
 
 
 def test_timeline_combina_interacoes_e_ordena_instante_e_id_descendentes():
-    assert "value = $interacoes|map:{" in DETALHE
-    assert 'ordenacao: (($$.criado_em ?? $$.created_at)|to_text) ~ "-" ~ ($$.id|to_text)' in DETALHE
-    assert 'value = ($eventos|sort:"ordenacao":"natural":true)|reverse' in DETALHE
+    assert compacto("value = $interacoes|map:{") in compacto(DETALHE)
+    assert compacto('ordenacao: (($$.criado_em ?? $$.created_at)|to_text) ~ "-" ~ ($$.id|to_text)') in compacto(DETALHE)
+    assert compacto('value = ($eventos|sort:"ordenacao":"natural":true)|reverse') in compacto(DETALHE)
     assert 'test "retorna timeline cronológica decrescente com legado"' in DETALHE
     assert 'tipo_evento: "alteracao_chamado"' in DETALHE
     assert "json? alteracoes?" in (ROOT / "xano/table/interacoes_chamado.xs").read_text(
@@ -157,9 +164,9 @@ def test_listagem_valida_whitelist_e_desempata_ordenacao_no_xano():
         assert f'sort = {{{campo_ordenado}: "desc", chamados.id: "desc"}}' in LISTAGEM
     assert 'sort = {chamados.id: "asc"}' in LISTAGEM
     assert 'sort = {chamados.id: "desc"}' in LISTAGEM
-    assert "titulo_ordenavel: $db.chamados.titulo|to_lower" in LISTAGEM
-    assert "loja_ordenavel: $db.loja.nome|to_lower" in LISTAGEM
-    assert "ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em" in LISTAGEM
+    assert compacto("titulo_ordenavel: $db.chamados.titulo|to_lower") in compacto(LISTAGEM)
+    assert compacto("loja_ordenavel: $db.loja.nome|to_lower") in compacto(LISTAGEM)
+    assert compacto("ultima_atualizacao_em: $db.chamados.ultima_atualizacao_em") in compacto(LISTAGEM)
     inicio_responsavel = LISTAGEM.index('elseif ($ordenar_por == "responsavel" && $direcao == "ASC")')
     fim_responsavel = LISTAGEM.index('elseif ($ordenar_por == "aberto_por")', inicio_responsavel)
     bloco_responsavel = LISTAGEM[inicio_responsavel:fim_responsavel]
@@ -177,10 +184,10 @@ def test_listagem_ordena_responsavel_pelo_texto_exibido_inclusive_nao_atribuido(
     assert "tecnico_sem_responsavel:" not in LISTAGEM
     assert "!$db.tecnico.id" not in LISTAGEM
     assert "$db.chamados.tecnico_id == null" not in LISTAGEM
-    assert ' ? $$.tecnico_nome : "Não atribuído")|to_lower)' in LISTAGEM
-    assert 'var $chamados_ordenados { value = $chaves_responsavel|sort:"chave":"natural":true }' in LISTAGEM
-    assert 'var.update $chamados_ordenados { value = $chamados_ordenados|reverse }' in LISTAGEM
-    assert 'value = $chamados_ordenados|map:$$.chamado' in LISTAGEM
+    assert compacto(' ? $$.tecnico_nome : "Não atribuído")|to_lower)') in compacto(LISTAGEM)
+    assert compacto('var $chamados_ordenados { value = $chaves_responsavel|sort:"chave":"natural":true }') in compacto(LISTAGEM)
+    assert compacto('var.update $chamados_ordenados { value = $chamados_ordenados|reverse }') in compacto(LISTAGEM)
+    assert compacto('value = $chamados_ordenados|map:$$.chamado') in compacto(LISTAGEM)
     assert "$chamados_com_responsavel" not in LISTAGEM
     assert "$chamados_sem_responsavel" not in LISTAGEM
     inicio_asc = LISTAGEM.index('test "ordena responsável pelo texto exibido ascendente"')
@@ -217,7 +224,8 @@ def test_listagem_restaura_where_da_consulta_base_e_filtra_apos_ordenar():
     assert all("$aplicar_prioridade" not in where for where in wheres)
     assert all("$prioridade_normalizada" not in where for where in wheres)
     assert "array.filter ($chamados_filtrados) if ($prioridades|in:$this.prioridade)" in LISTAGEM
-    assert "($input.incluir_nao_atribuido == true && ($this.tecnico_id == null || $this.tecnico_id == 0))" in LISTAGEM
+    # O publicado testa `$input.incluir_nao_atribuido` (bool?) diretamente; equivale a `== true`.
+    assert re.search(r"\(\$input\.incluir_nao_atribuido(==true)?&&\(\$this\.tecnico_id==null\|\|\$this\.tecnico_id==0\)\)", compacto(LISTAGEM))
     assert "array.filter ($chamados_filtrados) if (($responsavel_ids|in:$this.tecnico_id) ||" in LISTAGEM
     # Os filtros de coleção recebem a saída da query; não há ordenação local
     # posterior que possa invalidar o desempate já resolvido pelo Xano.

@@ -4,6 +4,7 @@ function "service_desk/obter_chamado_gerente_autorizado" {
     int usuarios_id {
       table = "usuarios"
     }
+
     int chamados_id
   }
 
@@ -11,18 +12,10 @@ function "service_desk/obter_chamado_gerente_autorizado" {
     function.run "autorizacao/exigir_perfil" {
       input = {usuarios_id: $input.usuarios_id, gerente: true}
       mock = {
-        "autoriza chamado da loja": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
-        "rejeita gerente sem loja": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: null}
-          ```
-        "rejeita chamado inexistente": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
-        "rejeita chamado de outra loja": ```
-          {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-          ```
+        "autoriza chamado da loja"     : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "rejeita gerente sem loja"     : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: null}
+        "rejeita chamado inexistente"  : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "rejeita chamado de outra loja": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
       }
     } as $usuario
 
@@ -35,23 +28,18 @@ function "service_desk/obter_chamado_gerente_autorizado" {
       join = {
         ativo: {
           table: "ativos_referencia"
-          type: "left"
+          type : "left"
           where: $db.chamados.ativos_referencia_id == $db.ativo.id
         }
       }
-      eval = {
-        ativo_lojas_id: $db.ativo.lojas_id
-      }
+
       where = $db.chamados.id == $input.chamados_id
+      eval = {ativo_lojas_id: $db.ativo.lojas_id}
       return = {type: "single"}
       mock = {
-        "autoriza chamado da loja": ```
-          {id: 101, status: "Novo", ativos_referencia_id: 1, criado_em: 1780000000000, ativo_lojas_id: 1}
-          ```
-        "rejeita chamado inexistente": null
-        "rejeita chamado de outra loja": ```
-          {id: 102, status: "Novo", ativos_referencia_id: 8, criado_em: 1780000000000, ativo_lojas_id: 2}
-          ```
+        "autoriza chamado da loja"     : {id: 101, status: "Novo", ativos_referencia_id: 1, criado_em: 1780000000000, ativo_lojas_id: 1}
+        "rejeita chamado inexistente"  : null
+        "rejeita chamado de outra loja": {id: 102, status: "Novo", ativos_referencia_id: 8, criado_em: 1780000000000, ativo_lojas_id: 2}
       }
     } as $registro
 
@@ -63,40 +51,62 @@ function "service_desk/obter_chamado_gerente_autorizado" {
     function.run "administracao/resolver_loja_totem_no_instante" {
       input = {
         ativos_referencia_id: $registro.ativos_referencia_id
-        instante: $registro.criado_em
+        instante            : $registro.criado_em
       }
+
       mock = {
-        "autoriza chamado da loja": {lojas_id: 1}
+        "autoriza chamado da loja"     : {lojas_id: 1}
         "rejeita chamado de outra loja": {lojas_id: 2}
       }
     } as $historico
+
     precondition ($historico.lojas_id != null && $historico.lojas_id == $usuario.lojas_id) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
   }
 
-  response = {id: $registro.id, status: $registro.status, autor_nome: $usuario.nome}
+  response = {
+    id        : $registro.id
+    status    : $registro.status
+    autor_nome: $usuario.nome
+  }
 
   test "autoriza chamado da loja" {
     input = {usuarios_id: 8, chamados_id: 101}
-    expect.to_equal ($response.id) { value = 101 }
-    expect.to_equal ($response.autor_nome) { value = "Gerente" }
+
+    expect.to_equal ($response.id) {
+      value = 101
+    }
+
+    expect.to_equal ($response.autor_nome) {
+      value = "Gerente"
+    }
   }
 
   test "rejeita gerente sem loja" {
     input = {usuarios_id: 8, chamados_id: 101}
-    expect.to_throw { exception = "" }
+
+    expect.to_throw {
+      exception = ""
+    }
   }
 
   test "rejeita chamado inexistente" {
     input = {usuarios_id: 8, chamados_id: 999}
-    expect.to_throw { exception = "" }
+
+    expect.to_throw {
+      exception = ""
+    }
   }
 
   test "rejeita chamado de outra loja" {
     input = {usuarios_id: 8, chamados_id: 102}
-    expect.to_throw { exception = "" }
+
+    expect.to_throw {
+      exception = ""
+    }
   }
+
   guid = "miraGerenteChamadoAutorizado01"
 }

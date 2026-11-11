@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from app.chamados.shared import botao_criar_chamado, cabecalho, cabecalho_lista_chamados, erro
+from app.chamados.shared import botao_criar_chamado, cabecalho, cabecalho_lista_chamados, campo_sla_com_consumo, erro
 from app.chamados.tecnico.state import ChamadosTecnicoState
 from app.components.layout import casca_conteudo, estado_carregamento, estado_revalidacao
 from app.components.visual import (
@@ -407,7 +407,12 @@ def _detalhe_tecnico() -> rx.Component:
                                     text_transform="uppercase",
                                 ),
                             ),
-                            campo_info("SLA aplicado", ChamadosTecnicoState.chamado["sla_horas_texto"]),
+                            campo_sla_com_consumo(
+                                ChamadosTecnicoState.chamado["sla_horas_texto"],
+                                ChamadosTecnicoState.consumo_sla,
+                                ChamadosTecnicoState.carregando_sla,
+                                ChamadosTecnicoState.mensagem_sla,
+                            ),
                             campo_info("Atribuído em", ChamadosTecnicoState.chamado["atribuido_em_texto"]),
                             campo_info("Aberto em", ChamadosTecnicoState.chamado["criado_em_texto"]),
                             campo_info("Última atualização", ChamadosTecnicoState.chamado["ultima_atualizacao_em_texto"]),

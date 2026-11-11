@@ -55,7 +55,10 @@ def itens_visiveis(role: str) -> tuple[ItemNavegacao, ...]:
     """Retorna os destinos aprovados somente para um perfil oficial."""
     if role not in PERFIS_OFICIAIS:
         return ()
-    return tuple(item for item in ITENS_NAVEGACAO if role in item.perfis)
+    return tuple(
+        item for item in ITENS_NAVEGACAO
+        if role in item.perfis
+    )
 
 
 def item_esta_ativo(item: ItemNavegacao, rota_atual: str) -> bool:

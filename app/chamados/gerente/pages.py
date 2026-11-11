@@ -3,7 +3,7 @@
 import reflex as rx
 
 from app.chamados.gerente.state import ChamadosGerenteState
-from app.chamados.shared import botao_criar_chamado, cabecalho, cabecalho_lista_chamados, erro
+from app.chamados.shared import botao_criar_chamado, cabecalho, cabecalho_lista_chamados, campo_sla_com_consumo, erro
 from app.components.layout import casca_conteudo, estado_carregamento, estado_revalidacao
 from app.components.visual import (
     BORDA,
@@ -538,7 +538,7 @@ def formulario_abertura(estado=ChamadosGerenteState, escopo="os Totens da sua lo
 
 def _detalhe() -> rx.Component:
     return rx.vstack(
-        cabecalho("Detalhe do chamado", "Consulta somente leitura."),
+        cabecalho("Detalhe do chamado", "Acompanhe o chamado e suas atualizações."),
         erro(ChamadosGerenteState.mensagem_detalhe),
         rx.cond(
             ChamadosGerenteState.carregando_detalhe,
@@ -571,7 +571,12 @@ def _detalhe() -> rx.Component:
                             campo_info("Categoria", ChamadosGerenteState.chamado["categoria_nome"]),
                             campo_info("Solicitante", ChamadosGerenteState.chamado["solicitante_nome"]),
                             campo_info("Responsável", ChamadosGerenteState.chamado["tecnico_nome"]),
-                            campo_info("SLA aplicado", ChamadosGerenteState.chamado["sla_horas_texto"]),
+                            campo_sla_com_consumo(
+                                ChamadosGerenteState.chamado["sla_horas_texto"],
+                                ChamadosGerenteState.consumo_sla,
+                                ChamadosGerenteState.carregando_sla,
+                                ChamadosGerenteState.mensagem_sla,
+                            ),
                             campo_info("Aberto em", ChamadosGerenteState.chamado["criado_em_texto"]),
                             campo_info("Última atualização", ChamadosGerenteState.chamado["ultima_atualizacao_em_texto"]),
                             rx.cond(
@@ -657,10 +662,67 @@ def _detalhe() -> rx.Component:
             open=ChamadosGerenteState.drawer_totem_aberto,
         ),
         rx.cond(
+            ChamadosGerenteState.detalhe_carregado & (ChamadosGerenteState.chamado["status"] == "Resolvido"),
+            rx.card(
+                rx.vstack(
+                    rx.heading("Rejeitar solução", size="4"),
+                    rx.text("Explique por que a solução não resolveu o problema."),
+                    erro(ChamadosGerenteState.mensagem_rejeicao),
+                    rx.text_area(
+                        value=ChamadosGerenteState.justificativa_rejeicao,
+                        on_change=ChamadosGerenteState.alterar_justificativa_rejeicao,
+                        disabled=ChamadosGerenteState.enviando_rejeicao,
+                        aria_label="Justificativa da rejeição",
+                        width="100%",
+                    ),
+                    rx.button(
+                        rx.cond(ChamadosGerenteState.enviando_rejeicao, "Enviando...", "Rejeitar solução"),
+                        on_click=ChamadosGerenteState.rejeitar_solucao,
+                        disabled=ChamadosGerenteState.enviando_rejeicao,
+                    ),
+                    align="start", spacing="3", width="100%",
+                ),
+                width="100%",
+            ),
+        ),
+        rx.cond(
+            ChamadosGerenteState.mensagem_sucesso_rejeicao != "",
+            rx.callout(ChamadosGerenteState.mensagem_sucesso_rejeicao, icon="check", color_scheme="green"),
+        ),
+        rx.cond(
+            ChamadosGerenteState.detalhe_carregado,
+            rx.card(
+                rx.vstack(
+                    rx.heading("Histórico de status", size="4"),
+                    erro(ChamadosGerenteState.mensagem_historico),
+                    rx.cond(
+                        ChamadosGerenteState.carregando_historico,
+                        rx.spinner(size="2"),
+                        rx.cond(
+                            ChamadosGerenteState.historico_status.length() == 0,
+                            rx.text("Nenhuma transição registrada."),
+                            rx.vstack(
+                                rx.foreach(ChamadosGerenteState.historico_status, lambda item: rx.card(
+                                    rx.text(item["status_anterior"] + " → " + item["status_resultante"], weight="medium"),
+                                    rx.text(item["criado_em_texto"] + " • " + item["autor_nome"] + " " + item["autor_perfil"], size="2"),
+                                    width="100%",
+                                )), width="100%",
+                            ),
+                        ),
+                    ),
+                    align="start", width="100%",
+                ), width="100%",
+            ),
+        ),
+        rx.cond(
             ChamadosGerenteState.detalhe_carregado,
             rx.vstack(
                 rx.heading("Comentários", size="5"),
                 erro(ChamadosGerenteState.mensagem_comentarios),
+                rx.cond(
+                    ChamadosGerenteState.mensagem_sucesso != "",
+                    rx.callout(ChamadosGerenteState.mensagem_sucesso, icon="check", color_scheme="green"),
+                ),
                 rx.cond(
                     ChamadosGerenteState.carregando_comentarios,
                     rx.spinner(size="2"),

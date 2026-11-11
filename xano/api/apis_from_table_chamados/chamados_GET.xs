@@ -1,4 +1,8 @@
 // Query all chamados records
+// Correção C-1: o Gerente recebe somente chamados cuja Loja comprovada na
+// abertura (vínculo histórico) é a sua; a Loja atual do Totem não concede
+// acesso. Técnico e Diretoria mantêm a consulta global; Administrador e
+// demais perfis continuam negados por exigir_perfil.
 query chamados verb=GET {
   api_group = "APIS from table chamados"
   auth = "usuarios"
@@ -16,22 +20,31 @@ query chamados verb=GET {
       }
     } as $usuario
 
-    precondition ($usuario.role != "gerente" || $usuario.lojas_id != null) {
-      error_type = "accessdenied"
-      error = "Acesso não autorizado."
+    var $chamados {
+      value = []
     }
 
-    db.query chamados {
-      join = {
-        ativo: {
-          table: "ativos_referencia",
-          type: "left",
-          where: $db.chamados.ativos_referencia_id == $db.ativo.id
+    conditional {
+      if ($usuario.role == "gerente") {
+        function.run "service_desk/listar_chamados_loja_historica_gerente" {
+          input = {usuarios_id: $auth.id}
+        } as $autorizados
+
+        var.update $chamados {
+          value = $autorizados
         }
       }
-      where = $usuario.role == "tecnico" || $usuario.role == "diretoria" || ($usuario.role == "gerente" && $db.ativo.lojas_id == $usuario.lojas_id)
-      return = {type: "list"}
-    } as $chamados
+
+      else {
+        db.query chamados {
+          return = {type: "list"}
+        } as $todos
+
+        var.update $chamados {
+          value = $todos
+        }
+      }
+    }
   }
 
   response = $chamados

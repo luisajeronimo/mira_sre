@@ -6,7 +6,10 @@ function "administracao/resolver_loja_totem_no_instante" {
   }
 
   stack {
-    var $lojas_id { value = null }
+    var $lojas_id {
+      value = null
+    }
+
     conditional {
       if ($input.instante != null) {
         db.query historico_vinculos_totem_loja {
@@ -14,14 +17,17 @@ function "administracao/resolver_loja_totem_no_instante" {
           sort = {historico_vinculos_totem_loja.efetivado_em: "desc"}
           return = {type: "single"}
           mock = {
-            "antes do primeiro vínculo": null
+            "antes do primeiro vínculo"    : null
             "na fronteira da transferência": {loja_destino_id: 2, efetivado_em: 1780000000000}
-            "depois da transferência": {loja_destino_id: 2, efetivado_em: 1780000000000}
+            "depois da transferência"      : {loja_destino_id: 2, efetivado_em: 1780000000000}
           }
         } as $vinculo
+
         conditional {
           if ($vinculo != null) {
-            var.update $lojas_id { value = $vinculo.loja_destino_id }
+            var.update $lojas_id {
+              value = $vinculo.loja_destino_id
+            }
           }
         }
       }
@@ -32,17 +38,24 @@ function "administracao/resolver_loja_totem_no_instante" {
 
   test "antes do primeiro vínculo" {
     input = {ativos_referencia_id: 1, instante: 1779999999999}
+
     expect.to_be_null ($response.lojas_id)
   }
 
   test "na fronteira da transferência" {
     input = {ativos_referencia_id: 1, instante: 1780000000000}
-    expect.to_equal ($response.lojas_id) { value = 2 }
+
+    expect.to_equal ($response.lojas_id) {
+      value = 2
+    }
   }
 
   test "depois da transferência" {
     input = {ativos_referencia_id: 1, instante: 1780000000001}
-    expect.to_equal ($response.lojas_id) { value = 2 }
+
+    expect.to_equal ($response.lojas_id) {
+      value = 2
+    }
   }
 
   guid = "miraResolverLojaTotemNoInstante01"

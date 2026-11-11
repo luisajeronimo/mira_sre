@@ -10,7 +10,10 @@ query interacoes_chamado verb=GET {
     // O Gerente lê interações somente pelos contratos funcionais filtrados;
     // esta consulta genérica não filtra visibilidade nem tipo de evento.
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $auth.id, tecnico: true}
+      input = {
+        usuarios_id: $auth.id,
+        tecnico: true
+      }
     } as $usuario
 
     db.query interacoes_chamado {

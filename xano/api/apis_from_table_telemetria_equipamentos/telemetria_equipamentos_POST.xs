@@ -12,7 +12,9 @@ query telemetria_equipamentos verb=POST {
   }
 
   stack {
-    var $resultado { value = {error: "Não autenticado."} }
+    var $resultado {
+      value = {error: "Não autenticado."}
+    }
 
     var $chave_simulator_recebida {
       value = $env.$http_headers|get:"X-Mira-Simulator-Key"
@@ -29,41 +31,41 @@ query telemetria_equipamentos verb=POST {
           duplicates = "replace"
         }
       }
+
       else {
-
-    precondition ($input.ativos_referencia_id != null && $input.uso_cpu != null && $input.uso_memoria != null && $input.temperatura != null && $input.status_rede != null && $input.status_rede != "" && $input.evento_timestamp != null) {
-      error_type = "inputerror"
-      error = "Payload de telemetria incompleto."
-    }
-
-    db.get ativos_referencia {
-      field_name = "id"
-      field_value = $input.ativos_referencia_id
-    } as $ativo
-  
-    conditional {
-      if ($ativo == null) {
-        precondition (false) {
-          error_type = "notfound"
-          error = "ATIVO_NAO_ENCONTRADO - O ativo informado não existe."
+        precondition ($input.ativos_referencia_id != null && $input.uso_cpu != null && $input.uso_memoria != null && $input.temperatura != null && $input.status_rede != null && $input.status_rede != "" && $input.evento_timestamp != null) {
+          error_type = "inputerror"
+          error = "Payload de telemetria incompleto."
         }
-      }
-    
-      else {
-        db.add telemetria_equipamentos {
-          enforce_hidden_fields = false
-          data = {
-            created_at          : "now"
-            ativos_referencia_id: $input.ativos_referencia_id
-            uso_cpu             : $input.uso_cpu
-            uso_memoria         : $input.uso_memoria
-            temperatura         : $input.temperatura
-            status_rede         : $input.status_rede
-            evento_timestamp    : $input.evento_timestamp
+
+        db.get ativos_referencia {
+          field_name = "id"
+          field_value = $input.ativos_referencia_id
+        } as $ativo
+
+        conditional {
+          if ($ativo == null) {
+            precondition (false) {
+              error_type = "notfound"
+              error = "ATIVO_NAO_ENCONTRADO - O ativo informado não existe."
+            }
           }
-        } as $telemetria_equipamentos
-      }
-    }
+
+          else {
+            db.add telemetria_equipamentos {
+              enforce_hidden_fields = false
+              data = {
+                created_at          : "now"
+                ativos_referencia_id: $input.ativos_referencia_id
+                uso_cpu             : $input.uso_cpu
+                uso_memoria         : $input.uso_memoria
+                temperatura         : $input.temperatura
+                status_rede         : $input.status_rede
+                evento_timestamp    : $input.evento_timestamp
+              }
+            } as $telemetria_equipamentos
+          }
+        }
 
         var.update $resultado {
           value = {
@@ -79,6 +81,5 @@ query telemetria_equipamentos verb=POST {
   }
 
   response = $resultado
-
   guid = "rv26AQvmgM-PHWCz53dBj3OjUHA"
 }

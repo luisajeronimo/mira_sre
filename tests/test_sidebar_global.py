@@ -61,7 +61,10 @@ def test_inicio_permanece_ativo_na_jornada_canonica_de_chamados():
 
 
 def test_monitoramento_e_administracao_so_ativam_nas_rotas_configuradas():
-    inicio, monitoramento, administracao = ITENS_NAVEGACAO
+    por_rota = {item.rota: item for item in ITENS_NAVEGACAO}
+    inicio = por_rota["/inicio"]
+    monitoramento = por_rota["/monitoramento"]
+    administracao = por_rota["/administracao/gestao"]
 
     assert item_esta_ativo(monitoramento, "/monitoramento") is True
     assert item_esta_ativo(administracao, "/administracao/gestao") is True
@@ -70,6 +73,12 @@ def test_monitoramento_e_administracao_so_ativam_nas_rotas_configuradas():
         assert item_esta_ativo(administracao, rota) is False
     assert item_esta_ativo(inicio, "/monitoramento") is False
     assert item_esta_ativo(inicio, "/administracao/gestao") is False
+
+
+def test_chamados_solicitados_nao_criam_destino_proprio():
+    for perfil in ("gerente", "tecnico", "diretoria", "administrador"):
+        itens = itens_visiveis(perfil)
+        assert all(item.rota != "/chamados/solicitados" for item in itens)
 
 
 def test_asset_do_logo_corresponde_exatamente_a_referencia_oficial():

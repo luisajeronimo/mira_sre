@@ -4,6 +4,7 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
     int usuarios_id {
       table = "usuarios"
     }
+
     int ativos_referencia_id {
       table = "ativos_referencia"
     }
@@ -11,10 +12,16 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
 
   stack {
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
+      input = {
+        usuarios_id  : $input.usuarios_id
+        tecnico      : true
+        diretoria    : true
+        administrador: true
+      }
+
       mock = {
-        "detalhe completo": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-        "colecoes vazias": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+        "detalhe completo" : {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+        "colecoes vazias"  : {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
         "totem inexistente": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
       }
     } as $usuario
@@ -23,19 +30,17 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
       join = {
         loja: {
           table: "lojas"
-          type: "left"
+          type : "left"
           where: $db.ativos_referencia.lojas_id == $db.loja.id
         }
       }
-      eval = {
-        loja_id: $db.loja.id
-        loja_nome: $db.loja.nome
-      }
+
       where = $db.ativos_referencia.id == $input.ativos_referencia_id
+      eval = {loja_id: $db.loja.id, loja_nome: $db.loja.nome}
       return = {type: "single"}
       mock = {
-        "detalhe completo": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", loja_id: 3, loja_nome: "Loja Centro"}
-        "colecoes vazias": {id: 2, nome_ativo: "Totem 02", tipo: "Totem", status_atual: "offline", loja_id: null, loja_nome: null}
+        "detalhe completo" : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", loja_id: 3, loja_nome: "Loja Centro"}
+        "colecoes vazias"  : {id: 2, nome_ativo: "Totem 02", tipo: "Totem", status_atual: "offline", loja_id: null, loja_nome: null}
         "totem inexistente": null
       }
     } as $ativo
@@ -51,7 +56,7 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
       return = {type: "single"}
       mock = {
         "detalhe completo": {id: 91, evento_timestamp: 1780000030000, uso_cpu: 12.5, uso_memoria: 42.25, temperatura: 31.75, status_rede: "online"}
-        "colecoes vazias": null
+        "colecoes vazias" : null
       }
     } as $ultima_telemetria
 
@@ -61,7 +66,7 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
       return = {type: "list", paging: {page: 1, per_page: 10}}
       mock = {
         "detalhe completo": {items: [{id: 91, evento_timestamp: 1780000030000, uso_cpu: 12.5, uso_memoria: 42.25, temperatura: 31.75, status_rede: "online"}, {id: 90, evento_timestamp: 1780000020000, uso_cpu: 10, uso_memoria: 40, temperatura: 30, status_rede: "online"}]}
-        "colecoes vazias": {items: []}
+        "colecoes vazias" : {items: []}
       }
     } as $telemetrias_resultado
 
@@ -71,7 +76,7 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
       return = {type: "list", paging: {page: 1, per_page: 10}}
       mock = {
         "detalhe completo": {items: [{id: 31, status: "online", detectado_em: 1780000040000, heartbeat_limite_minutos: 15}, {id: 30, status: "offline", detectado_em: 1780000010000, heartbeat_limite_minutos: 15}]}
-        "colecoes vazias": {items: []}
+        "colecoes vazias" : {items: []}
       }
     } as $transicoes_resultado
 
@@ -79,68 +84,115 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
       join = {
         categoria: {
           table: "categorias_servico"
-          type: "inner"
           where: $db.chamados.categorias_servico_id == $db.categoria.id
         }
       }
-      eval = {
-        categoria_id: $db.categoria.id
-        categoria_nome: $db.categoria.nome
-      }
+
       where = $db.chamados.ativos_referencia_id == $ativo.id && $db.chamados.origem == "automatico" && $db.chamados.criador_sistema == "bot_fiscalizacao" && $db.categoria.nome == "Totem Offline / Sem Heartbeat"
       sort = {chamados.criado_em: "desc"}
+      eval = {
+        categoria_id  : $db.categoria.id
+        categoria_nome: $db.categoria.nome
+      }
+
       return = {type: "list", paging: {page: 1, per_page: 10}}
       mock = {
         "detalhe completo": {items: [{id: 70, titulo: "Totem sem heartbeat", status: "Novo", prioridade: "Urgente", criado_em: 1780000015000, ultima_atualizacao_em: 1780000015000, categoria_id: 5, categoria_nome: "Totem Offline / Sem Heartbeat"}]}
-        "colecoes vazias": {items: []}
+        "colecoes vazias" : {items: []}
       }
     } as $incidentes_resultado
 
     var $totem {
       value = {
-        id: $ativo.id,
-        nome_ativo: $ativo.nome_ativo,
-        tipo: $ativo.tipo,
-        loja: ($ativo.loja_id != null && $ativo.loja_id != 0) ? {id: $ativo.loja_id, nome: $ativo.loja_nome} : null,
+        id          : $ativo.id
+        nome_ativo  : $ativo.nome_ativo
+        tipo        : $ativo.tipo
+        loja        : ($ativo.loja_id != null && $ativo.loja_id != 0) ? {id: $ativo.loja_id, nome: $ativo.loja_nome} : null
         status_atual: $ativo.status_atual
       }
     }
 
-    var $ultima_telemetria_dto { value = null }
+    var $ultima_telemetria_dto {
+      value = null
+    }
+
     conditional {
       if ($ultima_telemetria != null) {
         function.run "administracao/obter_loja_historica_fato" {
-          input = {ativos_referencia_id: $ativo.id, instante: $ultima_telemetria.evento_timestamp}
+          input = {
+            ativos_referencia_id: $ativo.id
+            instante            : $ultima_telemetria.evento_timestamp
+          }
+
           mock = {"detalhe completo": {loja: {id: 3, nome: "Loja Centro"}}}
         } as $historico_ultima
+
         var.update $ultima_telemetria_dto {
-          value = {id: $ultima_telemetria.id, evento_timestamp: $ultima_telemetria.evento_timestamp, uso_cpu: $ultima_telemetria.uso_cpu, uso_memoria: $ultima_telemetria.uso_memoria, temperatura: $ultima_telemetria.temperatura, status_rede: $ultima_telemetria.status_rede, loja: $historico_ultima.loja}
+          value = {
+            id              : $ultima_telemetria.id
+            evento_timestamp: $ultima_telemetria.evento_timestamp
+            uso_cpu         : $ultima_telemetria.uso_cpu
+            uso_memoria     : $ultima_telemetria.uso_memoria
+            temperatura     : $ultima_telemetria.temperatura
+            status_rede     : $ultima_telemetria.status_rede
+            loja            : $historico_ultima.loja
+          }
         }
       }
     }
 
-    var $telemetrias { value = [] }
+    var $telemetrias {
+      value = []
+    }
+
     foreach ($telemetrias_resultado.items) {
       each as $telemetria {
         function.run "administracao/obter_loja_historica_fato" {
-          input = {ativos_referencia_id: $ativo.id, instante: $telemetria.evento_timestamp}
+          input = {
+            ativos_referencia_id: $ativo.id
+            instante            : $telemetria.evento_timestamp
+          }
+
           mock = {"detalhe completo": {loja: {id: 3, nome: "Loja Centro"}}}
         } as $historico_telemetria
+
         array.push $telemetrias {
-          value = {id: $telemetria.id, evento_timestamp: $telemetria.evento_timestamp, uso_cpu: $telemetria.uso_cpu, uso_memoria: $telemetria.uso_memoria, temperatura: $telemetria.temperatura, status_rede: $telemetria.status_rede, loja: $historico_telemetria.loja}
+          value = {
+            id              : $telemetria.id
+            evento_timestamp: $telemetria.evento_timestamp
+            uso_cpu         : $telemetria.uso_cpu
+            uso_memoria     : $telemetria.uso_memoria
+            temperatura     : $telemetria.temperatura
+            status_rede     : $telemetria.status_rede
+            loja            : $historico_telemetria.loja
+          }
         }
       }
     }
 
-    var $transicoes_disponibilidade { value = [] }
+    var $transicoes_disponibilidade {
+      value = []
+    }
+
     foreach ($transicoes_resultado.items) {
       each as $transicao {
         function.run "administracao/obter_loja_historica_fato" {
-          input = {ativos_referencia_id: $ativo.id, instante: $transicao.detectado_em}
+          input = {
+            ativos_referencia_id: $ativo.id
+            instante            : $transicao.detectado_em
+          }
+
           mock = {"detalhe completo": {loja: {id: 3, nome: "Loja Centro"}}}
         } as $historico_transicao
+
         array.push $transicoes_disponibilidade {
-          value = {id: $transicao.id, status: $transicao.status, detectado_em: $transicao.detectado_em, heartbeat_limite_minutos: $transicao.heartbeat_limite_minutos, loja: $historico_transicao.loja}
+          value = {
+            id                      : $transicao.id
+            status                  : $transicao.status
+            detectado_em            : $transicao.detectado_em
+            heartbeat_limite_minutos: $transicao.heartbeat_limite_minutos
+            loja                    : $historico_transicao.loja
+          }
         }
       }
     }
@@ -150,19 +202,55 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
     }
   }
 
-  response = {totem: $totem, ultima_telemetria: $ultima_telemetria_dto, telemetrias: $telemetrias, transicoes_disponibilidade: $transicoes_disponibilidade, incidentes_automaticos: $incidentes_automaticos}
+  response = {
+    totem                     : $totem
+    ultima_telemetria         : $ultima_telemetria_dto
+    telemetrias               : $telemetrias
+    transicoes_disponibilidade: $transicoes_disponibilidade
+    incidentes_automaticos    : $incidentes_automaticos
+  }
 
   test "detalhe completo" {
     input = {usuarios_id: 12, ativos_referencia_id: 1}
-    expect.to_equal ($response.totem) { value = {id: 1, nome_ativo: "Totem 01", tipo: "Totem", loja: {id: 3, nome: "Loja Centro"}, status_atual: "online"} }
-    expect.to_equal ($response.ultima_telemetria.id) { value = 91 }
-    expect.to_equal ($response.telemetrias) { value = [{id: 91, evento_timestamp: 1780000030000, uso_cpu: 12.5, uso_memoria: 42.25, temperatura: 31.75, status_rede: "online", loja: {id: 3, nome: "Loja Centro"}}, {id: 90, evento_timestamp: 1780000020000, uso_cpu: 10, uso_memoria: 40, temperatura: 30, status_rede: "online", loja: {id: 3, nome: "Loja Centro"}}] }
-    expect.to_equal ($response.transicoes_disponibilidade) { value = [{id: 31, status: "online", detectado_em: 1780000040000, heartbeat_limite_minutos: 15, loja: {id: 3, nome: "Loja Centro"}}, {id: 30, status: "offline", detectado_em: 1780000010000, heartbeat_limite_minutos: 15, loja: {id: 3, nome: "Loja Centro"}}] }
-    expect.to_equal ($response.incidentes_automaticos) { value = [{id: 70, titulo: "Totem sem heartbeat", status: "Novo", prioridade: "Urgente", criado_em: 1780000015000, ultima_atualizacao_em: 1780000015000, categoria: {id: 5, nome: "Totem Offline / Sem Heartbeat"}}] }
+
+    expect.to_equal ($response.totem) {
+      value = {
+        id          : 1
+        nome_ativo  : "Totem 01"
+        tipo        : "Totem"
+        loja        : {id: 3, nome: "Loja Centro"}
+        status_atual: "online"
+      }
+    }
+
+    expect.to_equal ($response.ultima_telemetria.id) {
+      value = 91
+    }
+
+    expect.to_equal ($response.telemetrias) {
+      value = [
+        {id: 91, evento_timestamp: 1780000030000, uso_cpu: 12.5, uso_memoria: 42.25, temperatura: 31.75, status_rede: "online", loja: {id: 3, nome: "Loja Centro"}}
+        {id: 90, evento_timestamp: 1780000020000, uso_cpu: 10, uso_memoria: 40, temperatura: 30, status_rede: "online", loja: {id: 3, nome: "Loja Centro"}}
+      ]
+    }
+
+    expect.to_equal ($response.transicoes_disponibilidade) {
+      value = [
+        {id: 31, status: "online", detectado_em: 1780000040000, heartbeat_limite_minutos: 15, loja: {id: 3, nome: "Loja Centro"}}
+        {id: 30, status: "offline", detectado_em: 1780000010000, heartbeat_limite_minutos: 15, loja: {id: 3, nome: "Loja Centro"}}
+      ]
+    }
+
+    expect.to_equal ($response.incidentes_automaticos) {
+      value = [
+        {id: 70, titulo: "Totem sem heartbeat", status: "Novo", prioridade: "Urgente", criado_em: 1780000015000, ultima_atualizacao_em: 1780000015000, categoria: {id: 5, nome: "Totem Offline / Sem Heartbeat"}}
+      ]
+    }
   }
 
   test "colecoes vazias" {
     input = {usuarios_id: 12, ativos_referencia_id: 2}
+
     expect.to_be_null ($response.ultima_telemetria)
     expect.to_be_empty ($response.telemetrias)
     expect.to_be_empty ($response.transicoes_disponibilidade)
@@ -171,9 +259,11 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
 
   test "totem inexistente" {
     input = {usuarios_id: 12, ativos_referencia_id: 999}
+
     expect.to_throw {
       exception = ""
     }
   }
+
   guid = "b6R1z1JzsRfpeP-5ZA5ecZ_fRfU"
 }

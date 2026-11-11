@@ -29,13 +29,13 @@ function "administracao/validar_criacao_usuario" {
       where = $db.usuarios.email == $input.email
       return = {type: "single"}
       mock = {
-        "aceita gerente com loja existente": null
+        "aceita gerente com loja existente"   : null
         "aceita gerente com loja legada Ativo": null
-        "aceita tecnico sem loja": null
-        "aceita diretoria sem loja": null
-        "aceita administrador sem loja": null
-        "rejeita gerente loja inexistente": null
-        "rejeita email duplicado": {id: 24, email: "existente@example.test"}
+        "aceita tecnico sem loja"             : null
+        "aceita diretoria sem loja"           : null
+        "aceita administrador sem loja"       : null
+        "rejeita gerente loja inexistente"    : null
+        "rejeita email duplicado"             : {id: 24, email: "existente@example.test"}
       }
     } as $email_existente
 
@@ -50,9 +50,9 @@ function "administracao/validar_criacao_usuario" {
           field_name = "id"
           field_value = $input.lojas_id
           mock = {
-            "aceita gerente com loja existente": {id: 1, nome: "Loja Paulista", status: "Ativa"}
+            "aceita gerente com loja existente"   : {id: 1, nome: "Loja Paulista", status: "Ativa"}
             "aceita gerente com loja legada Ativo": {id: 1, nome: "Loja Paulista", status: "Ativo"}
-            "rejeita gerente loja inexistente": null
+            "rejeita gerente loja inexistente"    : null
           }
         } as $loja
 
@@ -71,37 +71,61 @@ function "administracao/validar_criacao_usuario" {
   response = $validacao
 
   test "aceita gerente com loja existente" {
-    input = {email: "gerente@example.test", role: "gerente", lojas_id: 1}
+    input = {
+      email   : "gerente@example.test"
+      role    : "gerente"
+      lojas_id: 1
+    }
 
     expect.to_be_true ($response.valid)
   }
 
   test "aceita gerente com loja legada Ativo" {
-    input = {email: "gerente-legado@example.test", role: "gerente", lojas_id: 1}
+    input = {
+      email   : "gerente-legado@example.test"
+      role    : "gerente"
+      lojas_id: 1
+    }
 
     expect.to_be_true ($response.valid)
   }
 
   test "aceita tecnico sem loja" {
-    input = {email: "tecnico@example.test", role: "tecnico", lojas_id: null}
+    input = {
+      email   : "tecnico@example.test"
+      role    : "tecnico"
+      lojas_id: null
+    }
 
     expect.to_be_true ($response.valid)
   }
 
   test "aceita diretoria sem loja" {
-    input = {email: "diretoria@example.test", role: "diretoria", lojas_id: null}
+    input = {
+      email   : "diretoria@example.test"
+      role    : "diretoria"
+      lojas_id: null
+    }
 
     expect.to_be_true ($response.valid)
   }
 
   test "aceita administrador sem loja" {
-    input = {email: "administrador@example.test", role: "administrador", lojas_id: null}
+    input = {
+      email   : "administrador@example.test"
+      role    : "administrador"
+      lojas_id: null
+    }
 
     expect.to_be_true ($response.valid)
   }
 
   test "rejeita perfil admin legado" {
-    input = {email: "legado@example.test", role: "admin", lojas_id: null}
+    input = {
+      email   : "legado@example.test"
+      role    : "admin"
+      lojas_id: null
+    }
 
     expect.to_throw {
       exception = ""
@@ -109,7 +133,11 @@ function "administracao/validar_criacao_usuario" {
   }
 
   test "rejeita gerente sem loja" {
-    input = {email: "gerente@example.test", role: "gerente", lojas_id: null}
+    input = {
+      email   : "gerente@example.test"
+      role    : "gerente"
+      lojas_id: null
+    }
 
     expect.to_throw {
       exception = ""
@@ -117,7 +145,11 @@ function "administracao/validar_criacao_usuario" {
   }
 
   test "rejeita gerente loja inexistente" {
-    input = {email: "gerente@example.test", role: "gerente", lojas_id: 999}
+    input = {
+      email   : "gerente@example.test"
+      role    : "gerente"
+      lojas_id: 999
+    }
 
     expect.to_throw {
       exception = ""
@@ -125,7 +157,11 @@ function "administracao/validar_criacao_usuario" {
   }
 
   test "rejeita tecnico com loja" {
-    input = {email: "tecnico@example.test", role: "tecnico", lojas_id: 1}
+    input = {
+      email   : "tecnico@example.test"
+      role    : "tecnico"
+      lojas_id: 1
+    }
 
     expect.to_throw {
       exception = ""
@@ -133,7 +169,11 @@ function "administracao/validar_criacao_usuario" {
   }
 
   test "rejeita diretoria com loja" {
-    input = {email: "diretoria@example.test", role: "diretoria", lojas_id: 1}
+    input = {
+      email   : "diretoria@example.test"
+      role    : "diretoria"
+      lojas_id: 1
+    }
 
     expect.to_throw {
       exception = ""
@@ -141,7 +181,11 @@ function "administracao/validar_criacao_usuario" {
   }
 
   test "rejeita administrador com loja" {
-    input = {email: "administrador@example.test", role: "administrador", lojas_id: 1}
+    input = {
+      email   : "administrador@example.test"
+      role    : "administrador"
+      lojas_id: 1
+    }
 
     expect.to_throw {
       exception = ""
@@ -149,7 +193,11 @@ function "administracao/validar_criacao_usuario" {
   }
 
   test "rejeita email duplicado" {
-    input = {email: "existente@example.test", role: "tecnico", lojas_id: null}
+    input = {
+      email   : "existente@example.test"
+      role    : "tecnico"
+      lojas_id: null
+    }
 
     expect.to_throw {
       exception = ""

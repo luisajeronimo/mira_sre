@@ -8,13 +8,16 @@ from typing import Any, TypedDict
 
 import reflex as rx
 
-from app.components.visual import TEXTO, TEXTO_SECUNDARIO
+from app.components.visual import FOCO_VISIVEL, TEXTO, TEXTO_SECUNDARIO, rotulo_campo
 
 from app.services.service_desk import (
     ChamadoDetalhe,
+    ChamadoDetalheSolicitante,
     ChamadoResumo,
     ComentarioPublico,
+    ConsumoSLADTO,
     EventoTimelineChamado,
+    HistoricoStatusItem,
 )
 
 
@@ -82,7 +85,7 @@ def _resumo_para_dict(chamado: ChamadoResumo) -> dict[str, Any]:
     }
 
 
-def _detalhe_para_dict(chamado: ChamadoDetalhe) -> dict[str, Any]:
+def _detalhe_para_dict(chamado: ChamadoDetalhe | ChamadoDetalheSolicitante) -> dict[str, Any]:
     dados = asdict(chamado)
     resumo_totem = dados.get("resumo_totem")
     if resumo_totem is not None and resumo_totem["status_atual"] is None:
@@ -126,6 +129,98 @@ def comentario_publico_para_dict(comentario: ComentarioPublico) -> dict[str, Any
         "criado_em_texto": _timestamp_para_texto(comentario.criado_em),
         "autor_nome": comentario.autor.nome if comentario.autor is not None else "Não informado",
     }
+
+
+def historico_status_para_dict(item: HistoricoStatusItem) -> HistoricoStatusView:
+    autor = item.autor
+    return {
+        "id": item.id,
+        "status_anterior": item.status_anterior,
+        "status_resultante": item.status_resultante,
+        "criado_em_texto": _timestamp_funcional_para_texto(item.criado_em),
+        "autor_nome": autor.nome if autor is not None else "Autor não identificado",
+        "autor_perfil": (autor.perfil or "") if autor is not None else "",
+    }
+
+
+def consumo_sla_para_dict(consumo: ConsumoSLADTO) -> dict[str, str]:
+    if not consumo.calculavel:
+        return {"situacao": "Não calculável", "percentual": "", "prazo": "",
+                "motivo": consumo.motivo or "Motivo não informado."}
+    faixas = {"normal": "Dentro do SLA", "risco": "Próximo do vencimento",
+              "critico": "Próximo do vencimento", "violado": "Vencido"}
+    situacao = {"pausada": "Pausado", "encerrada": "Encerrado"}.get(
+        consumo.estado_contagem or "", faixas.get(consumo.faixa or "", "Não calculável")
+    )
+    percentual = f"{(consumo.fracao_consumida or 0) * 100:.1f}% consumido"
+    prazo = ""
+    if consumo.estado_contagem == "em_contagem" and consumo.sla_horas_aplicado is not None and consumo.consumo_ms is not None:
+        restante = consumo.sla_horas_aplicado * 3600000 - consumo.consumo_ms
+        prazo = f"{abs(restante) / 3600000:.1f} h {'restantes' if restante >= 0 else 'excedidas'}"
+    return {"situacao": situacao, "percentual": percentual, "prazo": prazo, "motivo": ""}
+
+
+def campo_sla_com_consumo(
+    sla_aplicado: Any,
+    consumo: Any,
+    carregando: Any,
+    mensagem_erro: Any,
+) -> rx.Component:
+    """Mantém o valor aplicado visível e revela o consumo sob demanda."""
+    return rx.vstack(
+        rx.hstack(
+            rotulo_campo("SLA aplicado"),
+            rx.popover.root(
+                rx.popover.trigger(
+                    rx.icon_button(
+                        rx.icon("info", size=16),
+                        variant="ghost",
+                        size="2",
+                        radius="full",
+                        color=TEXTO_SECUNDARIO,
+                        aria_label="Ver consumo de SLA",
+                        title="Ver consumo de SLA",
+                        _focus_visible=FOCO_VISIVEL,
+                    )
+                ),
+                rx.popover.content(
+                    rx.vstack(
+                        rx.text("Consumo de SLA", size="2", weight="bold"),
+                        rx.cond(
+                            carregando,
+                            rx.hstack(rx.spinner(size="1"), rx.text("Calculando consumo...", size="2")),
+                            rx.cond(
+                                mensagem_erro != "",
+                                rx.text(mensagem_erro, size="2", color="#B42318"),
+                                rx.cond(
+                                    consumo.length() > 0,
+                                    rx.vstack(
+                                        rx.text(consumo["situacao"], weight="medium"),
+                                        rx.cond(consumo["percentual"] != "", rx.text(consumo["percentual"], size="2"), rx.fragment()),
+                                        rx.cond(consumo["prazo"] != "", rx.text(consumo["prazo"], size="2"), rx.fragment()),
+                                        rx.cond(consumo["motivo"] != "", rx.text(consumo["motivo"], size="2"), rx.fragment()),
+                                        align="start", spacing="1",
+                                    ),
+                                    rx.text("Consumo indisponível.", size="2"),
+                                ),
+                            ),
+                        ),
+                        align="start", spacing="2", width="100%",
+                    ),
+                    side="top",
+                    align="start",
+                    width="20rem",
+                    max_width="90vw",
+                ),
+            ),
+            align="center", spacing="1",
+        ),
+        rx.box(sla_aplicado, color=TEXTO, width="100%"),
+        spacing="1",
+        align="start",
+        padding_y="0.25rem",
+        width="100%",
+    )
 
 
 def evento_timeline_para_dict(
@@ -306,6 +401,15 @@ class ComentarioView(TypedDict):
     conteudo: str
     criado_em_texto: str
     autor_nome: str
+
+
+class HistoricoStatusView(TypedDict):
+    id: int
+    status_anterior: str
+    status_resultante: str
+    criado_em_texto: str
+    autor_nome: str
+    autor_perfil: str
 
 
 class TimelineView(TypedDict):

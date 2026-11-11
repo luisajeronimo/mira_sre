@@ -1,0 +1,29 @@
+# Verificação em Linux: testes e compilação Reflex completa (com assets
+# compartilhados), que no Windows exige permissão de symlink.
+# Reutiliza os alvos do Makefile; não usa segredos nem acessa o Xano.
+name: Verificação
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Preparar ambiente (.env a partir de .env.example)
+        run: make setup
+
+      - name: Testes e compilação Reflex completa
+        run: make check

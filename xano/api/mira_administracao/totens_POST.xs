@@ -21,38 +21,44 @@ query "administracao/totens" verb=POST {
           field_value = $input.lojas_id
           lock = true
         } as $loja
+
         precondition ($loja != null && ($loja.status == "Ativa" || $loja.status == "ativa" || $loja.status == "Ativo")) {
           error_type = "inputerror"
           error = "Loja inexistente ou Inativa."
         }
 
-        var $efetivado_em { value = now }
+        var $efetivado_em {
+          value = now
+        }
+
         db.add ativos_referencia {
           data = {
             identificacao: $input.identificacao
-            nome_ativo: $input.nome
-            tipo: "Totem"
-            lojas_id: $loja.id
+            nome_ativo   : $input.nome
+            tipo         : "Totem"
+            lojas_id     : $loja.id
           }
         } as $totem
+
         db.add historico_vinculos_totem_loja {
           data = {
             ativos_referencia_id: $totem.id
-            loja_origem_id: null
-            loja_destino_id: $loja.id
-            tipo: "criacao"
-            efetivado_em: $efetivado_em
+            loja_origem_id      : null
+            loja_destino_id     : $loja.id
+            tipo                : "criacao"
+            efetivado_em        : $efetivado_em
           }
         } as $vinculo
       }
     }
+
     var $resposta {
       value = {
-        id: $totem.id
+        id           : $totem.id
         identificacao: $totem.identificacao
-        nome: $totem.nome_ativo
-        lojas_id: $totem.lojas_id
-        status_atual: $totem.status_atual
+        nome         : $totem.nome_ativo
+        lojas_id     : $totem.lojas_id
+        status_atual : $totem.status_atual
       }
     }
   }

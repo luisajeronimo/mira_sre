@@ -7,7 +7,7 @@ table ativos_referencia {
     timestamp created_at?=now {
       visibility = "private"
     }
-  
+
     text nome_ativo? filters=trim
     text? identificacao? filters=trim
     text tipo? filters=trim

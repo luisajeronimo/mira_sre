@@ -11,7 +11,7 @@ else
 endif
 
 
-.PHONY: setup install xano-install openspec-install simulator fiscal mock
+.PHONY: setup install xano-install openspec-install simulator fiscal encerrar-resolvidos mock
 
 
 setup:
@@ -59,6 +59,11 @@ fiscal:
 	@echo "Iniciando Fiscal..."
 	@$(VENV_PYTHON) fiscal/fiscal.py
 
+encerrar-resolvidos:
+	@$(VENV_PYTHON) scripts/encerrar_resolvidos.py
+
+# Limitação: `mock` exige bash, setsid e grupos de processos POSIX (Linux/macOS).
+# No Windows/PowerShell, execute Simulator e Fiscal em terminais separados.
 mock: SHELL := /bin/bash
 mock:
 	@simulator_pid=""; fiscal_pid=""; ready_file="$$(mktemp)"; \
@@ -79,9 +84,9 @@ mock:
 	wait -n "$$simulator_pid" "$$fiscal_pid"
 
 py_test:
-	@PYTHONPATH=. .venv/bin/python -m pytest -q
+	@PYTHONPATH=. $(VENV_PYTHON) -m pytest -q
 
 reflex_check:
-	@PYTHONPATH=. .venv/bin/reflex compile --dry
+	@PYTHONPATH=. $(VENV_PYTHON) -m reflex compile --dry
 
 check: py_test reflex_check

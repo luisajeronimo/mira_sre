@@ -7,7 +7,7 @@ ROOT = Path(__file__).parents[1] / "xano/function/service_desk"
 
 
 def fonte(nome):
-    return (ROOT / f"{nome}.xs").read_text()
+    return (ROOT / f"{nome}.xs").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("sufixo", ["fila_tecnica", "filtros_gerente"])
@@ -37,7 +37,8 @@ def test_colecoes_or_alimentam_sequencialmente_intersecao_and():
     bloco = lista[lista.index('var $chamados_filtrados'):lista.index('var $items')]
     for colecao, campo in (('status_normalizados', 'status'), ('ativo_ids', 'ativo_id'), ('prioridades', 'prioridade'), ('loja_ids', 'loja_id')):
         assert f'array.filter ($chamados_filtrados) if (${colecao}|in:$this.{campo})' in bloco
-    assert '($responsavel_ids|in:$this.tecnico_id) || ($input.incluir_nao_atribuido == true' in bloco
+    # O publicado testa `$input.incluir_nao_atribuido` (bool?) diretamente; equivale a `== true`.
+    assert re.search(r'\(\$responsavel_ids\|in:\$this\.tecnico_id\) \|\| \(\$input\.incluir_nao_atribuido( == true)? &&', bloco)
     filtros = re.findall(r'array.filter \(\$chamados_filtrados\).*?as \$resultado_filtrado\s+var.update \$chamados_filtrados', bloco)
     assert len(filtros) == 7
     assert 'sort =' not in bloco

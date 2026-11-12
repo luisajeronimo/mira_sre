@@ -1339,6 +1339,22 @@ def test_status_publico_obrigatorio_no_rascunho(status):
     assert estado.pode_salvar_tratativa is True
 
 
+@pytest.mark.parametrize("status", ["Resolvido", "Aguardando Solicitante", "Cancelado"])
+def test_status_ja_confirmado_permite_comentario_interno(status):
+    estado = novo_estado_tecnico()
+    estado._atualizar_detalhe(
+        DetalheChamadoTecnico(chamado=detalhe_tecnico(status=status), timeline=[], tecnicos=[])
+    )
+
+    ChamadosTecnicoState.alterar_comentario_status_pendente.fn(estado, "Atualização interna")
+    ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente.fn(estado, "interna")
+
+    assert estado.status_pendente_alterado is False
+    assert estado.status_pendente_exige_comentario_publico is False
+    assert estado.visibilidade_comentario_status_pendente == "interna"
+    assert estado.pode_salvar_tratativa is True
+
+
 @pytest.mark.parametrize("visibilidade", ["publica", "interna"])
 def test_status_nao_restrito_aceita_visibilidades_no_rascunho(visibilidade):
     estado = novo_estado_tecnico()

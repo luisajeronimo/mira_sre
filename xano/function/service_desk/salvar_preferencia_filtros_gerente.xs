@@ -17,6 +17,9 @@ function "service_desk/salvar_preferencia_filtros_gerente" {
         "limpar grava snapshot vazio": {id: 8, role: "gerente", lojas_id: 1}
         "normaliza multiplos status": {id: 8, role: "gerente", lojas_id: 1}
         "rejeita status invalido": {id: 8, role: "gerente", lojas_id: 1}
+        "aceita totem atual": {id: 8, role: "gerente", lojas_id: 1}
+        "rejeita totem transferido": {id: 8, role: "gerente", lojas_id: 1}
+        "rejeita totem externo": {id: 8, role: "gerente", lojas_id: 1}
       }
     } as $usuario
     precondition ($usuario.lojas_id != null) {
@@ -88,6 +91,11 @@ function "service_desk/salvar_preferencia_filtros_gerente" {
         db.get ativos_referencia {
           field_name = "id"
           field_value = $id
+          mock = {
+            "aceita totem atual": {id: 16, lojas_id: 1}
+            "rejeita totem transferido": {id: 17, lojas_id: 2}
+            "rejeita totem externo": {id: 18, lojas_id: 2}
+          }
         } as $ativo
         precondition ($ativo != null && $ativo.lojas_id == $usuario.lojas_id) {
           error_type = "accessdenied"
@@ -117,6 +125,7 @@ function "service_desk/salvar_preferencia_filtros_gerente" {
         "upsert de outro usuario falha fechado": {usuarios_id: 999, escopo: "todos"}
         "limpar grava snapshot vazio": {usuarios_id: 8, escopo: "todos"}
         "normaliza multiplos status": {usuarios_id: 8, escopo: "todos"}
+        "aceita totem atual": {usuarios_id: 8, escopo: "todos"}
       }
     } as $salva
     precondition ($salva != null && $salva.usuarios_id == $usuario.id && $salva.escopo == "todos") {
@@ -134,6 +143,18 @@ function "service_desk/salvar_preferencia_filtros_gerente" {
     input = {usuarios_id: 8, status: [" novo ", "Resolvido", "Novo"]}
     expect.to_equal ($response.preferencia.status) { value = ["Novo", "Resolvido"] }
     expect.to_equal ($response.preferencia.ativo_ids) { value = [] }
+  }
+  test "aceita totem atual" {
+    input = {usuarios_id: 8, ativo_ids: [16]}
+    expect.to_equal ($response.preferencia.ativo_ids) { value = [16] }
+  }
+  test "rejeita totem transferido" {
+    input = {usuarios_id: 8, ativo_ids: [17]}
+    expect.to_throw { exception = "Acesso não autorizado." }
+  }
+  test "rejeita totem externo" {
+    input = {usuarios_id: 8, ativo_ids: [18]}
+    expect.to_throw { exception = "Acesso não autorizado." }
   }
   test "rejeita status invalido" {
     input = {usuarios_id: 8, status: ["Invalido"]}

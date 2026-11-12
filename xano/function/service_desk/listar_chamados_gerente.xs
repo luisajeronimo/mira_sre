@@ -25,6 +25,9 @@ function "service_desk/listar_chamados_gerente" {
         "lista exclui chamado de outra loja historica": {id: 8, role: "gerente", lojas_id: 1}
         "lista exclui chamado sem loja historica": {id: 8, role: "gerente", lojas_id: 1}
         "lista vazio"          : {id: 8, role: "gerente", lojas_id: 1}
+        "aceita filtro de totem atual": {id: 8, role: "gerente", lojas_id: 1}
+        "rejeita filtro de totem transferido": {id: 8, role: "gerente", lojas_id: 1}
+        "rejeita filtro de totem externo": {id: 8, role: "gerente", lojas_id: 1}
       }
     } as $usuario
 
@@ -166,14 +169,14 @@ function "service_desk/listar_chamados_gerente" {
         db.get ativos_referencia {
           field_name = "id"
           field_value = $id
+          mock = {
+            "aceita filtro de totem atual": {id: 16, lojas_id: 1}
+            "rejeita filtro de totem transferido": {id: 17, lojas_id: 2}
+            "rejeita filtro de totem externo": {id: 18, lojas_id: 2}
+          }
         } as $ativo
 
-        db.query historico_vinculos_totem_loja {
-          where = $db.historico_vinculos_totem_loja.ativos_referencia_id == $id && $db.historico_vinculos_totem_loja.loja_destino_id == $usuario.lojas_id
-          return = {type: "exists"}
-        } as $vinculo_historico
-
-        precondition ($ativo != null && ($ativo.lojas_id == $usuario.lojas_id || $vinculo_historico)) {
+        precondition ($ativo != null && $ativo.lojas_id == $usuario.lojas_id) {
           error_type = "accessdenied"
           error = "Acesso não autorizado."
         }
@@ -996,6 +999,21 @@ function "service_desk/listar_chamados_gerente" {
     expect.to_equal ($response.total) {
       value = 0
     }
+  }
+
+  test "aceita filtro de totem atual" {
+    input = {usuarios_id: 8, ativo_ids: [16]}
+    expect.to_equal ($response.total) { value = 0 }
+  }
+
+  test "rejeita filtro de totem transferido" {
+    input = {usuarios_id: 8, ativo_ids: [17]}
+    expect.to_throw { exception = "Acesso não autorizado." }
+  }
+
+  test "rejeita filtro de totem externo" {
+    input = {usuarios_id: 8, ativo_ids: [18]}
+    expect.to_throw { exception = "Acesso não autorizado." }
   }
 
   guid = "bsjXDAqhCr8qGwBABqPGX2sXVD8"

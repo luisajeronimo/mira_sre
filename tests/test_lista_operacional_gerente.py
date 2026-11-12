@@ -486,8 +486,8 @@ def test_xanoscript_mantem_filtros_e_ordenacao_dentro_da_funcao_da_loja():
     assert "foreach ($ativo_ids)" in fonte
     assert "if (!($id > 0))" in fonte
     assert "($numero_convertido|to_text) == $input.numero" in fonte
-    # Filtro de Totem: Totem da Loja atual ou com vínculo histórico com a Loja.
-    assert compacto("$ativo.lojas_id == $usuario.lojas_id || $vinculo_historico") in fonte_c
+    # O filtro de Totem usa a Loja atual; chamados sem filtro preservam o histórico.
+    assert compacto("precondition ($ativo != null && $ativo.lojas_id == $usuario.lojas_id)") in fonte_c
     assert compacto("array.filter ($chamados_filtrados) if ($ativo_ids|in:$this.ativo_id)") in fonte_c
     assert compacto("array.filter ($chamados_filtrados) if ($status_normalizados|in:$this.status)") in fonte_c
     assert compacto("where = ($db.chamados.id ==? $numero_normalizado)") in fonte_c

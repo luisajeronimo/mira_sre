@@ -41,6 +41,7 @@ table interacoes_chamado {
   index = [
     {type: "primary", field: [{name: "id"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
+    {type: "btree", field: [{name: "chamados_id"}, {name: "tipo_evento"}, {name: "criado_em", op: "desc"}, {name: "id", op: "desc"}]}
   ]
 
   guid = "XjRNC6p0BpmH7vWnIQiqZpwFLTE"

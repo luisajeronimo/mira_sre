@@ -44,6 +44,7 @@ table chamados {
   index = [
     {type: "primary", field: [{name: "id"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
+    {type: "btree", field: [{name: "categorias_servico_id"}]}
   ]
 
   guid = "j6MWyWUtfPRPV_ZNZbjrmXlOoZc"

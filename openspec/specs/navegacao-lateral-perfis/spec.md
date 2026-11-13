@@ -11,7 +11,8 @@ descobríveis por perfil, sem substituir a autorização aplicada pelo Xano.
 O Reflex DEVE (MUST) apresentar uma única navegação lateral desktop reutilizável
 após confirmar sessão e perfil oficial. A configuração central DEVE (MUST)
 exibir somente `/inicio` para Gerente; `/inicio` e `/monitoramento` para
-Técnico e Diretoria; e `/inicio`, `/monitoramento` e
+Técnico; `/inicio`, `/monitoramento` e `/indicadores/disponibilidade` para
+Diretoria; e `/inicio`, `/monitoramento` e
 `/administracao/gestao` para Administrador. O destino Administração DEVE (MUST)
 abrir diretamente a gestão consolidada. A sidebar NÃO DEVE (MUST NOT)
 apresentar "Chamados solicitados" como destino separado; a listagem canônica
@@ -33,6 +34,10 @@ permanece em `/inicio`.
 - **WHEN** uma mudança futura adiciona destino à configuração central
 - **THEN** a visibilidade por perfil é definida no mesmo registro sem duplicar
   listas de navegação nas páginas
+
+#### Scenario: Diretoria encontra Indicadores
+- **WHEN** a Diretoria autenticada consulta a sidebar
+- **THEN** encontra o destino Indicadores, enquanto Gerente, Técnico e Administrador não o recebem
 
 ### Requirement: Sidebar não representa a jornada de chamados como destino
 A sidebar NÃO DEVE (MUST NOT) apresentar `/chamados`, `/chamados/novo` ou
@@ -95,8 +100,8 @@ distinguíveis sem depender apenas de cor.
   embora nenhuma rota de chamados seja exibida como item próprio
 
 #### Scenario: Destinos globais ativos exclusivamente na própria rota
-- **WHEN** a rota canônica Reflex atual é `/monitoramento` ou
-  `/administracao/gestao`
+- **WHEN** a rota canônica Reflex atual é `/monitoramento`,
+  `/indicadores/disponibilidade` ou `/administracao/gestao`
 - **THEN** somente o respectivo item configurado possui indicação visual e
   semântica de ativo
 

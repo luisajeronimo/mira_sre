@@ -14,6 +14,8 @@ from app.pages import (
 )
 from app.monitoramento.pages import monitoramento
 from app.monitoramento.state import MonitoramentoState
+from app.indicadores.pages import indicadores_disponibilidade
+from app.indicadores.state import IndicadoresDiretoriaState
 from app.chamados.gerente import ChamadosGerenteState
 from app.chamados.tecnico import ChamadosTecnicoState
 from app.pages.gestao_administrativa import GestaoAdministrativaState, gestao_administrativa
@@ -123,4 +125,11 @@ app.add_page(
     route="/monitoramento",
     title="Monitoramento | MIRA",
     on_load=MonitoramentoState.carregar,
+)
+
+app.add_page(
+    indicadores_disponibilidade,
+    route="/indicadores/disponibilidade",
+    title="Indicadores de disponibilidade | MIRA",
+    on_load=IndicadoresDiretoriaState.carregar,
 )

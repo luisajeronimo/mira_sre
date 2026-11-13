@@ -22,6 +22,7 @@ table telemetria_equipamentos {
   index = [
     {type: "primary", field: [{name: "id"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
+    {type: "btree", field: [{name: "ativos_referencia_id"}, {name: "evento_timestamp"}]}
   ]
 
   guid = "rRAPdw4KFBXypTJgG3TcDfj8QjQ"

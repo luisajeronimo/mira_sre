@@ -163,7 +163,7 @@ def test_funcao_e_somente_leitura_interna_e_sem_filtros_rejeitados():
     assert "num_min" not in texto and "num_max" not in texto
     assert "alteracao_status" not in texto
     chamadores = sorted([p.name for p in (ROOT / "xano").rglob("*.xs") if p != FUNCAO and "calcular_consumo_sla_chamado" in p.read_text(encoding="utf-8")])
-    assert chamadores == ["obter_consumo_sla_gerente.xs", "obter_consumo_sla_tecnico.xs"], "exposição por DE-8 autorizada para Gerente e Técnico/Admin"
+    assert chamadores == ["consultar_operacao_sla.xs", "obter_consumo_sla_gerente.xs", "obter_consumo_sla_tecnico.xs"], "consumo individual somente nos contratos autorizados, com agregação executiva da Diretoria"
 
 
 def test_estados_e_faixas_seguem_dominio_e_design():

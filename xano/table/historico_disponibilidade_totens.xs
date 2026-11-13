@@ -27,6 +27,7 @@ table historico_disponibilidade_totens {
   index = [
     {type: "primary", field: [{name: "id"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
+    {type: "btree", field: [{name: "ativos_referencia_id"}, {name: "detectado_em"}]}
   ]
   guid = "IifgLPvO-xj14vQ0S8RuLWm_DkY"
 }

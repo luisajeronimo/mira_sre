@@ -29,7 +29,7 @@ def novo_estado() -> MonitoramentoState:
     [
         ("gerente", ["/inicio"], ["Início"]),
         ("tecnico", ["/inicio", "/monitoramento"], ["Início", "Monitoramento"]),
-        ("diretoria", ["/inicio", "/monitoramento"], ["Início", "Monitoramento"]),
+        ("diretoria", ["/inicio", "/monitoramento", "/indicadores/disponibilidade"], ["Início", "Monitoramento", "Indicadores"]),
         (
             "administrador",
             ["/inicio", "/monitoramento", "/administracao/gestao"],
@@ -65,12 +65,15 @@ def test_monitoramento_e_administracao_so_ativam_nas_rotas_configuradas():
     inicio = por_rota["/inicio"]
     monitoramento = por_rota["/monitoramento"]
     administracao = por_rota["/administracao/gestao"]
+    indicadores = por_rota["/indicadores/disponibilidade"]
 
     assert item_esta_ativo(monitoramento, "/monitoramento") is True
     assert item_esta_ativo(administracao, "/administracao/gestao") is True
+    assert item_esta_ativo(indicadores, "/indicadores/disponibilidade") is True
     for rota in ("/inicio", "/chamados", "/chamados/novo", "/chamados/[chamado_id]"):
         assert item_esta_ativo(monitoramento, rota) is False
         assert item_esta_ativo(administracao, rota) is False
+        assert item_esta_ativo(indicadores, rota) is False
     assert item_esta_ativo(inicio, "/monitoramento") is False
     assert item_esta_ativo(inicio, "/administracao/gestao") is False
 

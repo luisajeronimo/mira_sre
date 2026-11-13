@@ -9,6 +9,18 @@ from typing import Any
 
 import httpx
 
+from app.indicadores.contrato import (
+    CatalogoIndicadores,
+    ResultadoConfiabilidade,
+    ler_catalogo,
+    ler_resultado,
+)
+from app.indicadores.contrato_operacao import (
+    CatalogoOperacao,
+    ResultadoOperacao,
+    ler_catalogo_operacao,
+    ler_resultado_operacao,
+)
 from app.services.xano import (
     TIMEOUT_PADRAO_SEGUNDOS,
     XanoCliente,
@@ -964,6 +976,58 @@ class XanoServiceDeskCliente(XanoCliente):
             transport,
             nome_configuracao="XANO_SERVICE_DESK_BASE_URL",
         )
+
+    async def catalogo_indicadores_disponibilidade(self, token: str) -> CatalogoIndicadores:
+        dados = await self._requisitar(
+            "GET", "/indicadores/disponibilidade-confiabilidade/filtros", token=token
+        )
+        return ler_catalogo(dados)
+
+    async def consultar_indicadores_disponibilidade(
+        self,
+        token: str,
+        *,
+        t0: int,
+        t1: int,
+        lojas_id: int | None = None,
+        ativos_referencia_id: int | None = None,
+        visao: str | None = None,
+    ) -> ResultadoConfiabilidade:
+        params: dict[str, int | str] = {"t0": t0, "t1": t1}
+        if visao is not None:
+            params["visao"] = visao
+        if lojas_id is not None:
+            params["lojas_id"] = lojas_id
+        if ativos_referencia_id is not None:
+            params["ativos_referencia_id"] = ativos_referencia_id
+        dados = await self._requisitar(
+            "GET", "/indicadores/disponibilidade-confiabilidade", token=token, params=params
+        )
+        return ler_resultado(dados, visao=visao)
+
+    async def catalogo_indicadores_operacao(self, token: str) -> CatalogoOperacao:
+        dados = await self._requisitar("GET", "/indicadores/operacao-sla/filtros", token=token)
+        return ler_catalogo_operacao(dados)
+
+    async def consultar_indicadores_operacao(
+        self,
+        token: str,
+        *,
+        t0: int,
+        t1: int,
+        lojas_id: int | None = None,
+        categorias_servico_id: int | None = None,
+        visao: str | None = None,
+    ) -> ResultadoOperacao:
+        params: dict[str, int | str] = {"t0": t0, "t1": t1}
+        if lojas_id is not None:
+            params["lojas_id"] = lojas_id
+        if categorias_servico_id is not None:
+            params["categorias_servico_id"] = categorias_servico_id
+        if visao is not None:
+            params["visao"] = visao
+        dados = await self._requisitar("GET", "/indicadores/operacao-sla", token=token, params=params)
+        return ler_resultado_operacao(dados)
 
     async def listar_ativos(self, token: str) -> list[AtivoServiceDesk]:
         return await self._listar_ativos_gerente_em(token, "/gerente/ativos")

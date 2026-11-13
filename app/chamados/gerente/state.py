@@ -653,7 +653,7 @@ class ChamadosGerenteState(AuthState):
                 else:
                     resultado, ativos = await asyncio.gather(
                         chamada,
-                        cliente.listar_ativos_historicos_gerente(self._auth_token),
+                        cliente.listar_ativos(self._auth_token),
                         return_exceptions=True,
                     )
                     if not self._contexto_gerente_atual(contexto):

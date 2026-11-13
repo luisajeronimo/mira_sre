@@ -238,6 +238,30 @@ def test_nova_sessao_rele_preferencia_do_gerente(monkeypatch):
     assert estado.preferencia_filtros_carregada is True
 
 
+def test_filtro_lista_somente_totens_da_loja_atual(monkeypatch):
+    class ClienteComTotemTransferido(ClienteListaFalso):
+        async def listar_ativos_historicos_gerente(self, token):
+            raise AssertionError("catálogo histórico não deve alimentar o filtro")
+
+        async def obter_preferencia_filtros_gerente(self, token):
+            return SimpleNamespace(
+                numero=None, status=[], ativo_ids=[], data_inicio=None,
+                data_fim=None, ultima_atualizacao_inicio=None,
+                ultima_atualizacao_fim=None,
+            )
+
+    cliente = ClienteComTotemTransferido()
+    monkeypatch.setattr(gerente_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado()
+
+    executar_evento(ChamadosGerenteState.carregar_lista, estado)
+    executar_evento(ChamadosGerenteState.alternar_ordenacao, estado, "status")
+
+    assert estado.ativos == ["1 — Totem 01"]
+    assert all(not opcao.startswith("17 —") for opcao in estado.ativos)
+    assert cliente.consultas_ativos == 1
+
+
 def liberar_validacao(monkeypatch):
     async def validar(_estado):
         return None

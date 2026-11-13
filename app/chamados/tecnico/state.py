@@ -166,7 +166,7 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.var
     def status_pendente_exige_comentario_publico(self) -> bool:
-        return self._status_exige_comentario_publico(self.status_pendente)
+        return self.status_pendente_alterado and self._status_exige_comentario_publico(self.status_pendente)
 
     @rx.var
     def ha_mudanca_funcional_pendente(self) -> bool:
@@ -460,7 +460,7 @@ class ChamadosTecnicoState(AuthState):
         if self.edicao_funcional_bloqueada or valor not in self.status_filtros():
             return
         self.status_pendente = valor
-        if self._status_exige_comentario_publico(valor):
+        if self.status_pendente_exige_comentario_publico:
             self.visibilidade_comentario_status_pendente = "publica"
 
     @rx.event

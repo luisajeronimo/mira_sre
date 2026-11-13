@@ -10,6 +10,9 @@ function "service_desk/obter_preferencia_filtros_gerente" {
         "snapshot vazio vence legado": {id: 8, role: "gerente", lojas_id: 1}
         "json invalido nao restaura legado": {id: 8, role: "gerente", lojas_id: 1}
         "sem preferencia retorna vazio": {id: 8, role: "gerente", lojas_id: 1}
+        "preferencia com totens mistos": {id: 8, role: "gerente", lojas_id: 1}
+        "somente totem transferido": {id: 8, role: "gerente", lojas_id: 1}
+        "legado transferido": {id: 8, role: "gerente", lojas_id: 1}
       }
     } as $usuario
     precondition ($usuario.lojas_id != null) {
@@ -24,6 +27,9 @@ function "service_desk/obter_preferencia_filtros_gerente" {
         "snapshot vazio vence legado": {status: "Novo", ativos_referencia_id: 7, filtros_multiplos: {status: [], ativo_ids: [], loja_ids: [], prioridades: [], responsavel_ids: [], incluir_nao_atribuido: false}}
         "json invalido nao restaura legado": {status: "Novo", filtros_multiplos: {status: "Novo"}}
         "sem preferencia retorna vazio": null
+        "preferencia com totens mistos": {status: "Novo", filtros_multiplos: {status: ["Novo"], ativo_ids: [16, 17], loja_ids: [], prioridades: [], responsavel_ids: [], incluir_nao_atribuido: false}}
+        "somente totem transferido": {status: "Novo", filtros_multiplos: {status: ["Novo"], ativo_ids: [17], loja_ids: [], prioridades: [], responsavel_ids: [], incluir_nao_atribuido: false}}
+        "legado transferido": {status: "Novo", ativos_referencia_id: 17, filtros_multiplos: null}
       }
     } as $salva
     var $multiplos { value = {status: [], ativo_ids: [], loja_ids: [], prioridades: [], responsavel_ids: [], incluir_nao_atribuido: false} }
@@ -73,22 +79,27 @@ function "service_desk/obter_preferencia_filtros_gerente" {
         }
       }
     }
+    var $ativo_ids_atuais { value = [] }
     foreach ($multiplos.ativo_ids) {
       each as $id {
         db.get ativos_referencia {
           field_name = "id"
           field_value = $id
           mock = {
-        "legado converte escalares": {id: 7, lojas_id: 1}
-      }
+            "legado converte escalares": {id: 7, lojas_id: 1}
+            "preferencia com totens mistos": $id == 16 ? {id: 16, lojas_id: 1} : {id: 17, lojas_id: 2}
+            "somente totem transferido": {id: 17, lojas_id: 2}
+            "legado transferido": {id: 17, lojas_id: 2}
+          }
         } as $ativo
-        precondition ($ativo != null && $ativo.lojas_id == $usuario.lojas_id) {
-          error_type = "accessdenied"
-          error = "Acesso não autorizado."
+        conditional {
+          if ($ativo != null && $ativo.lojas_id == $usuario.lojas_id) {
+            array.push $ativo_ids_atuais { value = $id }
+          }
         }
       }
     }
-    var $preferencia { value = {numero: $salva.numero, status: $multiplos.status, ativo_ids: $multiplos.ativo_ids, data_inicio: $salva.data_inicio, data_fim: $salva.data_fim, ultima_atualizacao_inicio: $salva.ultima_atualizacao_inicio, ultima_atualizacao_fim: $salva.ultima_atualizacao_fim} }
+    var $preferencia { value = {numero: $salva.numero, status: $multiplos.status, ativo_ids: $ativo_ids_atuais, data_inicio: $salva.data_inicio, data_fim: $salva.data_fim, ultima_atualizacao_inicio: $salva.ultima_atualizacao_inicio, ultima_atualizacao_fim: $salva.ultima_atualizacao_fim} }
   }
   response = {preferencia: $preferencia}
   test "legado converte escalares" {
@@ -108,6 +119,21 @@ function "service_desk/obter_preferencia_filtros_gerente" {
   test "sem preferencia retorna vazio" {
     input = {usuarios_id: 8}
     expect.to_equal ($response.preferencia.status) { value = [] }
+    expect.to_equal ($response.preferencia.ativo_ids) { value = [] }
+  }
+  test "preferencia com totens mistos" {
+    input = {usuarios_id: 8}
+    expect.to_equal ($response.preferencia.status) { value = ["Novo"] }
+    expect.to_equal ($response.preferencia.ativo_ids) { value = [16] }
+  }
+  test "somente totem transferido" {
+    input = {usuarios_id: 8}
+    expect.to_equal ($response.preferencia.status) { value = ["Novo"] }
+    expect.to_equal ($response.preferencia.ativo_ids) { value = [] }
+  }
+  test "legado transferido" {
+    input = {usuarios_id: 8}
+    expect.to_equal ($response.preferencia.status) { value = ["Novo"] }
     expect.to_equal ($response.preferencia.ativo_ids) { value = [] }
   }
   guid = "miraPrefGerenteGet01"

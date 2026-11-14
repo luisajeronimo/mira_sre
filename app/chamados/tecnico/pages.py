@@ -37,10 +37,10 @@ def _fila_tecnico() -> rx.Component:
         cabecalho_lista_chamados(
             "Fila técnica",
             "Consulte a fila global e a distribuição atual dos chamados.",
-            rx.cond(AuthState.role == "administrador", botao_criar_chamado()),
+            botao_criar_chamado(),
         ),
         rx.cond(
-            AuthState.role == "tecnico",
+            AuthState.perfil_operacional,
             rx.box(
                 rx.hstack(
                     rx.button(
@@ -230,6 +230,7 @@ def _fila_tecnico() -> rx.Component:
                                                         item["ocorrencia"],
                                                         size="2",
                                                         color="gray",
+                                                        class_name="mira-occurrence",
                                                     ),
                                                     align="start",
                                                     spacing="1",
@@ -270,6 +271,7 @@ def _fila_tecnico() -> rx.Component:
                         border_radius=RAIO_SUPERFICIE,
                         box_shadow=SOMBRA_BAIXA,
                         overflow="hidden",
+                        class_name="mira-queue",
                     ),
                 ),
             ),

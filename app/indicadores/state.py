@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import reflex as rx
 
 from app.indicadores.contrato import ResultadoConfiabilidade
+from app.indicadores.contrato_causas import ResultadoCausas
 from app.indicadores.contrato_operacao import ResultadoOperacao
 from app.services.service_desk import criar_cliente_service_desk
 from app.services.xano import (
@@ -75,6 +76,28 @@ CORES_STATUS_CHAMADO = (
 )
 
 
+class LojaCausasView(TypedDict):
+    nome: str
+    quantidade: int
+
+
+class ParetoCausasView(TypedDict):
+    nome: str
+    quantidade: int
+    percentual: float
+    acumulado_percentual: float
+    percentual_texto: str
+    acumulado_texto: str
+    destaque_80: bool
+
+
+class RecorrenciaCausasView(TypedDict):
+    nome: str
+    elegiveis: int
+    recorrentes: int
+    percentual_texto: str
+
+
 class IndicadoresDiretoriaState(AuthState):
     """Mantém filtros e resultados já calculados pelo Xano."""
 
@@ -126,12 +149,29 @@ class IndicadoresDiretoriaState(AuthState):
     risco_status_nao_canonicos: int = 0
     risco_sem_dados: bool = True
     consulta_geracao: int = 0
+    causas_catalogo_carregado: bool = False
+    tem_causas: bool = False
+    mensagem_erro_causas: str = ""
+    causas_periodo_texto: str = ""
+    causas_recorte_texto: str = ""
+    causas_elegiveis: int = 0
+    causas_recorrentes: int = 0
+    causas_recorrencia_texto: str = "—"
+    causas_categorias_80: int = 0
+    causas_exclusoes_texto: str = ""
+    causas_sem_loja: int = 0
+    causas_top_lojas: list[LojaCausasView] = []
+    causas_pareto: list[ParetoCausasView] = []
+    causas_por_loja: list[RecorrenciaCausasView] = []
+    causas_por_totem: list[RecorrenciaCausasView] = []
 
     @rx.event
-    def selecionar_aba(self, valor: str) -> None:
-        if valor in ("disponibilidade", "operacao"):
+    def selecionar_aba(self, valor: str):
+        if valor in ("disponibilidade", "operacao", "causas"):
             self.aba_ativa = valor
             self.mostrar_periodo_personalizado = False
+            if valor == "causas" and not self.tem_causas:
+                return IndicadoresDiretoriaState.carregar_causas
 
     @rx.event
     def alterar_data_inicio(self, valor: str) -> None:
@@ -166,6 +206,7 @@ class IndicadoresDiretoriaState(AuthState):
         self.categoria_id = valor
 
     def _limpar_resultado(self) -> None:
+        self._limpar_causas()
         self.tem_resultado = False
         self.periodo_texto = ""
         self.disponibilidade_texto = "—"
@@ -199,6 +240,63 @@ class IndicadoresDiretoriaState(AuthState):
         self.risco_nao_calculaveis = 0
         self.risco_status_nao_canonicos = 0
         self.risco_sem_dados = True
+
+    def _limpar_causas(self) -> None:
+        self.tem_causas = False
+        self.mensagem_erro_causas = ""
+        self.causas_periodo_texto = ""
+        self.causas_recorte_texto = ""
+        self.causas_elegiveis = 0
+        self.causas_recorrentes = 0
+        self.causas_recorrencia_texto = "—"
+        self.causas_categorias_80 = 0
+        self.causas_exclusoes_texto = ""
+        self.causas_sem_loja = 0
+        self.causas_top_lojas = []
+        self.causas_pareto = []
+        self.causas_por_loja = []
+        self.causas_por_totem = []
+
+    def _apresentar_causas(self, resultado: ResultadoCausas) -> None:
+        inicio = datetime.fromtimestamp(resultado.t0 / 1000, FUSO)
+        fim = datetime.fromtimestamp(resultado.observado_ate / 1000, FUSO)
+        self.causas_periodo_texto = f"Aberturas de {inicio:%d/%m/%Y %H:%M} até {fim:%d/%m/%Y %H:%M} · horário de Brasília"
+        nomes = []
+        for identificador, opcoes, geral in (
+            (resultado.lojas_id, self.lojas_opcoes, "Todas as Lojas"),
+            (resultado.ativos_referencia_id, self.totens_opcoes, "Todos os Totens"),
+            (resultado.categorias_servico_id, self.categorias_opcoes, "Todas as Categorias"),
+        ):
+            nomes.append(geral if identificador is None else next(
+                (opcao["label"] for opcao in opcoes if opcao["value"] == str(identificador)),
+                f"ID {identificador}",
+            ))
+        self.causas_recorte_texto = " · ".join(nomes)
+        self.causas_elegiveis = resultado.base["elegiveis"]
+        self.causas_recorrentes = resultado.recorrentes
+        self.causas_recorrencia_texto = "—" if resultado.percentual is None else f"{resultado.percentual:.2f}%"
+        self.causas_categorias_80 = resultado.categorias_80
+        self.causas_sem_loja = resultado.base["sem_loja"]
+        self.causas_exclusoes_texto = (
+            f"Fora da base no período: {resultado.base['cancelados']} Cancelados · "
+            f"{resultado.base['requisicoes']} Requisições · {resultado.base['inconsistentes']} com dados inconsistentes. "
+            f"Sem data e sem atribuição ao período: {resultado.base['sem_data']}."
+        )
+        self.causas_top_lojas = [{"nome": x["nome"], "quantidade": x["quantidade"]} for x in resultado.top_lojas]
+        self.causas_pareto = [
+            {"nome": x["nome"], "quantidade": x["quantidade"], "percentual": x["percentual"],
+             "acumulado_percentual": x["acumulado_percentual"], "destaque_80": x["destaque_80"],
+             "percentual_texto": f"{x['percentual']:.2f}%", "acumulado_texto": f"{x['acumulado_percentual']:.2f}%"}
+            for x in resultado.pareto
+        ]
+        self.causas_por_loja = self._segmentos_causas(resultado.por_loja)
+        self.causas_por_totem = self._segmentos_causas(resultado.por_totem)
+        self.tem_causas = True
+
+    @staticmethod
+    def _segmentos_causas(linhas: list[dict]) -> list[RecorrenciaCausasView]:
+        return [{"nome": x["nome"], "elegiveis": x["elegiveis"], "recorrentes": x["recorrentes"],
+                 "percentual_texto": f"{x['percentual']:.2f}%"} for x in linhas]
 
     def _inicializar_periodo(self) -> None:
         if self.data_inicio and self.data_fim:
@@ -347,7 +445,7 @@ class IndicadoresDiretoriaState(AuthState):
         destino = await self._revalidar()
         if destino is not None:
             return destino
-        if not self.sessao_confirmada or self.role != "diretoria" or self.deve_trocar_senha:
+        if not self.sessao_confirmada or not self.perfil_operacional or self.deve_trocar_senha:
             return "/inicio"
         return None
 
@@ -457,6 +555,69 @@ class IndicadoresDiretoriaState(AuthState):
                 self.mensagem_erro_operacao = "Os indicadores de chamados estão indisponíveis. Tente novamente."
         return None
 
+    async def _consultar_causas(self, *, carregar_catalogo: bool, geracao: int, agora: datetime) -> str | None:
+        try:
+            t0, t1, loja, totem = self._limites(agora=agora)
+            categoria = None if self.categoria_id == "todas" else int(self.categoria_id)
+            if categoria is not None and categoria <= 0:
+                raise ValueError("Informe uma Categoria válida.")
+            cliente = criar_cliente_service_desk()
+            if carregar_catalogo:
+                catalogo = await cliente.catalogo_indicadores_causas(self._auth_token)
+                if geracao != self.consulta_geracao:
+                    return None
+                for campo, itens, geral in (("lojas_opcoes", catalogo.lojas, "Todas as Lojas"),
+                                             ("totens_opcoes", catalogo.totens, "Todos os Totens"),
+                                             ("categorias_opcoes", catalogo.categorias, "Todas as Categorias")):
+                    setattr(self, campo, [{"value": "todos" if campo == "totens_opcoes" else "todas", "label": geral}]
+                            + [{"value": str(x.id), "label": f"{x.id} — {x.nome}" if campo == "totens_opcoes" else x.nome} for x in itens])
+                self.causas_catalogo_carregado = True
+            resultado = await cliente.consultar_indicadores_causas(
+                self._auth_token, t0=t0, t1=t1, lojas_id=loja, ativos_referencia_id=totem,
+                categorias_servico_id=categoria, visao="hoje" if self.periodo_rapido == "hoje" else None,
+            )
+            if geracao != self.consulta_geracao:
+                return None
+            if (resultado.t0, resultado.t1, resultado.lojas_id, resultado.ativos_referencia_id, resultado.categorias_servico_id) != (t0, t1, loja, totem, categoria):
+                raise XanoContratoInvalido("O serviço retornou filtros diferentes dos solicitados.")
+            self._apresentar_causas(resultado)
+        except XanoNaoAutenticado:
+            if geracao == self.consulta_geracao:
+                self._limpar_sessao(MENSAGEM_EXPIRADA)
+                return "/login"
+        except XanoNaoAutorizado:
+            if geracao == self.consulta_geracao:
+                return "/inicio"
+        except ValueError as exc:
+            if geracao == self.consulta_geracao:
+                self.mensagem_erro_causas = str(exc)
+        except XanoEntradaInvalida:
+            if geracao == self.consulta_geracao:
+                self.mensagem_erro_causas = "O serviço rejeitou o período ou os filtros de causas."
+        except XanoContratoInvalido:
+            if geracao == self.consulta_geracao:
+                self.mensagem_erro_causas = "A resposta de causas e recorrência é incompatível."
+        except Exception:
+            if geracao == self.consulta_geracao:
+                self.mensagem_erro_causas = "Causas e recorrência estão indisponíveis. Tente novamente."
+        return None
+
+    @rx.event
+    async def carregar_causas(self):
+        self._inicializar_periodo()
+        self.consulta_geracao += 1
+        geracao = self.consulta_geracao
+        self._limpar_causas()
+        self.carregando_indicadores = True
+        yield
+        destino = await self._validar_acesso()
+        if destino is None:
+            destino = await self._consultar_causas(carregar_catalogo=not self.causas_catalogo_carregado, geracao=geracao, agora=datetime.now(FUSO))
+        if geracao == self.consulta_geracao:
+            self.carregando_indicadores = False
+        if destino is not None:
+            yield rx.redirect(destino)
+
     @rx.event
     async def carregar(self):
         self._inicializar_periodo()
@@ -472,6 +633,8 @@ class IndicadoresDiretoriaState(AuthState):
             destino = await self._consultar(carregar_catalogo=True, geracao=geracao, agora=agora)
         if destino is None:
             destino = await self._consultar_operacao(carregar_catalogo=True, geracao=geracao, agora=agora)
+        if destino is None and self.aba_ativa == "causas":
+            destino = await self._consultar_causas(carregar_catalogo=not self.causas_catalogo_carregado, geracao=geracao, agora=agora)
         if geracao == self.consulta_geracao:
             self.carregando_indicadores = False
         if destino is not None:
@@ -497,6 +660,8 @@ class IndicadoresDiretoriaState(AuthState):
             destino = await self._consultar(carregar_catalogo=False, geracao=geracao, agora=agora)
         if destino is None:
             destino = await self._consultar_operacao(carregar_catalogo=False, geracao=geracao, agora=agora)
+        if destino is None and self.aba_ativa == "causas":
+            destino = await self._consultar_causas(carregar_catalogo=not self.causas_catalogo_carregado, geracao=geracao, agora=agora)
         if geracao == self.consulta_geracao:
             self.carregando_indicadores = False
         if destino is not None:
@@ -520,6 +685,8 @@ class IndicadoresDiretoriaState(AuthState):
             destino = await self._consultar(carregar_catalogo=False, geracao=geracao, agora=agora)
         if destino is None:
             destino = await self._consultar_operacao(carregar_catalogo=False, geracao=geracao, agora=agora)
+        if destino is None and self.aba_ativa == "causas":
+            destino = await self._consultar_causas(carregar_catalogo=not self.causas_catalogo_carregado, geracao=geracao, agora=agora)
         if geracao == self.consulta_geracao:
             self.carregando_indicadores = False
         if destino is not None:

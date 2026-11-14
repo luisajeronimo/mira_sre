@@ -52,6 +52,7 @@ def _lista() -> rx.Component:
                             placeholder="Número",
                             width="100%",
                         ),
+                        coluna="span 4",
                     ),
                     campo_rotulado(
                         "Status",
@@ -62,6 +63,7 @@ def _lista() -> rx.Component:
                             "Status",
                             ChamadosGerenteState.carregando_chamados,
                         ),
+                        coluna="span 4",
                     ),
                     campo_rotulado(
                         "Totem",
@@ -72,6 +74,7 @@ def _lista() -> rx.Component:
                             "Totem",
                             ChamadosGerenteState.carregando_chamados,
                         ),
+                        coluna="span 4",
                     ),
                     periodo_rotulado(
                         "Abertura",
@@ -173,6 +176,7 @@ def _lista() -> rx.Component:
                                                 item["ocorrencia"],
                                                 size="2",
                                                 color="gray",
+                                                class_name="mira-occurrence",
                                             ),
                                             align="start",
                                             spacing="1",
@@ -212,6 +216,7 @@ def _lista() -> rx.Component:
                     border_radius=RAIO_SUPERFICIE,
                     box_shadow=SOMBRA_BAIXA,
                     overflow="hidden",
+                    class_name="mira-queue",
                 ),
             ),
         ),
@@ -302,34 +307,17 @@ def formulario_abertura(estado=ChamadosGerenteState, escopo="os Totens da sua lo
     return rx.vstack(
         rx.hstack(
             rx.vstack(
-                rx.hstack(
-                    rx.box(
-                        width="0.625rem",
-                        height="0.625rem",
-                        border_radius="999px",
-                        background="var(--accent-9)",
-                    ),
-                    rx.text(
-                        "Módulo operacional • Service Desk",
-                        size="1",
-                        weight="bold",
-                        color="var(--accent-11)",
-                        text_transform="uppercase",
-                        letter_spacing="0.05em",
-                    ),
-                    spacing="2",
-                    align="center",
-                ),
                 rx.heading(
                     "Abrir novo chamado",
-                    size="8",
+                    size="7",
                     color=TEXTO,
                     letter_spacing="-0.03em",
                 ),
                 rx.text(
                     "Registre uma solicitação para " + escopo + ".",
                     color=TEXTO_SECUNDARIO,
-                    size="3",
+                    size="2",
+                    line_height="1.7",
                 ),
                 spacing="2",
                 align="start",
@@ -352,18 +340,7 @@ def formulario_abertura(estado=ChamadosGerenteState, escopo="os Totens da sua lo
         rx.card(
             rx.vstack(
                 rx.hstack(
-                    rx.hstack(
-                        rx.center(
-                            rx.text("1", weight="bold", color="var(--accent-11)"),
-                            width="2rem",
-                            height="2rem",
-                            border_radius="0.5rem",
-                            background="var(--accent-3)",
-                        ),
-                        rx.heading("Dados do chamado", size="5", color=TEXTO),
-                        spacing="3",
-                        align="center",
-                    ),
+                    rx.heading("Dados do chamado", size="5", color=TEXTO),
                     rx.text(
                         "* Campos obrigatórios",
                         size="1",
@@ -648,11 +625,17 @@ def _detalhe() -> rx.Component:
                         spacing="4",
                         width="100%",
                     ),
-                    background="var(--color-panel)",
+                    background=SUPERFICIE,
+                    position="fixed",
+                    top="0",
+                    right="0",
+                    bottom="0",
+                    z_index="51",
                     box_shadow="-8px 0 24px rgba(0, 0, 0, 0.12)",
                     height="100vh",
                     margin_left="auto",
                     overflow_y="auto",
+                    overflow_x="hidden",
                     padding="24px",
                     width="min(28rem, 100vw)",
                 ),

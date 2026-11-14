@@ -14,6 +14,7 @@ O MIRA combina monitoramento técnico dos totens com abertura e tratamento de ch
 - Histórico de interações e work logs.
 - SLA configurável por categoria de serviço.
 - Dashboards de disponibilidade, incidentes, MTTD, MTTR e SLA.
+- [Top 5 Lojas, Pareto por Categoria e recorrência de incidentes](openspec/specs/dashboard-causas-recorrencia/spec.md) para Técnico, Diretoria e Administrador.
 - Filtros combináveis para a fila técnica, incluindo **Atribuídos a mim** e **Não atribuídos**.
 
 ## Tecnologias

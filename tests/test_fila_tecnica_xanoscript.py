@@ -123,8 +123,8 @@ def test_preferencias_autorizam_sessao_validam_escopo_e_normalizam_status():
         assert "tecnico: true, diretoria: true, administrador: true" in funcao
         assert 'error_type = "inputerror"' in funcao
         assert 'error = "Escopo inválido."' in funcao
-        assert 'error_type = "accessdenied"' in funcao
-        assert 'error = "Acesso não autorizado."' in funcao
+        assert '$input.escopo != "atribuidos_a_mim" || $usuario.role == "tecnico"' not in funcao
+        assert 'function.run "autorizacao/exigir_perfil"' in funcao
     assert "foreach ($input.status ?? [])" in PREFERENCIA_SALVAR
     assert "$s|trim|to_lower" in PREFERENCIA_SALVAR
     assert 'value = "Em Atendimento"' in PREFERENCIA_SALVAR

@@ -10,10 +10,9 @@ descobríveis por perfil, sem substituir a autorização aplicada pelo Xano.
 ### Requirement: Casca autenticada apresenta navegação lateral configurada por perfil
 O Reflex DEVE (MUST) apresentar uma única navegação lateral desktop reutilizável
 após confirmar sessão e perfil oficial. A configuração central DEVE (MUST)
-exibir somente `/inicio` para Gerente; `/inicio` e `/monitoramento` para
-Técnico; `/inicio`, `/monitoramento` e `/indicadores/disponibilidade` para
-Diretoria; e `/inicio`, `/monitoramento` e
-`/administracao/gestao` para Administrador. O destino Administração DEVE (MUST)
+exibir somente `/inicio` para Gerente; `/inicio`, `/monitoramento` e
+`/indicadores/disponibilidade` para Técnico e Diretoria; e esses três destinos
+mais `/administracao/gestao` para Administrador. O destino Administração DEVE (MUST)
 abrir diretamente a gestão consolidada. A sidebar NÃO DEVE (MUST NOT)
 apresentar "Chamados solicitados" como destino separado; a listagem canônica
 permanece em `/inicio`.
@@ -36,8 +35,8 @@ permanece em `/inicio`.
   listas de navegação nas páginas
 
 #### Scenario: Diretoria encontra Indicadores
-- **WHEN** a Diretoria autenticada consulta a sidebar
-- **THEN** encontra o destino Indicadores, enquanto Gerente, Técnico e Administrador não o recebem
+- **WHEN** um perfil operacional autenticado consulta a sidebar
+- **THEN** Técnico, Diretoria e Administrador encontram Indicadores; Gerente não o recebe
 
 ### Requirement: Sidebar não representa a jornada de chamados como destino
 A sidebar NÃO DEVE (MUST NOT) apresentar `/chamados`, `/chamados/novo` ou

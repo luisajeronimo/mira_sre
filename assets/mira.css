@@ -1,0 +1,166 @@
+/* Tipografia local: as famílias previstas no DESIGN.md, sem chamadas externas. */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/PlusJakartaSans.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+:root .radix-themes {
+  --default-font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --heading-font-family: var(--default-font-family);
+  --code-font-family: "JetBrains Mono", Consolas, monospace;
+  --cursor-button: pointer;
+  --cursor-checkbox: pointer;
+  --cursor-radio: pointer;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --gray-11: #626c7d;
+  --gray-12: #172033;
+  font-family: var(--default-font-family);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:root .radix-themes[data-accent-color="ruby"],
+.radix-themes [data-accent-color="ruby"] {
+  --accent-9: #e11d48;
+  --accent-10: #be123c;
+  --accent-11: #b91c46;
+  --accent-contrast: #fff;
+}
+
+.radix-themes ::selection {
+  background: #ffe0e9;
+  color: #881337;
+}
+
+.radix-themes :is(input, textarea) { caret-color: #e11d48; }
+.radix-themes ::placeholder { color: #687386; opacity: 1; }
+.radix-themes a { text-underline-offset: 0.2em; }
+.radix-themes .rt-Heading { letter-spacing: -0.025em; text-wrap: balance; }
+
+.radix-themes :is(.rt-Button, .rt-IconButton, .rt-SelectTrigger) {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.radix-themes :is(.rt-Button, .rt-SelectTrigger, .rt-TextFieldRoot) {
+  height: 2.5rem;
+}
+
+.radix-themes :is(.rt-Button, .rt-IconButton, .rt-SelectTrigger, .rt-TextFieldRoot) {
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.radix-themes :is(.rt-TextFieldRoot, .rt-SelectTrigger, .rt-TextArea) {
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px #dce0e9;
+}
+
+.radix-themes :is(.rt-TextFieldRoot, .rt-SelectTrigger, .rt-TextArea):hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px #aab2c0;
+}
+
+.radix-themes :is(.rt-TextFieldRoot, .rt-TextArea):focus-within {
+  outline: 2px solid #e11d48;
+  outline-offset: 2px;
+}
+
+.radix-themes :is(button, a, [role="combobox"]):focus-visible {
+  outline: 3px solid #e11d48;
+  outline-offset: 3px;
+}
+
+.radix-themes :is(button, input, textarea):disabled { cursor: not-allowed; }
+.radix-themes .rt-Card { border-radius: 14px; }
+.radix-themes .rt-Card::after { box-shadow: none; }
+.radix-themes :is(.rt-DialogContent, .rt-AlertDialogContent, .rt-PopoverContent) { border-radius: 14px; }
+.radix-themes :is(.rt-DialogTitle, .rt-AlertDialogTitle) { letter-spacing: -0.025em; }
+.radix-themes :is(.rt-DialogDescription, .rt-AlertDialogDescription) { line-height: 1.65; }
+.radix-themes label { font-size: 0.875rem; font-weight: 600; color: #172033; }
+.radix-themes .rt-TextArea { min-height: 7rem; line-height: 1.7; }
+.radix-themes .rt-Badge { line-height: 1.5; font-weight: 600; }
+
+.mira-shell .rt-TableRoot { background: #fff; }
+.mira-shell :is(.rt-TableCell, .rt-TableColumnHeaderCell) { vertical-align: middle; }
+.mira-shell .rt-TableColumnHeaderCell { font-size: 0.75rem; line-height: 1.5; }
+.mira-shell .rt-TableBody .rt-TableRow { transition: background-color 150ms ease; }
+.mira-shell .rt-TableBody .rt-TableRow:hover { background: #faf8fc; }
+.mira-shell .rt-TableBody .rt-TableRow:last-child .rt-TableCell { box-shadow: none; }
+
+/* A grade é aplicada à tabela real, e não ao wrapper criado pelo Radix. */
+.mira-queue table { table-layout: fixed; width: 100%; }
+.mira-queue .rt-TableCell { font-size: 0.75rem; }
+.mira-queue .rt-TableColumnHeaderCell button { font-size: 0.6875rem; border-radius: 0; height: 100%; }
+.mira-queue .rt-TableColumnHeaderCell .rt-Text { overflow-wrap: normal; word-break: normal; }
+.mira-queue .rt-TableCell :is(.rt-Badge, .rt-Text) { max-width: 100%; }
+.mira-queue .rt-Badge { white-space: normal; overflow-wrap: normal; border-radius: 6px; padding: 0.2rem 0.25rem; }
+.mira-queue .rt-Badge .rt-Text { font-size: 0.6875rem; text-transform: none; overflow-wrap: normal; word-break: normal; }
+.mira-queue .rt-TableCell:nth-last-child(-n+2) { font-size: 0.6875rem; overflow-wrap: normal; font-variant-numeric: tabular-nums; }
+.mira-queue .mira-occurrence {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.mira-queue .rt-Link { font-weight: 700; font-variant-numeric: tabular-nums; }
+.mira-queue .rt-TableCell:first-child .rt-Link { font-family: var(--code-font-family); }
+.mira-nav-link { transition: background-color 150ms ease, color 150ms ease; }
+.mira-sidebar { overflow-y: auto; }
+.mira-sidebar > :first-child { padding: 0 0.25rem; }
+.mira-topbar .rt-AvatarRoot { border-radius: 50%; }
+.mira-filters :is(button, input) { font-size: 0.8125rem; }
+.mira-shell .recharts-cartesian-axis-tick-value { font-size: 0.75rem; fill: #626c7d; }
+.mira-shell .recharts-cartesian-grid-horizontal line { stroke: #e9ecf3; }
+.mira-shell .recharts-wrapper { font-variant-numeric: tabular-nums; }
+.mira-metric { font-variant-numeric: tabular-nums; }
+.mira-breadcrumbs a { text-decoration: none; }
+.mira-breadcrumbs a:hover { color: #b91c46; text-decoration: underline; }
+.mira-breadcrumbs svg { flex-shrink: 0; }
+.mira-monitoring-grid { grid-template-columns: 18rem minmax(0, 1fr); }
+.mira-monitoring-grid > * { min-width: 0; }
+.mira-monitoring-summary { font-variant-numeric: tabular-nums; }
+.mira-monitoring-count + .mira-monitoring-count { border-left: 1px solid #e6e8f0; }
+.radix-themes .mira-totem-option { height: auto; font-weight: 400; }
+.mira-totem-option .rt-Text { overflow-wrap: anywhere; }
+.mira-totem-options { scrollbar-width: thin; scrollbar-color: #c5cbd6 transparent; }
+.mira-telemetry-value { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.mira-monitoring-history .rt-TabsTrigger { font-size: 0.8125rem; }
+.mira-history-count { background: #f0f2f6; color: #626c7d; border-radius: 5px; margin-left: 0.375rem; padding: 0.1rem 0.375rem; font-size: 0.6875rem; font-variant-numeric: tabular-nums; }
+.rt-TabsTrigger[data-state="active"] .mira-history-count { background: #ffe4ec; color: #b91c46; }
+.mira-availability-event + .mira-availability-event,
+.mira-heartbeat-incident + .mira-heartbeat-incident { border-top: 1px solid #e6e8f0; }
+.mira-monitoring :is(.rt-TableCell, .rt-TableColumnHeaderCell) { font-size: 0.75rem; padding: 0.75rem 0.5rem; }
+.mira-monitoring .rt-TableColumnHeaderCell { background: #f7f8fc; color: #626c7d; }
+.mira-date-trigger:hover:not(:disabled) { border-color: #aab2c0; }
+.mira-date-trigger:focus-visible { outline: 3px solid #e11d48; outline-offset: 3px; }
+
+@media (max-width: 1120px) {
+  .mira-monitoring-grid { grid-template-columns: minmax(0, 1fr); }
+  .mira-monitoring-grid .mira-totem-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    max-height: 22rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radix-themes *, .radix-themes *::before, .radix-themes *::after {
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}

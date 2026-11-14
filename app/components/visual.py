@@ -8,14 +8,14 @@ from reflex.components.component import NoSSRComponent
 FONTE_INTERFACE = '"Plus Jakarta Sans", "Segoe UI", sans-serif'
 FONTE_TECNICA = '"JetBrains Mono", "SFMono-Regular", Consolas, monospace'
 
-CANVAS = "#F8F7FB"
+CANVAS = "#F7F8FC"
 SUPERFICIE = "#FFFFFF"
-SUPERFICIE_SUAVE = "#F4F1F8"
+SUPERFICIE_SUAVE = "#F3F4F9"
 TEXTO = "#172033"
-TEXTO_SECUNDARIO = "#6B7280"
-BORDA = "#E8E4EC"
+TEXTO_SECUNDARIO = "#626C7D"
+BORDA = "#E6E8F0"
 BORDA_ROSE_SUAVE = "var(--accent-5)"
-SOMBRA_BAIXA = "0 4px 18px rgba(35, 25, 45, 0.05)"
+SOMBRA_BAIXA = "0 2px 8px rgba(23, 32, 51, 0.025)"
 RAIO_CONTROLE = "10px"
 RAIO_SUPERFICIE = "14px"
 
@@ -65,6 +65,8 @@ def dropdown_multisselecao(opcoes, selecionados, ao_alternar, rotulo: str, disab
                 disabled=disabled,
                 width="100%",
                 justify="between",
+                min_height="2.5rem",
+                padding_x="0.75rem",
                 aria_label=rotulo,
                 _focus_visible=FOCO_VISIVEL,
             )
@@ -86,6 +88,8 @@ def dropdown_multisselecao(opcoes, selecionados, ao_alternar, rotulo: str, disab
             ),
             max_height="20rem",
             overflow_y="auto",
+            padding="1rem",
+            border_radius=RAIO_SUPERFICIE,
         ),
     )
 
@@ -97,7 +101,7 @@ def rotulo_campo(texto: str) -> rx.Component:
         size="1",
         weight="bold",
         color=TEXTO_SECUNDARIO,
-        letter_spacing="0.04em",
+        letter_spacing="0.035em",
         text_transform="uppercase",
     )
 
@@ -112,10 +116,10 @@ def campo_rotulado(
     return rx.vstack(
         rotulo_campo(rotulo),
         controle,
-        spacing="1",
+        spacing="2",
         align="start",
-        min_width=largura,
-        min_height="4.5rem",
+        min_width=f"min({largura}, 100%)",
+        min_height="4rem",
         width="100%",
         grid_column=coluna,
     )
@@ -141,8 +145,8 @@ def periodo_rotulado(
             on_change=on_change,
             disabled=disabled,
         ),
-        spacing="1",
-        min_width=largura,
+        spacing="2",
+        min_width=f"min({largura}, 100%)",
         min_height=altura,
         width="100%",
         grid_column=coluna,
@@ -185,22 +189,28 @@ def painel_filtros(
     return rx.card(
         rx.vstack(
             rx.hstack(
-                rx.text("Filtros", weight="bold", color=TEXTO),
+                rx.hstack(
+                    rx.icon("sliders-horizontal", size=16, color=TEXTO_SECUNDARIO),
+                    rx.text("Filtros", weight="bold", color=TEXTO),
+                    align="center",
+                    spacing="2",
+                ),
                 rx.spacer(),
                 acoes,
-                align="start",
+                align="center",
                 width="100%",
             ),
             rx.grid(
                 *campos,
                 columns="repeat(12, minmax(0, 1fr))",
-                gap="1rem",
+                column_gap="1rem",
+                row_gap="0.75rem",
                 align_items="start",
                 width="100%",
             ),
             aplicados,
             align="start",
-            spacing="3",
+            spacing="4",
             width="100%",
         ),
         width="100%",
@@ -209,6 +219,7 @@ def painel_filtros(
         border_radius=RAIO_SUPERFICIE,
         box_shadow=SOMBRA_BAIXA,
         padding="1.5rem",
+        class_name="mira-filters",
     )
 
 
@@ -226,7 +237,7 @@ def cabecalho_tabela_ordenavel(
     return rx.table.column_header_cell(
         rx.button(
             rx.hstack(
-                rx.text(rotulo, weight="bold"),
+                rx.text(rotulo, weight="bold", line_height="1.4"),
                 rx.cond(
                     ordenar_por == coluna,
                     rx.cond(
@@ -248,11 +259,11 @@ def cabecalho_tabela_ordenavel(
             border_radius="0",
             border="0",
             box_shadow="none",
-        height="100%",
+            height="100%",
             min_height="3rem",
-            padding="0.75rem",
-        margin="0",
-        box_sizing="border-box",
+            padding="0.75rem 0.25rem",
+            margin="0",
+            box_sizing="border-box",
             transform="none",
             width="100%",
             _hover={
@@ -292,9 +303,10 @@ def celula_tabela(conteudo, *, alinhamento: str = "center") -> rx.Component:
         conteudo,
         text_align=alinhamento,
         vertical_align="middle",
-        padding_x="0.75rem",
+        padding_x="0.375rem",
         padding_y="0.875rem",
-        overflow_wrap="anywhere",
+        overflow_wrap="break-word",
+        line_height="1.5",
     )
 
 
@@ -302,7 +314,7 @@ def campo_info(rotulo: str, valor: rx.Component | str) -> rx.Component:
     return rx.vstack(
         rotulo_campo(rotulo),
         rx.box(valor, color=TEXTO, width="100%"),
-        spacing="1",
+        spacing="2",
         align="start",
         padding_y="0.25rem",
         width="100%",
@@ -346,6 +358,8 @@ def cabecalho_detalhe_chamado(
         ),
         justify="between",
         align="center",
+        flex_wrap="wrap",
+        gap="1rem",
         width="100%",
     )
 
@@ -370,7 +384,7 @@ def bloco_descricao(valor: rx.Var | str) -> rx.Component:
     """Agrupa a descrição em área própria sem competir com os dados em grade."""
     return rx.vstack(
         rotulo_campo("Descrição"),
-        rx.text(valor, white_space="pre-wrap", color=TEXTO),
+        rx.text(valor, white_space="pre-wrap", color=TEXTO, line_height="1.75", max_width="75ch"),
         align="start",
         spacing="2",
         background=SUPERFICIE,

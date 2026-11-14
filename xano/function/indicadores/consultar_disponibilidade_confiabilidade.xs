@@ -13,7 +13,7 @@ function "indicadores/consultar_disponibilidade_confiabilidade" {
 
   stack {
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $input.usuarios_id, diretoria: true}
+      input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
       mock = {
         "diretoria sem eventos": {id: 4, role: "diretoria", deve_trocar_senha: false}
         "medias conhecidas": {id: 4, role: "diretoria", deve_trocar_senha: false}
@@ -30,15 +30,15 @@ function "indicadores/consultar_disponibilidade_confiabilidade" {
         "visao invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}
         "futuro fora de hoje": {id: 4, role: "diretoria", deve_trocar_senha: false}
         "gerente negado": {id: 8, role: "gerente", deve_trocar_senha: false}
-        "tecnico negado": {id: 3, role: "tecnico", deve_trocar_senha: false}
-        "administrador negado": {id: 2, role: "administrador", deve_trocar_senha: false}
+        "tecnico autorizado": {id: 3, role: "tecnico", deve_trocar_senha: false}
+        "administrador autorizado": {id: 2, role: "administrador", deve_trocar_senha: false}
         "troca pendente negada": {id: 4, role: "diretoria", deve_trocar_senha: true}
         "periodo invalido": {id: 4, role: "diretoria", deve_trocar_senha: false}
         "loja invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}
         "totem invalido": {id: 4, role: "diretoria", deve_trocar_senha: false}
       }
     } as $diretoria
-    precondition ($diretoria.role == "diretoria" && $diretoria.deve_trocar_senha == false) {
+    precondition (($diretoria.role == "tecnico" || $diretoria.role == "diretoria" || $diretoria.role == "administrador") && $diretoria.deve_trocar_senha == false) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
@@ -114,7 +114,20 @@ function "indicadores/consultar_disponibilidade_confiabilidade" {
       where = $db.ativos_referencia.id ==? $input.ativos_referencia_id
       sort = {ativos_referencia.id: "asc"}
       return = {type: "list"}
-      mock = {"diretoria sem eventos": [], "hoje sem eventos": [], "medias conhecidas": [{id: 17}], "hoje medias conhecidas": [{id: 17}], "hoje transferencia de loja": [{id: 17}], "hoje historico invalido localizado": [{id: 17}], "online sem timestamp na serie": [{id: 17}], "rede pondera tempo observado": [], "total nao usa media de medias diarias": [], "historico invalido impede percentual": [{id: 17}]}
+      mock = {
+        "diretoria sem eventos": [],
+        "hoje sem eventos": [],
+        "medias conhecidas": [{id: 17}],
+        "hoje medias conhecidas": [{id: 17}],
+        "hoje transferencia de loja": [{id: 17}],
+        "hoje historico invalido localizado": [{id: 17}],
+        "online sem timestamp na serie": [{id: 17}],
+        "rede pondera tempo observado": [],
+        "total nao usa media de medias diarias": [],
+        "historico invalido impede percentual": [{id: 17}],
+        "administrador autorizado": [],
+        "tecnico autorizado": []
+      }
     } as $ativos
 
     var $observado_ms {
@@ -146,7 +159,16 @@ function "indicadores/consultar_disponibilidade_confiabilidade" {
           where = $db.historico_vinculos_totem_loja.ativos_referencia_id == $ativo.id
           sort = {historico_vinculos_totem_loja.efetivado_em: "asc"}
           return = {type: "list"}
-          mock = {"medias conhecidas": [], "hoje medias conhecidas": [], "hoje transferencia de loja": [{efetivado_em: 1791997200000, loja_destino_id: 1}, {efetivado_em: 1792002600000, loja_destino_id: 2}], "hoje historico invalido localizado": [], "online sem timestamp na serie": [], "historico invalido impede percentual": []}
+          mock = {
+        "medias conhecidas": [],
+        "hoje medias conhecidas": [],
+        "hoje transferencia de loja": [{efetivado_em: 1791997200000, loja_destino_id: 1}, {efetivado_em: 1792002600000, loja_destino_id: 2}],
+        "hoje historico invalido localizado": [],
+        "online sem timestamp na serie": [],
+        "historico invalido impede percentual": [],
+        "administrador autorizado": [],
+        "tecnico autorizado": []
+      }
         } as $vinculos
 
         var $loja_relacionada { value = true }
@@ -168,7 +190,16 @@ function "indicadores/consultar_disponibilidade_confiabilidade" {
           where = $db.telemetria_equipamentos.ativos_referencia_id == $ativo.id && $db.telemetria_equipamentos.evento_timestamp != null
           sort = {telemetria_equipamentos.evento_timestamp: "asc"}
           return = {type: "single"}
-          mock = {"medias conhecidas": {evento_timestamp: 1792000000000}, "hoje medias conhecidas": {evento_timestamp: 1792000000000}, "hoje transferencia de loja": {evento_timestamp: 1791997200000}, "hoje historico invalido localizado": {evento_timestamp: 1792000000000}, "online sem timestamp na serie": {evento_timestamp: 1792000000000}, "historico invalido impede percentual": {evento_timestamp: 1792000000000}}
+          mock = {
+        "medias conhecidas": {evento_timestamp: 1792000000000},
+        "hoje medias conhecidas": {evento_timestamp: 1792000000000},
+        "hoje transferencia de loja": {evento_timestamp: 1791997200000},
+        "hoje historico invalido localizado": {evento_timestamp: 1792000000000},
+        "online sem timestamp na serie": {evento_timestamp: 1792000000000},
+        "historico invalido impede percentual": {evento_timestamp: 1792000000000},
+        "administrador autorizado": [],
+        "tecnico autorizado": []
+      }
         } as $primeira_telemetria
 
         db.query historico_disponibilidade_totens {
@@ -183,29 +214,38 @@ function "indicadores/consultar_disponibilidade_confiabilidade" {
           where = $db.historico_disponibilidade_totens.ativos_referencia_id == $ativo.id
           sort = {historico_disponibilidade_totens.detectado_em: "asc"}
           return = {type: "list"}
-          mock = {"medias conhecidas": [
+          mock = {
+        "medias conhecidas": [
             {status: "offline", detectado_em: 1792004680000, telemetria_timestamp: 1792003600000},
             {status: "online", detectado_em: 1792007380000, telemetria_timestamp: 1792007320000},
             {status: "offline", detectado_em: 1792015600000, telemetria_timestamp: 1792014400000},
             {status: "online", detectado_em: 1792016860000, telemetria_timestamp: 1792016800000}
-          ], "hoje medias conhecidas": [
+          ],
+        "hoje medias conhecidas": [
             {status: "offline", detectado_em: 1792004680000, telemetria_timestamp: 1792003600000},
             {status: "online", detectado_em: 1792007380000, telemetria_timestamp: 1792007320000},
             {status: "offline", detectado_em: 1792015600000, telemetria_timestamp: 1792014400000},
             {status: "online", detectado_em: 1792016860000, telemetria_timestamp: 1792016800000}
-          ], "hoje transferencia de loja": [
+          ],
+        "hoje transferencia de loja": [
             {status: "offline", detectado_em: 1791999600000, telemetria_timestamp: 1791999000000},
             {status: "online", detectado_em: 1792006800000, telemetria_timestamp: 1792006200000}
-          ], "hoje historico invalido localizado": [
+          ],
+        "hoje historico invalido localizado": [
             {status: "offline", detectado_em: 1792000600000, telemetria_timestamp: null},
             {status: "online", detectado_em: 1792001210000, telemetria_timestamp: 1792001200000}
-          ], "online sem timestamp na serie": [
+          ],
+        "online sem timestamp na serie": [
             {status: "offline", detectado_em: 1792000600000, telemetria_timestamp: 1792000000000},
             {status: "online", detectado_em: 1792001210000, telemetria_timestamp: null}
-          ], "historico invalido impede percentual": [
+          ],
+        "historico invalido impede percentual": [
             {status: "offline", detectado_em: 1792000600000, telemetria_timestamp: null},
             {status: "online", detectado_em: 1792001210000, telemetria_timestamp: 1792001200000}
-          ]}
+          ],
+        "administrador autorizado": [],
+        "tecnico autorizado": []
+      }
         } as $eventos
 
         function.run "indicadores/calcular_totem_confiabilidade" {
@@ -552,15 +592,17 @@ function "indicadores/consultar_disponibilidade_confiabilidade" {
     expect.to_throw { exception = "Acesso não autorizado." }
   }
 
-  test "tecnico negado" {
+  test "tecnico autorizado" {
     input = {usuarios_id: 3, t0: 1792000000000, t1: 1792003600000}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.disponibilidade.totens_incluidos) { value = 0 }
   }
 
-  test "administrador negado" {
+
+  test "administrador autorizado" {
     input = {usuarios_id: 2, t0: 1792000000000, t1: 1792003600000}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.disponibilidade.totens_incluidos) { value = 0 }
   }
+
 
   test "troca pendente negada" {
     input = {usuarios_id: 4, t0: 1792000000000, t1: 1792003600000}

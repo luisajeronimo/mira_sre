@@ -17,7 +17,8 @@ query "chamados/{chamados_id}" verb=GET {
         usuarios_id: $auth.id,
         gerente: true,
         tecnico: true,
-        diretoria: true
+        diretoria: true,
+        administrador: true
       }
     } as $usuario
 

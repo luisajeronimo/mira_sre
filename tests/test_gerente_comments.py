@@ -327,8 +327,8 @@ def test_gets_genericos_de_interacoes_negam_gerente_sem_alterar_consulta_publica
         ].split('} as $usuario', 1)[0]
         assert "tecnico: true" in autorizacao
         assert "gerente: true" not in autorizacao
-        assert "diretoria: true" not in autorizacao
-        assert "administrador: true" not in autorizacao
+        assert "diretoria: true" in autorizacao
+        assert "administrador: true" in autorizacao
         assert 'function.run "autorizacao/exigir_escopo_loja"' not in consulta
         assert consulta.index('function.run "autorizacao/exigir_perfil"') < consulta.index(
             "db."

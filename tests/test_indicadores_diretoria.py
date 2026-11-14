@@ -325,8 +325,8 @@ def test_resposta_de_filtro_diferente_nao_aparece(monkeypatch):
 @pytest.mark.parametrize("perfil, autorizado", [
     ("diretoria", True),
     ("gerente", False),
-    ("tecnico", False),
-    ("administrador", False),
+    ("tecnico", True),
+    ("administrador", True),
 ])
 def test_acesso_direto_da_rota_respeita_perfil(monkeypatch, perfil, autorizado):
     estado = IndicadoresDiretoriaState(

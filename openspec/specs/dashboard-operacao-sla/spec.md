@@ -7,20 +7,24 @@ Permitir que a Diretoria acompanhe o volume de chamados por status e a situaçã
 ## Requirements
 
 ### Requirement: Consulta executiva de operação exige Diretoria autenticada
-Os contratos e painéis de volumetria e SLA DEVEM (MUST) atender somente à Diretoria autenticada, com sessão válida e troca de senha concluída. O Xano DEVE (MUST) aplicar a autorização a cada consulta antes de ler chamados.
+Os contratos e painéis de volumetria e SLA DEVEM (MUST) atender a Técnico, Diretoria e Administrador autenticados, com sessão válida e troca de senha concluída. O Xano DEVE (MUST) aplicar a autorização a cada consulta antes de ler chamados.
 
 #### Scenario: Diretoria consulta a operação
 - **WHEN** usuário da Diretoria com sessão válida consulta os indicadores
 - **THEN** recebe os agregados correspondentes aos filtros válidos
 
 #### Scenario: Outro perfil ou sessão inválida
-- **WHEN** Gerente, Técnico, Administrador, usuário anônimo ou sessão com troca pendente consulta diretamente o contrato
+- **WHEN** Gerente, perfil não oficial, usuário anônimo ou sessão com troca pendente consulta diretamente o contrato
 - **THEN** a consulta é negada sem dados de chamados ou SLA
+
+#### Scenario: Todos os perfis operacionais consultam os indicadores
+- **WHEN** Técnico, Diretoria ou Administrador com sessão concluída consulta os contratos e catálogos
+- **THEN** recebe os mesmos indicadores e filtros globais
 
 ### Requirement: Recortes gerenciais de operação são explícitos
 O dashboard DEVE (MUST) aplicar período civil em `America/Sao_Paulo` à volumetria e à conformidade, e permitir filtros por Loja histórica comprovada no `criado_em` do chamado e por Categoria. O atalho Hoje da página compartilhada DEVE (MUST) selecionar `[00h local, 00h local do dia seguinte)` e limitar os fatos observáveis ao instante da consulta, sem antecipar chamados ou transições futuras. O risco atual DEVE (MUST) usar Loja e Categoria, mas não restringir sua base ao período selecionado. Filtros inválidos DEVEM (MUST) ser rejeitados.
 
-Na página compartilhada, Disponibilidade e Chamados/SLA DEVEM (MUST) ocupar abas distintas sob o breadcrumb, sem criar outra entrada na sidebar. O período e a Loja DEVEM (MUST) afetar os painéis aos quais se aplicam; Totem aparece apenas na aba de disponibilidade e Categoria apenas na aba de chamados/SLA. A interface DEVE (MUST) identificar esses escopos para não sugerir que um filtro afeta painéis incompatíveis.
+Na página compartilhada, Disponibilidade, Chamados/SLA e Causas/recorrência DEVEM (MUST) ocupar abas distintas sob o breadcrumb, sem criar outra entrada na sidebar. O período e a Loja DEVEM (MUST) afetar os painéis aos quais se aplicam; Totem aparece nas abas de disponibilidade e causas/recorrência; Categoria aparece nas abas de chamados/SLA e causas/recorrência. A interface DEVE (MUST) identificar esses escopos para não sugerir que um filtro afeta painéis incompatíveis.
 
 #### Scenario: Loja histórica após transferência
 - **WHEN** um Totem é transferido após a abertura do chamado
@@ -36,10 +40,10 @@ Na página compartilhada, Disponibilidade e Chamados/SLA DEVEM (MUST) ocupar aba
 
 #### Scenario: Filtros específicos na página compartilhada
 - **WHEN** a Diretoria seleciona Totem e Categoria na mesma página
-- **THEN** Totem recorta somente disponibilidade/MTTD/MTTR, Categoria recorta somente volumetria/SLA, e os escopos ficam visíveis
+- **THEN** Totem recorta disponibilidade/MTTD/MTTR e causas/recorrência, Categoria recorta volumetria/SLA e causas/recorrência, e os escopos ficam visíveis
 
 #### Scenario: Troca entre as abas executivas
-- **WHEN** a Diretoria alterna entre Disponibilidade e Chamados/SLA
+- **WHEN** a Diretoria alterna entre Disponibilidade, Chamados/SLA e Causas/recorrência
 - **THEN** vê apenas os painéis e filtros próprios da aba selecionada, preservando o período e a Loja escolhidos
 
 ### Requirement: Volumetria agrupa chamados abertos no período pelo status atual

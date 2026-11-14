@@ -82,11 +82,11 @@ A atribuição de um chamado não inicia automaticamente o atendimento. A mudan�
 
 A Diretoria possui escopo global.
 
-Ela possui as capacidades operacionais do Técnico para consulta e edição de chamados e, adicionalmente, acesso aos dashboards e indicadores consolidados da rede, com filtros e visões gerenciais.
+Técnico, Diretoria e Administrador possuem os mesmos acessos operacionais: fila e detalhe com consumo de SLA, tratativa, abertura manual global, monitoramento e todos os indicadores. Gestão administrativa e seus contratos de Usuários, Lojas e Totens são exclusivos do Administrador. Somente usuários com perfil Técnico podem ser responsáveis por chamados.
 
 ### 4.4 Administrador do Sistema
 
-O Administrador possui escopo global e reúne as capacidades dos demais perfis.
+O Administrador possui o mesmo acesso operacional de Técnico e Diretoria, com a capacidade adicional exclusiva de Gestão administrativa. As permissões locais do Gerente permanecem separadas.
 
 Além das operações de atendimento e acompanhamento, é responsável pelos cadastros administrativos necessários ao funcionamento do sistema, incluindo:
 
@@ -319,7 +319,7 @@ Critérios vigentes:
 
 Opções do mesmo filtro são combinadas por "ou", e filtros diferentes por "e".
 
-Técnicos podem visualizar todos os chamados e filtrá-los independentemente de estarem atribuídos a eles; o escopo rápido `Atribuídos a mim` é exclusivo do Técnico e não persiste entre logins.
+Os três perfis operacionais podem visualizar todos os chamados e consultar `Todos` ou `Atribuídos a mim`; a seleção de escopo não persiste entre logins nem altera atribuições. Sem chamados atribuídos à identidade autenticada, o escopo pessoal fica vazio.
 
 Gerentes podem consultar e filtrar todos os chamados pertencentes à própria loja.
 
@@ -329,7 +329,7 @@ O detalhamento técnico de armazenamento dessas preferências pertence à especi
 
 ### 6.10 Dashboards e indicadores
 
-A Diretoria terá visões consolidadas e interativas para acompanhamento da operação.
+Técnico, Diretoria e Administrador têm acesso às mesmas visões consolidadas e interativas para acompanhamento da operação.
 
 Os dashboards previstos incluem:
 

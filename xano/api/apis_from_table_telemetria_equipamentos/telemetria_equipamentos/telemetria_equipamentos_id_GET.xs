@@ -23,7 +23,8 @@ query "telemetria_equipamentos/{telemetria_equipamentos_id}" verb=GET {
         usuarios_id: $auth.id,
         lojas_id: $ativo.lojas_id,
         tecnico: true,
-        diretoria: true
+        diretoria: true,
+        administrador: true
       }
     } as $usuario
   

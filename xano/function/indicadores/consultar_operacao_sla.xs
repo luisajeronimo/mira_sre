@@ -13,10 +13,10 @@ function "indicadores/consultar_operacao_sla" {
 
   stack {
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $input.usuarios_id, diretoria: true}
-      mock = {"diretoria sem chamados": {id: 4, role: "diretoria", deve_trocar_senha: false}, "volume e risco antigo": {id: 4, role: "diretoria", deve_trocar_senha: false}, "categoria filtra chamados": {id: 4, role: "diretoria", deve_trocar_senha: false}, "conformidade resolvido": {id: 4, role: "diretoria", deve_trocar_senha: false}, "cancelado separado": {id: 4, role: "diretoria", deve_trocar_senha: false}, "rejeicao e nova resolucao": {id: 4, role: "diretoria", deve_trocar_senha: false}, "loja antes da transferencia": {id: 4, role: "diretoria", deve_trocar_senha: false}, "loja depois da transferencia": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao sem vinculo global": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao sem vinculo filtrada": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao gerente negado": {id: 8, role: "gerente", deve_trocar_senha: false}, "operacao tecnico negado": {id: 3, role: "tecnico", deve_trocar_senha: false}, "operacao administrador negado": {id: 2, role: "administrador", deve_trocar_senha: false}, "operacao troca pendente negada": {id: 4, role: "diretoria", deve_trocar_senha: true}, "operacao periodo invertido": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao visao invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao hoje incompleto": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao futuro fora de hoje": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao loja invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao categoria invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}}
+      input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
+      mock = {"diretoria sem chamados": {id: 4, role: "diretoria", deve_trocar_senha: false}, "volume e risco antigo": {id: 4, role: "diretoria", deve_trocar_senha: false}, "categoria filtra chamados": {id: 4, role: "diretoria", deve_trocar_senha: false}, "conformidade resolvido": {id: 4, role: "diretoria", deve_trocar_senha: false}, "cancelado separado": {id: 4, role: "diretoria", deve_trocar_senha: false}, "rejeicao e nova resolucao": {id: 4, role: "diretoria", deve_trocar_senha: false}, "loja antes da transferencia": {id: 4, role: "diretoria", deve_trocar_senha: false}, "loja depois da transferencia": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao sem vinculo global": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao sem vinculo filtrada": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao gerente negado": {id: 8, role: "gerente", deve_trocar_senha: false}, "operacao tecnico autorizado": {id: 3, role: "tecnico", deve_trocar_senha: false}, "operacao administrador autorizado": {id: 2, role: "administrador", deve_trocar_senha: false}, "operacao troca pendente negada": {id: 4, role: "diretoria", deve_trocar_senha: true}, "operacao periodo invertido": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao visao invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao hoje incompleto": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao futuro fora de hoje": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao loja invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}, "operacao categoria invalida": {id: 4, role: "diretoria", deve_trocar_senha: false}}
     } as $diretoria
-    precondition ($diretoria.role == "diretoria" && $diretoria.deve_trocar_senha == false) {
+    precondition (($diretoria.role == "tecnico" || $diretoria.role == "diretoria" || $diretoria.role == "administrador") && $diretoria.deve_trocar_senha == false) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
@@ -103,7 +103,9 @@ function "indicadores/consultar_operacao_sla" {
         "loja antes da transferencia": [{id: 6, criado_em: 1791980000000, status: "Aguardando Terceiro", ativos_referencia_id: 17}],
         "loja depois da transferencia": [{id: 6, criado_em: 1791980000000, status: "Aguardando Terceiro", ativos_referencia_id: 17}],
         "operacao sem vinculo global": [{id: 11, criado_em: 1791980000000, status: "Aguardando Terceiro", ativos_referencia_id: 17}],
-        "operacao sem vinculo filtrada": [{id: 11, criado_em: 1791980000000, status: "Aguardando Terceiro", ativos_referencia_id: 17}]
+        "operacao sem vinculo filtrada": [{id: 11, criado_em: 1791980000000, status: "Aguardando Terceiro", ativos_referencia_id: 17}],
+        "operacao administrador autorizado": [],
+        "operacao tecnico autorizado": []
       }
     } as $chamados
 
@@ -141,7 +143,13 @@ function "indicadores/consultar_operacao_sla" {
               where = $db.historico_vinculos_totem_loja.ativos_referencia_id == $chamado.ativos_referencia_id
               sort = {historico_vinculos_totem_loja.efetivado_em: "asc"}
               return = {type: "list"}
-              mock = {"loja antes da transferencia": [{efetivado_em: 1791860400000, loja_destino_id: 1}, {efetivado_em: 1791981800000, loja_destino_id: 2}], "loja depois da transferencia": [{efetivado_em: 1791860400000, loja_destino_id: 1}, {efetivado_em: 1791981800000, loja_destino_id: 2}], "operacao sem vinculo filtrada": []}
+              mock = {
+        "loja antes da transferencia": [{efetivado_em: 1791860400000, loja_destino_id: 1}, {efetivado_em: 1791981800000, loja_destino_id: 2}],
+        "loja depois da transferencia": [{efetivado_em: 1791860400000, loja_destino_id: 1}, {efetivado_em: 1791981800000, loja_destino_id: 2}],
+        "operacao sem vinculo filtrada": [],
+        "operacao administrador autorizado": [],
+        "operacao tecnico autorizado": []
+      }
             } as $vinculos
             function.run "indicadores/loja_no_instante" {
               input = {instante: $chamado.criado_em, vinculos: $vinculos}
@@ -196,7 +204,13 @@ function "indicadores/consultar_operacao_sla" {
               where = $db.interacoes_chamado.chamados_id == $chamado.id && $db.interacoes_chamado.tipo_evento == "alteracao_chamado"
               sort = {interacoes_chamado.criado_em: "desc", interacoes_chamado.id: "desc"}
               return = {type: "list"}
-              mock = {"conformidade resolvido": [{id: 1, criado_em: 1791981800000, alteracoes: {status: {anterior: "Novo", resultante: "Resolvido"}}}], "cancelado separado": [{id: 1, criado_em: 1791981800000, alteracoes: {status: {anterior: "Novo", resultante: "Cancelado"}}}], "rejeicao e nova resolucao": [{id: 3, criado_em: 1791987200000, alteracoes: {status: {anterior: "Solução Rejeitada", resultante: "Resolvido"}}}, {id: 2, criado_em: 1791985400000, alteracoes: {status: {anterior: "Resolvido", resultante: "Solução Rejeitada"}}}, {id: 1, criado_em: 1791981800000, alteracoes: {status: {anterior: "Novo", resultante: "Resolvido"}}}]}
+              mock = {
+        "conformidade resolvido": [{id: 1, criado_em: 1791981800000, alteracoes: {status: {anterior: "Novo", resultante: "Resolvido"}}}],
+        "cancelado separado": [{id: 1, criado_em: 1791981800000, alteracoes: {status: {anterior: "Novo", resultante: "Cancelado"}}}],
+        "rejeicao e nova resolucao": [{id: 3, criado_em: 1791987200000, alteracoes: {status: {anterior: "Solução Rejeitada", resultante: "Resolvido"}}}, {id: 2, criado_em: 1791985400000, alteracoes: {status: {anterior: "Resolvido", resultante: "Solução Rejeitada"}}}, {id: 1, criado_em: 1791981800000, alteracoes: {status: {anterior: "Novo", resultante: "Resolvido"}}}],
+        "operacao administrador autorizado": [],
+        "operacao tecnico autorizado": []
+      }
             } as $transicoes
             var $entrada_vigente { value = null }
             var $encontrou_entrada { value = false }
@@ -336,14 +350,16 @@ function "indicadores/consultar_operacao_sla" {
     input = {usuarios_id: 8, t0: 1791946800000, t1: 1791999000000}
     expect.to_throw { exception = "Acesso não autorizado." }
   }
-  test "operacao tecnico negado" {
+  test "operacao tecnico autorizado" {
     input = {usuarios_id: 3, t0: 1791946800000, t1: 1791999000000}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.volumetria.total) { value = 0 }
   }
-  test "operacao administrador negado" {
+
+  test "operacao administrador autorizado" {
     input = {usuarios_id: 2, t0: 1791946800000, t1: 1791999000000}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.volumetria.total) { value = 0 }
   }
+
   test "operacao troca pendente negada" {
     input = {usuarios_id: 4, t0: 1791946800000, t1: 1791999000000}
     expect.to_throw { exception = "Acesso não autorizado." }

@@ -9,6 +9,7 @@ import app.chamados.tecnico.pages as paginas_chamados
 import app.chamados.tecnico.state as chamados_module
 import app.components.visual as visual
 from app.services.service_desk import (
+    ConsumoSLADTO,
     ChamadoDetalhe,
     ChamadoResumo,
     ListaChamadosGerente,
@@ -223,6 +224,31 @@ def novo_estado_tecnico(role="tecnico"):
     object.__setattr__(estado, "usuario_id", 9)
     object.__setattr__(estado, "role", role)
     return estado
+
+
+@pytest.mark.parametrize("role", ["tecnico", "diretoria", "administrador"])
+def test_detalhe_operacional_carrega_consumo_sla_para_os_tres_perfis(monkeypatch, role):
+    liberar_validacao_de_sessao(monkeypatch)
+    consultas_sla = []
+
+    class ClienteComSLA(ClienteTecnicoFalso):
+        async def listar_categorias_tratativa(self, token):
+            return []
+
+        async def obter_consumo_sla_tecnico(self, token, chamado_id):
+            consultas_sla.append((token, chamado_id))
+            return ConsumoSLADTO(chamado_id, True, None, 7_200_000, 4, 0.5, "normal", "em_contagem", 1780007200000)
+
+    cliente = ClienteComSLA()
+    monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
+    estado = novo_estado_tecnico(role)
+    object.__setattr__(estado, "chamado_id", "101")
+    executar_evento(ChamadosTecnicoState.carregar_detalhe_tecnico, estado)
+
+    assert consultas_sla == [("token-de-teste", 101)]
+    assert estado.consumo_sla["situacao"] == "Dentro do SLA"
+    assert estado.consumo_sla["percentual"] == "50.0% consumido"
+    assert estado.mensagem_sla == ""
 
 
 def test_marcadores_privados_da_fila_sao_backend_only():
@@ -899,7 +925,7 @@ def test_troca_de_identidade_distingue_401_e_403_sem_reusar_dados_protegidos(
 
 
 @pytest.mark.parametrize("role", ["diretoria", "administrador"])
-def test_diretoria_e_admin_nao_alteram_para_escopo_pessoal(monkeypatch, role):
+def test_diretoria_e_admin_acessam_escopo_pessoal(monkeypatch, role):
     cliente = ClienteTecnicoFalso()
     monkeypatch.setattr(chamados_module, "criar_cliente_service_desk", lambda: cliente)
     estado = novo_estado_tecnico(role)
@@ -910,8 +936,8 @@ def test_diretoria_e_admin_nao_alteram_para_escopo_pessoal(monkeypatch, role):
         "atribuidos_a_mim",
     )
 
-    assert estado.escopo_rapido == "todos"
-    assert cliente.consultas == []
+    assert estado.escopo_rapido == "atribuidos_a_mim"
+    assert cliente.consultas[-1][1]["somente_atribuidos_a_mim"] is True
 
 
 def test_erro_da_fila_nao_renderiza_empty_state_simultaneamente():
@@ -923,11 +949,11 @@ def test_erro_da_fila_nao_renderiza_empty_state_simultaneamente():
     )
 
 
-def test_visao_rapida_esta_fora_dos_filtros_e_so_aparece_para_tecnico():
+def test_visao_rapida_esta_fora_dos_filtros_e_disponivel_a_operacionais():
     fonte = inspect.getsource(paginas_chamados._fila_tecnico)
 
     assert fonte.index('"Atribuídos a mim"') < fonte.index("painel_filtros(")
-    assert 'AuthState.role == "tecnico"' in fonte
+    assert 'AuthState.perfil_operacional' in fonte
     assert "Atribuídos a outros Técnicos" not in fonte
 
 

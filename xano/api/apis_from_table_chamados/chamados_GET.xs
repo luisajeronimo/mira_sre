@@ -1,8 +1,7 @@
 // Query all chamados records
 // Correção C-1: o Gerente recebe somente chamados cuja Loja comprovada na
 // abertura (vínculo histórico) é a sua; a Loja atual do Totem não concede
-// acesso. Técnico e Diretoria mantêm a consulta global; Administrador e
-// demais perfis continuam negados por exigir_perfil.
+// acesso. Técnico, Diretoria e Administrador possuem a mesma consulta global.
 query chamados verb=GET {
   api_group = "APIS from table chamados"
   auth = "usuarios"
@@ -16,7 +15,8 @@ query chamados verb=GET {
         usuarios_id: $auth.id,
         gerente: true,
         tecnico: true,
-        diretoria: true
+        diretoria: true,
+        administrador: true
       }
     } as $usuario
 

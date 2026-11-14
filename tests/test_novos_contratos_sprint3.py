@@ -115,7 +115,7 @@ def test_exposicao_sla_gerente_e_tecnico():
     # Técnico
     func_tecnico = ler(SLA_TECNICO_FUNC)
     assert 'function.run "autorizacao/exigir_perfil"' in func_tecnico
-    assert "tecnico: true, administrador: true" in func_tecnico
+    assert "tecnico: true, diretoria: true, administrador: true" in func_tecnico
     assert 'function.run "service_desk/calcular_consumo_sla_chamado"' in func_tecnico
     api_tecnico = ler(SLA_TECNICO_API)
     assert 'query "tecnico/chamados/{chamados_id}/consumo-sla" verb=GET' in api_tecnico

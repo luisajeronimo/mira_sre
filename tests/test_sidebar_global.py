@@ -28,12 +28,12 @@ def novo_estado() -> MonitoramentoState:
     ("perfil", "rotas", "rotulos"),
     [
         ("gerente", ["/inicio"], ["Início"]),
-        ("tecnico", ["/inicio", "/monitoramento"], ["Início", "Monitoramento"]),
+        ("tecnico", ["/inicio", "/monitoramento", "/indicadores/disponibilidade"], ["Início", "Monitoramento", "Indicadores"]),
         ("diretoria", ["/inicio", "/monitoramento", "/indicadores/disponibilidade"], ["Início", "Monitoramento", "Indicadores"]),
         (
             "administrador",
-            ["/inicio", "/monitoramento", "/administracao/gestao"],
-            ["Início", "Monitoramento", "Administração"],
+            ["/inicio", "/monitoramento", "/indicadores/disponibilidade", "/administracao/gestao"],
+            ["Início", "Monitoramento", "Indicadores", "Administração"],
         ),
     ],
 )
@@ -82,12 +82,6 @@ def test_chamados_solicitados_nao_criam_destino_proprio():
     for perfil in ("gerente", "tecnico", "diretoria", "administrador"):
         itens = itens_visiveis(perfil)
         assert all(item.rota != "/chamados/solicitados" for item in itens)
-
-
-def test_asset_do_logo_corresponde_exatamente_a_referencia_oficial():
-    assert (ROOT / "assets/mira-logo.svg").read_bytes() == (
-        ROOT / "docs/design/references/logo.svg"
-    ).read_bytes()
 
 
 def test_casca_reutiliza_asset_oficial_em_sidebar_desktop_sem_drawer():

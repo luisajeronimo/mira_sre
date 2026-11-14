@@ -25,9 +25,9 @@ O Xano DEVE (MUST) calcular o tempo de SLA consumido de um chamado, em tempo cor
 - **THEN** o consumo não aumenta após a entrada nesse estado
 
 ### Requirement: Consumo de SLA é exposto conforme o perfil
-O Xano DEVE (MUST) expor o consumo de SLA somente a partir do cálculo por estados, sem estimar valores, e somente a perfis autorizados (DE-8): Técnico e Administrador na fila e no detalhe; Gerente nos chamados autorizados pela Loja histórica e em indicadores gerenciais; Diretoria em indicadores consolidados. O solicitante NÃO DEVE (MUST NOT) receber o consumo de SLA nesta versão. A apresentação DEVE (MUST) distinguir dentro do SLA, próximo do vencimento, vencido, pausado, encerrado e não calculável.
+O Xano DEVE (MUST) expor o consumo de SLA somente a partir do cálculo por estados, sem estimar valores, e somente a perfis autorizados : Técnico, Diretoria e Administrador na fila, no detalhe e em indicadores consolidados; Gerente nos chamados autorizados pela Loja histórica e em indicadores gerenciais. O solicitante NÃO DEVE (MUST NOT) receber o consumo de SLA nesta versão. A apresentação DEVE (MUST) distinguir dentro do SLA, próximo do vencimento, vencido, pausado, encerrado e não calculável.
 
-No detalhe de Gerente, Técnico e Administrador, o consumo DEVE (MUST) ficar em um controle compacto de informação ao lado de "SLA aplicado", aberto por clique ou teclado. A página NÃO DEVE (MUST NOT) repetir esses dados em um card separado. O controle DEVE (MUST) apresentar situação, percentual e prazo quando disponíveis, ou motivo quando não calculável, e informar falhas de consulta sem inventar valores.
+No detalhe de Gerente, Técnico, Diretoria e Administrador, o consumo DEVE (MUST) ficar em um controle compacto de informação ao lado de "SLA aplicado", aberto por clique ou teclado. A página NÃO DEVE (MUST NOT) repetir esses dados em um card separado. O controle DEVE (MUST) apresentar situação, percentual e prazo quando disponíveis, ou motivo quando não calculável, e informar falhas de consulta sem inventar valores.
 
 #### Scenario: Técnico consulta chamado em contagem
 - **WHEN** Técnico autenticado consulta chamado com consumo calculável em contagem
@@ -48,6 +48,10 @@ No detalhe de Gerente, Técnico e Administrador, o consumo DEVE (MUST) ficar em 
 #### Scenario: Consumo no detalhe sob demanda
 - **WHEN** usuário autorizado abre a informação ao lado de "SLA aplicado"
 - **THEN** o Reflex apresenta o consumo já retornado pelo Xano, sem card separado, e permite fechar a informação sem alterar o chamado
+
+#### Scenario: Diretoria consulta SLA no detalhe
+- **WHEN** Diretoria autenticada abre um chamado global
+- **THEN** recebe o mesmo consumo e controle compacto disponíveis a Técnico e Administrador, inclusive estados de falha e não calculável
 
 ### Requirement: Linha do tempo inconsistente torna o SLA não calculável
 Quando a linha do tempo de status não começar em `Novo`, possuir transição cujo status anterior difere do resultante da transição precedente, contiver status fora da lista canônica vigente, ou não terminar no status atual do chamado, o Xano DEVE (MUST) classificar o SLA do chamado como não calculável, informando o motivo, e NÃO DEVE (MUST NOT) estimar períodos ou timestamps ausentes.

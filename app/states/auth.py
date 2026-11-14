@@ -53,6 +53,10 @@ class AuthState(rx.State):
     sessao_confirmada: bool = False
     mensagem_erro: str = ""
 
+    @rx.var
+    def perfil_operacional(self) -> bool:
+        return self.role in {"tecnico", "diretoria", "administrador"}
+
     def _iniciar_carregamento(self) -> None:
         self.carregando = True
         self.mensagem_erro = ""
@@ -225,21 +229,27 @@ class AuthState(rx.State):
         async for evento in self._executar_guard("gerente", False):
             yield evento
 
+    async def _executar_guard_operacional(self) -> AsyncIterator[Any]:
+        async for evento in self._executar_guard(None, False):
+            yield evento
+        if self.sessao_confirmada and not self.deve_trocar_senha and not self.perfil_operacional:
+            yield rx.redirect("/inicio")
+
     @rx.event
     async def carregar_tecnico(self) -> AsyncIterator[Any]:
-        async for evento in self._executar_guard("tecnico", False):
+        async for evento in self._executar_guard_operacional():
             yield evento
 
     @rx.event
     async def carregar_diretoria(self) -> AsyncIterator[Any]:
-        async for evento in self._executar_guard("diretoria", False):
+        async for evento in self._executar_guard_operacional():
             yield evento
 
     @rx.event
     async def redirecionar_alias_diretoria(self) -> AsyncIterator[Any]:
-        async for evento in self._executar_guard("diretoria", False):
+        async for evento in self._executar_guard_operacional():
             yield evento
-        if self.sessao_confirmada and self.role == "diretoria" and not self.deve_trocar_senha:
+        if self.sessao_confirmada and self.perfil_operacional and not self.deve_trocar_senha:
             yield rx.redirect("/inicio")
 
     async def _carregar_jornada_chamados(
@@ -299,7 +309,7 @@ class AuthState(rx.State):
             from app.chamados.gerente.state import ChamadosGerenteState
             estado = await self.get_state(ChamadosGerenteState)
             handler = ChamadosGerenteState.carregar_formulario
-        elif self.role == "administrador":
+        elif self.perfil_operacional:
             from app.chamados.administrador import AberturaAdminState
             estado = await self.get_state(AberturaAdminState)
             handler = AberturaAdminState.carregar_formulario

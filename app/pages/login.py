@@ -42,7 +42,7 @@ def _cartao_contexto(icone: str, titulo: str, descricao: str) -> rx.Component:
         background="rgba(255, 255, 255, 0.9)",
         border="1px solid rgba(255, 255, 255, 0.95)",
         border_radius="12px",
-        box_shadow="0 4px 14px rgba(40, 49, 83, 0.04)",
+        box_shadow="none",
     )
 
 
@@ -146,10 +146,11 @@ def _campo_login(
     icone: str,
 ) -> rx.Component:
     return rx.vstack(
-        rx.text(rotulo, as_="label", weight="bold", size="2", color=TEXTO),
+        rx.el.label(rotulo, html_for="login-" + nome, color=TEXTO),
         rx.input(
             rx.input.slot(rx.icon(icone, size=18, color="#60708E")),
             name=nome,
+            id="login-" + nome,
             type=tipo,
             placeholder=placeholder,
             auto_complete=True,
@@ -160,7 +161,7 @@ def _campo_login(
             background=SUPERFICIE,
             border=f"1px solid {BORDA}",
             border_radius=RAIO_CONTROLE,
-            box_shadow="0 2px 8px rgba(35, 25, 45, 0.03)",
+            box_shadow="none",
             _focus_visible=FOCO_VISIVEL,
         ),
         align="start",
@@ -235,7 +236,8 @@ def _formulario_login() -> rx.Component:
                     width="100%",
                     min_height="3.5rem",
                     weight="bold",
-                    box_shadow="0 5px 14px rgba(225, 29, 72, 0.18)",
+                    border_radius=RAIO_CONTROLE,
+                    box_shadow="0 3px 8px rgba(190, 18, 60, 0.12)",
                     _focus_visible=FOCO_VISIVEL,
                 ),
                 spacing="4",
@@ -271,7 +273,7 @@ def _painel_login() -> rx.Component:
                 "MIRA • Service Desk e Observabilidade",
                 size="1",
                 weight="bold",
-                color="#7B8498",
+                color=TEXTO_SECUNDARIO,
             ),
             justify="between",
             align="center",
@@ -299,8 +301,8 @@ def login() -> rx.Component:
             min_height="43rem",
             background=SUPERFICIE,
             border=f"1px solid {BORDA}",
-            border_radius="20px",
-            box_shadow="0 24px 60px rgba(35, 25, 45, 0.12)",
+            border_radius="16px",
+            box_shadow="0 16px 48px rgba(35, 25, 45, 0.07)",
             overflow="hidden",
             style={
                 "gridTemplateColumns": "minmax(0, 5fr) minmax(0, 7fr)",

@@ -15,6 +15,9 @@ from app.indicadores.contrato import (
     ler_catalogo,
     ler_resultado,
 )
+from app.indicadores.contrato_causas import (
+    CatalogoCausas, ResultadoCausas, ler_catalogo_causas, ler_resultado_causas,
+)
 from app.indicadores.contrato_operacao import (
     CatalogoOperacao,
     ResultadoOperacao,
@@ -1029,6 +1032,23 @@ class XanoServiceDeskCliente(XanoCliente):
         dados = await self._requisitar("GET", "/indicadores/operacao-sla", token=token, params=params)
         return ler_resultado_operacao(dados)
 
+    async def catalogo_indicadores_causas(self, token: str) -> CatalogoCausas:
+        dados = await self._requisitar("GET", "/indicadores/causas-recorrencia/filtros", token=token)
+        return ler_catalogo_causas(dados)
+
+    async def consultar_indicadores_causas(
+        self, token: str, *, t0: int, t1: int,
+        lojas_id: int | None = None, ativos_referencia_id: int | None = None,
+        categorias_servico_id: int | None = None, visao: str | None = None,
+    ) -> ResultadoCausas:
+        params: dict[str, int | str] = {"t0": t0, "t1": t1}
+        for campo, valor in (("lojas_id", lojas_id), ("ativos_referencia_id", ativos_referencia_id),
+                             ("categorias_servico_id", categorias_servico_id), ("visao", visao)):
+            if valor is not None:
+                params[campo] = valor
+        dados = await self._requisitar("GET", "/indicadores/causas-recorrencia", token=token, params=params)
+        return ler_resultado_causas(dados)
+
     async def listar_ativos(self, token: str) -> list[AtivoServiceDesk]:
         return await self._listar_ativos_gerente_em(token, "/gerente/ativos")
 
@@ -1150,6 +1170,33 @@ class XanoServiceDeskCliente(XanoCliente):
             )
             for item in _colecao(dados)
         ]
+
+    async def opcoes_abertura_global(self, token: str) -> dict[str, list[dict[str, Any]]]:
+        dados = await self._requisitar("GET", "/chamados/abertura/filtros", token=token)
+        if set(dados) != {"ativos", "categorias"}:
+            raise XanoContratoInvalido("O Xano retornou opções de abertura inválidas.")
+        opcoes = {}
+        for campo in ("ativos", "categorias"):
+            if not isinstance(dados[campo], list):
+                raise XanoContratoInvalido("O Xano retornou opções de abertura inválidas.")
+            opcoes[campo] = []
+            for valor in dados[campo]:
+                item = _objeto_exato(valor, campo, {"id", "nome"})
+                opcoes[campo].append({"id": _inteiro(item["id"], "id"), "nome": _texto(item["nome"], "nome")})
+        return opcoes
+
+    async def abrir_chamado_global(
+        self, token: str, *, ativos_referencia_id: int, categorias_servico_id: int,
+        prioridade: str, titulo: str, descricao: str,
+    ) -> dict[str, Any]:
+        dados = await self._requisitar(
+            "POST", "/chamados", token=token,
+            json={"ativos_referencia_id": ativos_referencia_id, "categorias_servico_id": categorias_servico_id,
+                  "prioridade": prioridade, "titulo": titulo, "descricao": descricao},
+        )
+        chamado = _objeto(dados.get("chamado"), "chamado")
+        _inteiro(chamado.get("id"), "chamado.id")
+        return chamado
 
     async def abrir_chamado(
         self,

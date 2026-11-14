@@ -41,13 +41,14 @@ def chamada_autorizacao(texto):
 
 
 @pytest.mark.parametrize("caminho", [LISTA, POR_ID], ids=["lista", "por_id"])
-def test_somente_tecnico_e_autorizado_pela_identidade_da_sessao(caminho):
+def test_perfis_operacionais_autorizados_e_gerente_negado_pela_sessao(caminho):
     autorizacao = chamada_autorizacao(fonte(caminho))
     assert 'function.run "autorizacao/exigir_perfil"' in autorizacao
     assert "usuarios_id: $auth.id" in autorizacao
     assert "tecnico: true" in autorizacao
-    for perfil in ("gerente", "diretoria", "administrador"):
-        assert f"{perfil}: true" not in autorizacao
+    for perfil in ("tecnico", "diretoria", "administrador"):
+        assert f"{perfil}: true" in autorizacao
+    assert "gerente: true" not in autorizacao
     assert "$input" not in autorizacao
 
 

@@ -11,7 +11,9 @@ query lojas verb=GET {
       input = {
         usuarios_id: $auth.id,
         gerente: true,
-        diretoria: true
+        diretoria: true,
+        tecnico: true,
+        administrador: true
       }
     } as $usuario
 
@@ -21,7 +23,7 @@ query lojas verb=GET {
     }
 
     db.query lojas {
-      where = $usuario.role == "diretoria" || ($usuario.role == "gerente" && $db.lojas.id == $usuario.lojas_id)
+      where = ($usuario.role == "tecnico" || $usuario.role == "diretoria" || $usuario.role == "administrador") || ($usuario.role == "gerente" && $db.lojas.id == $usuario.lojas_id)
       return = {type: "list"}
     } as $lojas
   }

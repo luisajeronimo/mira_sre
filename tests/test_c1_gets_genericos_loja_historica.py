@@ -61,12 +61,12 @@ def test_contratos_nao_usam_loja_atual_do_totem(caminho):
 
 # --- Lista -------------------------------------------------------------------
 
-def test_lista_exige_perfil_e_mantem_administrador_negado():
+def test_lista_exige_perfil_operacional_e_isola_gerente():
     texto = compacto(logica(LISTA))
     assert 'auth="usuarios"' in texto
     assert compacto('function.run "autorizacao/exigir_perfil"') in texto
     assert "gerente:true" in texto and "tecnico:true" in texto and "diretoria:true" in texto
-    assert "administrador" not in texto
+    assert "administrador:true" in texto
 
 
 def test_lista_do_gerente_vem_somente_da_funcao_historica():
@@ -97,7 +97,7 @@ def test_detalhe_autoriza_gerente_pela_loja_historica_antes_de_ler_o_registro():
     ramo = texto.split('if ($usuario.role == "gerente")', 1)[1].split("db.get chamados", 1)[0]
     assert "chamados_id: $input.chamados_id" in ramo
     assert "db.get ativos_referencia" not in texto
-    assert "administrador" not in texto
+    assert "administrador: true" in texto
     assert texto.index("db.get chamados") < texto.index("precondition ($chamados != null)")
 
 

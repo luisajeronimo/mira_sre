@@ -6,8 +6,7 @@ Este documento é a autoridade visual global do MIRA. A ordem de precedência é
 
 1. requisitos funcionais autorizados;
 2. este `DESIGN.md`;
-3. o PNG relacionado em `docs/design/references/`;
-4. componentes Reflex existentes.
+3. componentes Reflex existentes.
 
 Um requisito funcional sempre vence qualquer contradição visual. Na ausência de
 PNG relacionado, derive a interface deste documento e das referências já
@@ -23,7 +22,6 @@ componentes, espaçamento e linguagem visual.
 ## Referências visuais
 
 - [Figma — MIRA: identidade e telas de referência](https://www.figma.com/design/W5qbds0Ec5MtqEIfZ4MvRk/Untitled?node-id=0-1&p=f&t=DiOMFvvtzpFX0sUO-0)
-- PNGs sanitizados em [`docs/design/references/`](docs/design/references/)
 
 As referências orientam composição, hierarquia, proporções e acabamento. Elas
 não autorizam dados, métricas, ações, permissões ou fluxos que não estejam nos
@@ -31,7 +29,7 @@ requisitos funcionais vigentes.
 
 ## Logotipo e identidade visual
 
-[`docs/design/references/logo.svg`](docs/design/references/logo.svg) é a
+[`assets/mira-logo.svg`](assets/mira-logo.svg) é a
 referência oficial do logotipo da marca MIRA. Nas interfaces em que a marca
 deve aparecer, reutilize esse arquivo preservando suas proporções, cores e
 integridade visual. Não redesenhe o logotipo nem o substitua por texto ou

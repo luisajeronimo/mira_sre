@@ -14,57 +14,23 @@ function "service_desk/assumir_chamado_tecnico" {
     function.run "autorizacao/exigir_perfil" {
       input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
       mock = {
-        "assume padrão": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "assume ação vazia": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "assume idempotente": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "assume outro técnico": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "atribui em Resolvido": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "reatribui": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "rejeita alvo não Técnico": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "libera própria": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "Técnico não libera outro": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
-        "Diretoria libera": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "Administrador libera": ```
-          {id: 14, nome: "Administrador", email: "admin@example.test", role: "administrador", lojas_id: null}
-          ```
-        "Encerrado terminal": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "Cancelado terminal": ```
-          {id: 14, nome: "Administrador", email: "admin@example.test", role: "administrador", lojas_id: null}
-          ```
-        "status desconhecido": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "Diretoria não assume": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "atribui mesmo Técnico": ```
-          {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null}
-          ```
-        "libera sem responsável": ```
-          {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
-          ```
+        "assume padrão": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null},
+        "assume ação vazia": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null},
+        "assume idempotente": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null},
+        "assume outro técnico": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null},
+        "atribui em Resolvido": {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null},
+        "reatribui": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null},
+        "rejeita alvo não Técnico": {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null},
+        "libera própria": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null},
+        "Técnico libera outro": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null},
+        "Diretoria libera": {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null},
+        "Administrador libera": {id: 14, nome: "Administrador", email: "admin@example.test", role: "administrador", lojas_id: null},
+        "Encerrado terminal": {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null},
+        "Cancelado terminal": {id: 14, nome: "Administrador", email: "admin@example.test", role: "administrador", lojas_id: null},
+        "status desconhecido": {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null},
+        "Diretoria não assume": {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null},
+        "atribui mesmo Técnico": {id: 4, nome: "Diretoria", email: "diretoria@example.test", role: "diretoria", lojas_id: null},
+        "libera sem responsável": {id: 12, nome: "Técnico", email: "tecnico@example.test", role: "tecnico", lojas_id: null}
       }
     } as $usuario
 
@@ -124,22 +90,22 @@ function "service_desk/assumir_chamado_tecnico" {
       field_name = "id"
       field_value = $input.chamados_id
       mock = {
-        "assume padrão": {id: 101, status: "Novo", tecnico_id: null}
-        "assume ação vazia": {id: 101, status: "Novo", tecnico_id: null}
-        "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000}
-        "assume outro técnico": {id: 101, status: "Novo", tecnico_id: 13, atribuido_em: 1780000001000}
-        "atribui em Resolvido": {id: 101, status: "Resolvido", tecnico_id: null}
-        "reatribui": {id: 101, status: "Em Atendimento", tecnico_id: 12, atribuido_em: 1780000001000}
-        "rejeita alvo não Técnico": {id: 101, status: "Novo", tecnico_id: null}
-        "libera própria": {id: 101, status: "Aguardando Solicitante", tecnico_id: 12, atribuido_em: 1780000001000}
-        "Técnico não libera outro": {id: 101, status: "Novo", tecnico_id: 10, atribuido_em: 1780000001000}
-        "Diretoria libera": {id: 101, status: "Em Atendimento", tecnico_id: 10, atribuido_em: 1780000001000}
-        "Administrador libera": {id: 101, status: "Resolvido", tecnico_id: 10, atribuido_em: 1780000001000}
-        "Encerrado terminal": {id: 101, status: "Encerrado", tecnico_id: 10, atribuido_em: 1780000001000}
-        "Cancelado terminal": {id: 101, status: "Cancelado", tecnico_id: null}
-        "status desconhecido": {id: 101, status: "Desconhecido", tecnico_id: null}
-        "Diretoria não assume": {id: 101, status: "Novo", tecnico_id: null}
-        "atribui mesmo Técnico": {id: 101, status: "Novo", tecnico_id: 10, atribuido_em: 1780000001000}
+        "assume padrão": {id: 101, status: "Novo", tecnico_id: null},
+        "assume ação vazia": {id: 101, status: "Novo", tecnico_id: null},
+        "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000},
+        "assume outro técnico": {id: 101, status: "Novo", tecnico_id: 13, atribuido_em: 1780000001000},
+        "atribui em Resolvido": {id: 101, status: "Resolvido", tecnico_id: null},
+        "reatribui": {id: 101, status: "Em Atendimento", tecnico_id: 12, atribuido_em: 1780000001000},
+        "rejeita alvo não Técnico": {id: 101, status: "Novo", tecnico_id: null},
+        "libera própria": {id: 101, status: "Aguardando Solicitante", tecnico_id: 12, atribuido_em: 1780000001000},
+        "Técnico libera outro": {id: 101, status: "Em Atendimento", tecnico_id: 10, atribuido_em: 1780000001000},
+        "Diretoria libera": {id: 101, status: "Em Atendimento", tecnico_id: 10, atribuido_em: 1780000001000},
+        "Administrador libera": {id: 101, status: "Resolvido", tecnico_id: 10, atribuido_em: 1780000001000},
+        "Encerrado terminal": {id: 101, status: "Encerrado", tecnico_id: 10, atribuido_em: 1780000001000},
+        "Cancelado terminal": {id: 101, status: "Cancelado", tecnico_id: null},
+        "status desconhecido": {id: 101, status: "Desconhecido", tecnico_id: null},
+        "Diretoria não assume": {id: 101, status: "Novo", tecnico_id: null},
+        "atribui mesmo Técnico": {id: 101, status: "Novo", tecnico_id: 10, atribuido_em: 1780000001000},
         "libera sem responsável": {id: 101, status: "Novo", tecnico_id: null}
       }
     } as $atual
@@ -215,19 +181,19 @@ function "service_desk/assumir_chamado_tecnico" {
           field_name = "id"
           field_value = $input.chamados_id
           mock = {
-            "assume padrão": {id: 101, status: "Novo", tecnico_id: null}
-            "assume ação vazia": {id: 101, status: "Novo", tecnico_id: null}
-            "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000}
-            "atribui em Resolvido": {id: 101, status: "Resolvido", tecnico_id: null}
-            "reatribui": {id: 101, status: "Em Atendimento", tecnico_id: 12, atribuido_em: 1780000001000}
-            "rejeita alvo não Técnico": {id: 101, status: "Novo", tecnico_id: null}
-            "libera própria": {id: 101, status: "Aguardando Solicitante", tecnico_id: 12, atribuido_em: 1780000001000}
-            "Técnico não libera outro": {id: 101, status: "Novo", tecnico_id: 10, atribuido_em: 1780000001000}
-            "Diretoria libera": {id: 101, status: "Em Atendimento", tecnico_id: 10, atribuido_em: 1780000001000}
-            "Administrador libera": {id: 101, status: "Resolvido", tecnico_id: 10, atribuido_em: 1780000001000}
-            "atribui mesmo Técnico": {id: 101, status: "Novo", tecnico_id: 10, atribuido_em: 1780000001000}
-            "libera sem responsável": {id: 101, status: "Novo", tecnico_id: null}
-          }
+        "assume padrão": {id: 101, status: "Novo", tecnico_id: null},
+        "assume ação vazia": {id: 101, status: "Novo", tecnico_id: null},
+        "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000},
+        "atribui em Resolvido": {id: 101, status: "Resolvido", tecnico_id: null},
+        "reatribui": {id: 101, status: "Em Atendimento", tecnico_id: 12, atribuido_em: 1780000001000},
+        "rejeita alvo não Técnico": {id: 101, status: "Novo", tecnico_id: null},
+        "libera própria": {id: 101, status: "Aguardando Solicitante", tecnico_id: 12, atribuido_em: 1780000001000},
+        "Técnico libera outro": {id: 101, status: "Em Atendimento", tecnico_id: 10, atribuido_em: 1780000001000},
+        "Diretoria libera": {id: 101, status: "Em Atendimento", tecnico_id: 10, atribuido_em: 1780000001000},
+        "Administrador libera": {id: 101, status: "Resolvido", tecnico_id: 10, atribuido_em: 1780000001000},
+        "atribui mesmo Técnico": {id: 101, status: "Novo", tecnico_id: 10, atribuido_em: 1780000001000},
+        "libera sem responsável": {id: 101, status: "Novo", tecnico_id: null}
+      }
         } as $verificacao
 
         precondition ($verificacao != null) {
@@ -278,11 +244,11 @@ function "service_desk/assumir_chamado_tecnico" {
               field_name = "id"
               field_value = $input.tecnico_id
               mock = {
-                "atribui em Resolvido": {id: 10, nome: "Técnico alvo", role: "tecnico"}
-                "reatribui": {id: 10, nome: "Outro Técnico", role: "tecnico"}
-                "rejeita alvo não Técnico": {id: 20, nome: "Gerente", role: "gerente"}
-                "atribui mesmo Técnico": {id: 10, nome: "Técnico alvo", role: "tecnico"}
-              }
+        "atribui em Resolvido": {id: 10, nome: "Técnico alvo", role: "tecnico"},
+        "reatribui": {id: 10, nome: "Outro Técnico", role: "tecnico"},
+        "rejeita alvo não Técnico": {id: 20, nome: "Gerente", role: "gerente"},
+        "atribui mesmo Técnico": {id: 10, nome: "Técnico alvo", role: "tecnico"}
+      }
             } as $tecnico_alvo
 
             conditional {
@@ -305,19 +271,7 @@ function "service_desk/assumir_chamado_tecnico" {
           }
         }
 
-        conditional {
-          if ($acao == "liberar" && $responsavel_atual_id != null && $usuario.role == "tecnico" && $responsavel_atual_id != $usuario.id) {
-            util.set_header {
-              value = "HTTP/1.1 403 Forbidden"
-              duplicates = "replace"
-            }
 
-            precondition (false) {
-              error_type = "accessdenied"
-              error = "Técnico só pode liberar a própria atribuição."
-            }
-          }
-        }
 
         conditional {
           if ($acao == "assumir") {
@@ -396,14 +350,15 @@ function "service_desk/assumir_chamado_tecnico" {
             var $instante {
               value = now
               mock = {
-                "assume padrão": 1780000002000
-                "assume ação vazia": 1780000002000
-                "atribui em Resolvido": 1780000002000
-                "reatribui": 1780000002000
-                "libera própria": 1780000002000
-                "Diretoria libera": 1780000002000
-                "Administrador libera": 1780000002000
-              }
+        "assume padrão": 1780000002000,
+        "assume ação vazia": 1780000002000,
+        "atribui em Resolvido": 1780000002000,
+        "reatribui": 1780000002000,
+        "libera própria": 1780000002000,
+        "Diretoria libera": 1780000002000,
+        "Administrador libera": 1780000002000,
+        "Técnico libera outro": 1780000002000
+      }
             }
 
             // db.patch preserva os nulls explícitos; db.edit os ignorava neste
@@ -419,20 +374,22 @@ function "service_desk/assumir_chamado_tecnico" {
                     ultima_atualizacao_em: $instante
                   }
                   mock = {
-                    "libera própria": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
-                    "Diretoria libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
-                    "Administrador libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
-                  }
+        "libera própria": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000},
+        "Diretoria libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000},
+        "Administrador libera": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000},
+        "Técnico libera outro": {id: 101, tecnico_id: null, atribuido_em: null, ultima_atualizacao_em: 1780000002000}
+      }
                 }
 
                 db.get chamados {
                   field_name = "id"
                   field_value = $verificacao.id
                   mock = {
-                    "libera própria": {id: 101, tecnico_id: null, atribuido_em: null}
-                    "Diretoria libera": {id: 101, tecnico_id: null, atribuido_em: null}
-                    "Administrador libera": {id: 101, tecnico_id: null, atribuido_em: null}
-                  }
+        "libera própria": {id: 101, tecnico_id: null, atribuido_em: null},
+        "Diretoria libera": {id: 101, tecnico_id: null, atribuido_em: null},
+        "Administrador libera": {id: 101, tecnico_id: null, atribuido_em: null},
+        "Técnico libera outro": {id: 101, tecnico_id: null, atribuido_em: null}
+      }
                 } as $chamado_liberado
 
                 // A validação ocorre antes do evento, para que uma escrita que
@@ -452,11 +409,11 @@ function "service_desk/assumir_chamado_tecnico" {
                     ultima_atualizacao_em: $instante
                   }
                   mock = {
-                    "assume padrão": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                    "assume ação vazia": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                    "atribui em Resolvido": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                    "reatribui": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
-                  }
+        "assume padrão": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000},
+        "assume ação vazia": {id: 101, tecnico_id: 12, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000},
+        "atribui em Resolvido": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000},
+        "reatribui": {id: 101, tecnico_id: 10, atribuido_em: 1780000002000, ultima_atualizacao_em: 1780000002000}
+      }
                 }
               }
             }
@@ -471,14 +428,15 @@ function "service_desk/assumir_chamado_tecnico" {
                 tecnico_novo_id: $tecnico_novo_id
               }
               mock = {
-                "assume padrão": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 12}
-                "assume ação vazia": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 12}
-                "atribui em Resolvido": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 4, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 10}
-                "reatribui": {id: 21, tipo_evento: "reatribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 12, tecnico_novo_id: 10}
-                "libera própria": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 12, tecnico_novo_id: null}
-                "Diretoria libera": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 4, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 10, tecnico_novo_id: null}
-                "Administrador libera": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 14, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 10, tecnico_novo_id: null}
-              }
+        "assume padrão": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 12},
+        "assume ação vazia": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 12},
+        "atribui em Resolvido": {id: 21, tipo_evento: "atribuicao", chamados_id: 101, usuarios_id: 4, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: null, tecnico_novo_id: 10},
+        "reatribui": {id: 21, tipo_evento: "reatribuicao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 12, tecnico_novo_id: 10},
+        "libera própria": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 12, tecnico_novo_id: null},
+        "Diretoria libera": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 4, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 10, tecnico_novo_id: null},
+        "Administrador libera": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 14, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 10, tecnico_novo_id: null},
+        "Técnico libera outro": {id: 21, tipo_evento: "liberacao", chamados_id: 101, usuarios_id: 12, criado_em: 1780000002000, visibilidade: "interna", tecnico_anterior_id: 10, tecnico_novo_id: null}
+      }
             } as $evento_criado
           }
         }
@@ -491,10 +449,10 @@ function "service_desk/assumir_chamado_tecnico" {
           field_name = "id"
           field_value = $input.chamados_id
           mock = {
-            "assume padrão": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000002000}
-            "assume ação vazia": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000002000}
-            "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000}
-          }
+        "assume padrão": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000002000},
+        "assume ação vazia": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000002000},
+        "assume idempotente": {id: 101, status: "Novo", tecnico_id: 12, atribuido_em: 1780000001000}
+      }
         } as $pos_edicao
 
         precondition ($pos_edicao != null) {
@@ -521,16 +479,17 @@ function "service_desk/assumir_chamado_tecnico" {
     function.run "service_desk/obter_chamado_tecnico" {
       input = {usuarios_id: $usuario.id, chamados_id: $input.chamados_id}
       mock = {
-        "assume padrão": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000002000}}
-        "assume ação vazia": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000002000}}
-        "assume idempotente": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000001000}}
-        "atribui em Resolvido": {chamado: {id: 101, status: "Resolvido", tecnico: {id: 10, nome: "Técnico alvo"}, atribuido_em: 1780000002000}}
-        "reatribui": {chamado: {id: 101, status: "Em Atendimento", tecnico: {id: 10, nome: "Outro Técnico"}, atribuido_em: 1780000002000}}
-        "libera própria": {chamado: {id: 101, status: "Aguardando Solicitante", tecnico: null, atribuido_em: null}}
-        "Diretoria libera": {chamado: {id: 101, status: "Em Atendimento", tecnico: null, atribuido_em: null}}
-        "Administrador libera": {chamado: {id: 101, status: "Resolvido", tecnico: null, atribuido_em: null}}
-        "atribui mesmo Técnico": {chamado: {id: 101, status: "Novo", tecnico: {id: 10, nome: "Técnico alvo"}, atribuido_em: 1780000001000}}
-        "libera sem responsável": {chamado: {id: 101, status: "Novo", tecnico: null, atribuido_em: null}}
+        "assume padrão": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000002000}},
+        "assume ação vazia": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000002000}},
+        "assume idempotente": {chamado: {id: 101, status: "Novo", tecnico: {id: 12, nome: "Técnico"}, atribuido_em: 1780000001000}},
+        "atribui em Resolvido": {chamado: {id: 101, status: "Resolvido", tecnico: {id: 10, nome: "Técnico alvo"}, atribuido_em: 1780000002000}},
+        "reatribui": {chamado: {id: 101, status: "Em Atendimento", tecnico: {id: 10, nome: "Outro Técnico"}, atribuido_em: 1780000002000}},
+        "libera própria": {chamado: {id: 101, status: "Aguardando Solicitante", tecnico: null, atribuido_em: null}},
+        "Diretoria libera": {chamado: {id: 101, status: "Em Atendimento", tecnico: null, atribuido_em: null}},
+        "Administrador libera": {chamado: {id: 101, status: "Resolvido", tecnico: null, atribuido_em: null}},
+        "atribui mesmo Técnico": {chamado: {id: 101, status: "Novo", tecnico: {id: 10, nome: "Técnico alvo"}, atribuido_em: 1780000001000}},
+        "libera sem responsável": {chamado: {id: 101, status: "Novo", tecnico: null, atribuido_em: null}},
+        "Técnico libera outro": {chamado: {id: 101, status: "Em Atendimento", tecnico: null, atribuido_em: null}}
       }
     } as $detalhe
   }
@@ -585,9 +544,10 @@ function "service_desk/assumir_chamado_tecnico" {
     expect.to_equal ($response.chamado.tecnico) { value = null }
   }
 
-  test "Técnico não libera outro" {
+  test "Técnico libera outro" {
     input = {usuarios_id: 12, chamados_id: 101, acao: "liberar"}
-    expect.to_throw { exception = "" }
+    expect.to_equal ($response.chamado.status) { value = "Em Atendimento" }
+    expect.to_equal ($response.chamado.tecnico) { value = null }
   }
 
   test "Diretoria libera" {

@@ -14,6 +14,7 @@ from app.components.visual import (
     TEXTO_SECUNDARIO,
     seletor_periodo_calendario,
 )
+from app.indicadores.paineis_causas import painel_causas
 from app.indicadores.state import IndicadoresDiretoriaState
 from app.states.auth import AuthState
 
@@ -169,23 +170,14 @@ def _periodo_personalizado() -> rx.Component:
     )
 
 
-def _breadcrumbs() -> rx.Component:
-    return rx.hstack(
-        rx.text("Diretoria", size="2", color=TEXTO_SECUNDARIO),
-        rx.text("›", size="2", color=TEXTO_SECUNDARIO),
-        rx.text("Indicadores", size="2", weight="medium", color="var(--accent-11)"),
-        spacing="2",
-    )
-
-
 def _cabecalho(aba: str) -> rx.Component:
     disponibilidade = aba == "disponibilidade"
     return rx.hstack(
         rx.vstack(
-            rx.heading("Disponibilidade" if disponibilidade else "Chamados e SLA", size="7", color=TEXTO),
+            rx.heading("Causas e recorrência" if aba == "causas" else "Disponibilidade" if disponibilidade else "Chamados e SLA", size="7", color=TEXTO),
             rx.text(
                 "Tempo observado, detecção e recuperação dos Totens."
-                if disponibilidade else "Volume por status, conformidade do período e risco atual.",
+                if disponibilidade else "Concentração de incidentes, principais Categorias e repetição de chamados." if aba == "causas" else "Volume por status, conformidade do período e risco atual.",
                 size="2",
                 color=TEXTO_SECUNDARIO,
             ),
@@ -209,7 +201,7 @@ def _filtros(aba: str) -> rx.Component:
         rx.vstack(
             rx.hstack(
                 rx.icon("sliders_horizontal", size=17, color="var(--accent-10)"),
-                rx.text("Filtros de disponibilidade" if disponibilidade else "Filtros de chamados e SLA", size="2", weight="bold", color=TEXTO),
+                rx.text("Filtros de causas e recorrência" if aba == "causas" else "Filtros de disponibilidade" if disponibilidade else "Filtros de chamados e SLA", size="2", weight="bold", color=TEXTO),
                 align="center",
                 width="100%",
             ),
@@ -222,6 +214,7 @@ def _filtros(aba: str) -> rx.Component:
                         IndicadoresDiretoriaState.totem_id if disponibilidade else IndicadoresDiretoriaState.categoria_id,
                         IndicadoresDiretoriaState.alterar_totem if disponibilidade else IndicadoresDiretoriaState.alterar_categoria,
                     ),
+                    *([_campo_opcoes("Totem", IndicadoresDiretoriaState.totens_opcoes, IndicadoresDiretoriaState.totem_id, IndicadoresDiretoriaState.alterar_totem)] if aba == "causas" else []),
                     rx.button(
                         "Aplicar filtros",
                         on_click=IndicadoresDiretoriaState.aplicar_filtros,
@@ -229,7 +222,7 @@ def _filtros(aba: str) -> rx.Component:
                         color_scheme="ruby",
                         align_self="end",
                     ),
-                    grid_template_columns="repeat(2, minmax(0, 1fr)) auto",
+                    grid_template_columns="repeat(3, minmax(0, 1fr)) auto" if aba == "causas" else "repeat(2, minmax(0, 1fr)) auto",
                     gap="0.75rem",
                     align_items="end",
                     min_width="35rem",
@@ -253,11 +246,11 @@ def _filtros(aba: str) -> rx.Component:
 def _cartao_indicador(rotulo: str, valor, explicacao: str, detalhe, cor: str, complemento=None) -> rx.Component:
     return rx.card(
         rx.vstack(
-            rx.text(rotulo, size="2", weight="bold", color=TEXTO),
+            rx.text(rotulo, size="2", weight="bold", color=cor),
             rx.heading(
                 valor,
                 color=TEXTO,
-                font_size="clamp(2rem, 2.8vw, 3rem)",
+                font_size="2.25rem",
                 line_height="1.1",
                 font_variant_numeric="tabular-nums",
             ),
@@ -287,9 +280,8 @@ def _cartao_indicador(rotulo: str, valor, explicacao: str, detalhe, cor: str, co
         padding="1.25rem",
         background=SUPERFICIE,
         border=f"1px solid {BORDA}",
-        border_left=f"3px solid {cor}",
         border_radius=RAIO_SUPERFICIE,
-        box_shadow=SOMBRA_BAIXA,
+        class_name="mira-metric",
     )
 
 
@@ -518,7 +510,6 @@ def _painel_operacao() -> rx.Component:
                 height="100%",
                 padding="1.5rem",
                 border=f"1px solid {BORDA}",
-                border_left="3px solid #3B82F6",
                 border_radius=RAIO_SUPERFICIE,
                 background=SUPERFICIE,
                 box_shadow=SOMBRA_BAIXA,
@@ -563,7 +554,6 @@ def _painel_operacao() -> rx.Component:
                 height="100%",
                 padding="1.5rem",
                 border=f"1px solid {BORDA}",
-                border_left="3px solid var(--accent-9)",
                 border_radius=RAIO_SUPERFICIE,
                 background=SUPERFICIE,
                 box_shadow=SOMBRA_BAIXA,
@@ -818,11 +808,11 @@ def _tabela_diaria() -> rx.Component:
 
 def indicadores_disponibilidade() -> rx.Component:
     conteudo = rx.vstack(
-        _breadcrumbs(),
         rx.tabs.root(
             rx.tabs.list(
                 rx.tabs.trigger("Disponibilidade", value="disponibilidade", color_scheme="ruby"),
                 rx.tabs.trigger("Chamados e SLA", value="operacao", color_scheme="ruby"),
+                rx.tabs.trigger("Causas e recorrência", value="causas", color_scheme="ruby"),
                 size="2",
                 width="100%",
                 border_bottom=f"1px solid {BORDA}",
@@ -929,6 +919,25 @@ def indicadores_disponibilidade() -> rx.Component:
                 width="100%",
                 padding_top="1rem",
             ),
+            rx.tabs.content(
+                rx.vstack(
+                    _cabecalho("causas"),
+                    _filtros("causas"),
+                    rx.cond(
+                        IndicadoresDiretoriaState.mensagem_erro_causas != "",
+                        rx.callout(IndicadoresDiretoriaState.mensagem_erro_causas, icon="triangle_alert", color_scheme="red", width="100%"),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        IndicadoresDiretoriaState.carregando_indicadores,
+                        rx.center(rx.spinner(size="3"), width="100%", padding="3rem"),
+                        rx.fragment(),
+                    ),
+                    rx.cond(IndicadoresDiretoriaState.tem_causas, painel_causas(), rx.fragment()),
+                    spacing="4", align="start", width="100%",
+                ),
+                value="causas", width="100%", padding_top="1rem",
+            ),
             value=IndicadoresDiretoriaState.aba_ativa,
             on_change=IndicadoresDiretoriaState.selecionar_aba,
             width="100%",
@@ -941,7 +950,7 @@ def indicadores_disponibilidade() -> rx.Component:
         AuthState.carregando,
         estado_carregamento(),
         rx.cond(
-            AuthState.sessao_confirmada & (AuthState.role == "diretoria") & ~AuthState.deve_trocar_senha,
+            AuthState.sessao_confirmada & AuthState.perfil_operacional & ~AuthState.deve_trocar_senha,
             casca_conteudo(conteudo),
             estado_carregamento(),
         ),

@@ -8,10 +8,10 @@ function "indicadores/catalogo_operacao_sla" {
 
   stack {
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $input.usuarios_id, diretoria: true}
-      mock = {"catalogo operacao diretoria consulta": {id: 4, role: "diretoria", deve_trocar_senha: false}, "catalogo operacao gerente negado": {id: 8, role: "gerente", deve_trocar_senha: false}, "catalogo operacao tecnico negado": {id: 3, role: "tecnico", deve_trocar_senha: false}, "catalogo operacao administrador negado": {id: 2, role: "administrador", deve_trocar_senha: false}, "catalogo operacao troca pendente negada": {id: 4, role: "diretoria", deve_trocar_senha: true}}
+      input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
+      mock = {"catalogo operacao diretoria consulta": {id: 4, role: "diretoria", deve_trocar_senha: false}, "catalogo operacao gerente negado": {id: 8, role: "gerente", deve_trocar_senha: false}, "catalogo operacao tecnico autorizado": {id: 3, role: "tecnico", deve_trocar_senha: false}, "catalogo operacao administrador autorizado": {id: 2, role: "administrador", deve_trocar_senha: false}, "catalogo operacao troca pendente negada": {id: 4, role: "diretoria", deve_trocar_senha: true}}
     } as $diretoria
-    precondition ($diretoria.role == "diretoria" && $diretoria.deve_trocar_senha == false) {
+    precondition (($diretoria.role == "tecnico" || $diretoria.role == "diretoria" || $diretoria.role == "administrador") && $diretoria.deve_trocar_senha == false) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
@@ -19,12 +19,20 @@ function "indicadores/catalogo_operacao_sla" {
     db.query lojas {
       sort = {lojas.nome: "asc"}
       return = {type: "list"}
-      mock = {"catalogo operacao diretoria consulta": [{id: 1, nome: "Loja A"}]}
+      mock = {
+        "catalogo operacao diretoria consulta": [{id: 1, nome: "Loja A"}],
+        "catalogo operacao administrador autorizado": [],
+        "catalogo operacao tecnico autorizado": []
+      }
     } as $lojas
     db.query categorias_servico {
       sort = {categorias_servico.nome: "asc"}
       return = {type: "list"}
-      mock = {"catalogo operacao diretoria consulta": [{id: 2, nome: "Falha de Rede"}]}
+      mock = {
+        "catalogo operacao diretoria consulta": [{id: 2, nome: "Falha de Rede"}],
+        "catalogo operacao administrador autorizado": [],
+        "catalogo operacao tecnico autorizado": []
+      }
     } as $categorias
     var $lojas_opcoes { value = [] }
     foreach ($lojas) {
@@ -52,14 +60,16 @@ function "indicadores/catalogo_operacao_sla" {
     input = {usuarios_id: 8}
     expect.to_throw { exception = "Acesso não autorizado." }
   }
-  test "catalogo operacao tecnico negado" {
+  test "catalogo operacao tecnico autorizado" {
     input = {usuarios_id: 3}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.lojas) { value = [] }
   }
-  test "catalogo operacao administrador negado" {
+
+  test "catalogo operacao administrador autorizado" {
     input = {usuarios_id: 2}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.lojas) { value = [] }
   }
+
   test "catalogo operacao troca pendente negada" {
     input = {usuarios_id: 4}
     expect.to_throw { exception = "Acesso não autorizado." }

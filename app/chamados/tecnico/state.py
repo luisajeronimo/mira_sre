@@ -688,7 +688,7 @@ class ChamadosTecnicoState(AuthState):
 
     @rx.event
     async def selecionar_escopo_rapido(self, escopo: str):
-        if self.role != "tecnico" or escopo not in {"todos", "atribuidos_a_mim"}:
+        if not self.perfil_operacional or escopo not in {"todos", "atribuidos_a_mim"}:
             return
         async for evento in self._carregar_fila(
             filtros=(None, [], [], None, None, [], [], False, None, None, [], []),
@@ -751,14 +751,10 @@ class ChamadosTecnicoState(AuthState):
             )
             escopo_efetivo = (
                 escopo_solicitado
-                if self.role == "tecnico"
+                if self.perfil_operacional
                 and escopo_solicitado in {"todos", "atribuidos_a_mim"}
                 else "todos"
             )
-            # Perfis globais nunca carregam nem exibem um escopo pessoal que
-            # tenha permanecido no State de um Técnico que saiu da sessão.
-            if self.role != "tecnico":
-                self.escopo_rapido = "todos"
             try:
                 cliente = criar_cliente_service_desk()
                 deve_carregar_preferencia = carregar_preferencia or (not persistir and self.escopo_preferencia_carregada != escopo_efetivo)

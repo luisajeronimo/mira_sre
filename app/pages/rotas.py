@@ -37,7 +37,7 @@ def inicio() -> rx.Component:
 
 def novo_chamado() -> rx.Component:
     return _protegida(
-        rx.cond(AuthState.role == "administrador", novo_chamado_administrador(), novo_chamado_gerente()),
+        rx.cond(AuthState.perfil_operacional, novo_chamado_administrador(), novo_chamado_gerente()),
         AuthState.carregar_novo_chamado,
     )
 

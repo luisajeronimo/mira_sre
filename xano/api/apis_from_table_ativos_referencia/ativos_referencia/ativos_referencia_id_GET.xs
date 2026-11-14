@@ -18,7 +18,8 @@ query "ativos_referencia/{ativos_referencia_id}" verb=GET {
         usuarios_id: $auth.id,
         lojas_id: $ativos_referencia.lojas_id,
         tecnico: true,
-        diretoria: true
+        diretoria: true,
+        administrador: true
       }
     } as $usuario
   

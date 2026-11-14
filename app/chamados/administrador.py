@@ -1,4 +1,4 @@
-"""Abertura manual global do Administrador na jornada compartilhada de chamados."""
+"""Abertura manual global dos perfis operacionais na jornada compartilhada de chamados."""
 
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ import reflex as rx
 
 from app.chamados.gerente.pages import formulario_abertura
 from app.components.layout import casca_conteudo, estado_carregamento, estado_revalidacao
+from app.services.service_desk import criar_cliente_service_desk
 from app.services.xano import (
     XanoContratoInvalido, XanoEntradaInvalida, XanoIndisponivel,
-    XanoNaoAutenticado, XanoNaoAutorizado, criar_cliente_xano,
+    XanoNaoAutenticado, XanoNaoAutorizado,
 )
 from app.states.auth import AuthState, MENSAGEM_EXPIRADA, MENSAGEM_INDISPONIVEL, MENSAGEM_NAO_AUTORIZADO
 
@@ -36,7 +37,7 @@ class AberturaAdminState(AuthState):
         return self.usuario_id, self._auth_token, self._versao_sessao
 
     def _contexto_valido(self, contexto: tuple[int | None, str, int]) -> bool:
-        return self.sessao_confirmada and self.role == "administrador" and self._contexto() == contexto
+        return self.sessao_confirmada and self.perfil_operacional and self._contexto() == contexto
 
     def _limpar(self) -> None:
         self.ativos_formulario = []
@@ -89,9 +90,9 @@ class AberturaAdminState(AuthState):
         self.carregando_formulario = True
         self.mensagem_formulario = ""
         yield
-        async for evento in self._executar_guard("administrador", False):
+        async for evento in self._executar_guard(None, False):
             yield evento
-        if not self.sessao_confirmada or self.role != "administrador" or self.deve_trocar_senha:
+        if not self.sessao_confirmada or not self.perfil_operacional or self.deve_trocar_senha:
             self._limpar()
             self.carregando_formulario = False
             return
@@ -100,13 +101,11 @@ class AberturaAdminState(AuthState):
             self.usuario_id_contexto_abertura = self.usuario_id or 0
         contexto = self._contexto()
         try:
-            cliente = criar_cliente_xano()
-            ativos = await cliente.listar_totens_administracao(self._auth_token)
-            categorias = await cliente.listar_categorias_administracao(self._auth_token)
+            opcoes = await criar_cliente_service_desk().opcoes_abertura_global(self._auth_token)
             if not self._contexto_valido(contexto):
                 return
-            self.ativos_formulario = [{"id": x.id, "nome": x.nome or x.identificacao} for x in ativos]
-            self.categorias_formulario = [{"id": x["id"], "nome": x["nome"]} for x in categorias]
+            self.ativos_formulario = opcoes["ativos"]
+            self.categorias_formulario = opcoes["categorias"]
         except XanoNaoAutenticado:
             self._limpar()
             self._limpar_sessao(MENSAGEM_EXPIRADA)
@@ -125,9 +124,9 @@ class AberturaAdminState(AuthState):
         self.enviando = True
         self.mensagem_formulario = ""
         yield
-        async for evento in self._executar_guard("administrador", False):
+        async for evento in self._executar_guard(None, False):
             yield evento
-        if not self.sessao_confirmada or self.role != "administrador" or self.deve_trocar_senha:
+        if not self.sessao_confirmada or not self.perfil_operacional or self.deve_trocar_senha:
             self.enviando = False
             return
         contexto = self._contexto()
@@ -136,7 +135,7 @@ class AberturaAdminState(AuthState):
             categoria_id = int(self.categoria_formulario)
             if not self.prioridade_formulario or not self.titulo_formulario.strip() or not self.descricao_formulario.strip():
                 raise ValueError
-            resultado = await criar_cliente_xano().abrir_chamado_administrativo(
+            resultado = await criar_cliente_service_desk().abrir_chamado_global(
                 self._auth_token, ativos_referencia_id=ativo_id, categorias_servico_id=categoria_id,
                 prioridade=self.prioridade_formulario, titulo=self.titulo_formulario,
                 descricao=self.descricao_formulario,
@@ -165,7 +164,7 @@ class AberturaAdminState(AuthState):
 def novo_chamado_administrador() -> rx.Component:
     return rx.cond(
         AuthState.carregando, estado_carregamento(),
-        rx.cond(AuthState.sessao_confirmada & (AuthState.role == "administrador"),
+        rx.cond(AuthState.sessao_confirmada & AuthState.perfil_operacional,
                 casca_conteudo(formulario_abertura(AberturaAdminState, "qualquer Totem da rede"), "/inicio"),
                 estado_revalidacao(AberturaAdminState.carregar_formulario)),
     )

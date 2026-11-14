@@ -17,26 +17,34 @@ function "service_desk/abrir_chamado_manual" {
       input = {
         usuarios_id  : $input.usuarios_id
         gerente      : true
+        tecnico      : true
+        diretoria    : true
         administrador: true
       }
 
       mock = {
-        "cria chamado manual"              : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "administrador abre em outra loja" : {id: 12, nome: "Administrador de Teste", email: "admin@example.test", role: "administrador", lojas_id: null}
-        "rejeita titulo ausente"           : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita titulo somente espacos"   : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita descricao vazia"          : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita descricao somente espacos": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita prioridade invalida"      : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita ativo inexistente"        : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita ativo de outra loja"      : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita categoria inexistente"    : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita categoria bloqueada"      : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
-        "rejeita categoria sem sla"        : {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1}
+        "cria chamado manual": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "administrador abre em outra loja": {id: 12, nome: "Administrador de Teste", email: "admin@example.test", role: "administrador", lojas_id: null},
+        "rejeita titulo ausente": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita titulo somente espacos": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita descricao vazia": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita descricao somente espacos": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita prioridade invalida": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita ativo inexistente": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita ativo de outra loja": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita categoria inexistente": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita categoria bloqueada": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "rejeita categoria sem sla": {id: 8, nome: "Gerente", email: "gerente@example.test", role: "gerente", lojas_id: 1},
+        "tecnico abre em outra loja": {id: 12, nome: "Administrador de Teste", email: "admin@example.test", role: "tecnico", lojas_id: null},
+        "diretoria abre em outra loja": {id: 12, nome: "Administrador de Teste", email: "admin@example.test", role: "diretoria", lojas_id: null}
       }
     } as $usuario
 
-    precondition ($usuario.role == "administrador" || $usuario.lojas_id != null) {
+    var $escopo_global {
+      value = $usuario.role == "tecnico" || $usuario.role == "diretoria" || $usuario.role == "administrador"
+    }
+
+    precondition ($escopo_global || $usuario.lojas_id != null) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
@@ -81,13 +89,15 @@ function "service_desk/abrir_chamado_manual" {
       field_name = "id"
       field_value = $input.ativos_referencia_id
       mock = {
-        "cria chamado manual"             : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1}
-        "administrador abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2}
-        "rejeita ativo inexistente"       : null
-        "rejeita ativo de outra loja"     : {id: 8, nome_ativo: "Totem 08", tipo: "Totem", status_atual: "online", lojas_id: 2}
-        "rejeita categoria inexistente"   : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1}
-        "rejeita categoria bloqueada"     : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1}
-        "rejeita categoria sem sla"       : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1}
+        "cria chamado manual": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1},
+        "administrador abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2},
+        "rejeita ativo inexistente": null,
+        "rejeita ativo de outra loja": {id: 8, nome_ativo: "Totem 08", tipo: "Totem", status_atual: "online", lojas_id: 2},
+        "rejeita categoria inexistente": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1},
+        "rejeita categoria bloqueada": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1},
+        "rejeita categoria sem sla": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1},
+        "tecnico abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2},
+        "diretoria abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2}
       }
     } as $ativo
 
@@ -96,7 +106,7 @@ function "service_desk/abrir_chamado_manual" {
       error = "Recurso não encontrado."
     }
 
-    precondition ($ativo.lojas_id != null && ($usuario.role == "administrador" || $ativo.lojas_id == $usuario.lojas_id)) {
+    precondition ($ativo.lojas_id != null && ($escopo_global || $ativo.lojas_id == $usuario.lojas_id)) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
@@ -105,11 +115,13 @@ function "service_desk/abrir_chamado_manual" {
       field_name = "id"
       field_value = $input.categorias_servico_id
       mock = {
-        "cria chamado manual"             : {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: 2, desc: "Falha percebida", permite_abertura_manual: true}
-        "administrador abre em outra loja": {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: 2, permite_abertura_manual: true}
-        "rejeita categoria inexistente"   : null
-        "rejeita categoria bloqueada"     : {id: 8, nome: "Alta Temperatura", tipo_itil: "Incidente", sla_horas: 2, desc: "Telemetria", permite_abertura_manual: false}
-        "rejeita categoria sem sla"       : {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: null, desc: "Falha percebida", permite_abertura_manual: true}
+        "cria chamado manual": {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: 2, desc: "Falha percebida", permite_abertura_manual: true},
+        "administrador abre em outra loja": {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: 2, permite_abertura_manual: true},
+        "rejeita categoria inexistente": null,
+        "rejeita categoria bloqueada": {id: 8, nome: "Alta Temperatura", tipo_itil: "Incidente", sla_horas: 2, desc: "Telemetria", permite_abertura_manual: false},
+        "rejeita categoria sem sla": {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: null, desc: "Falha percebida", permite_abertura_manual: true},
+        "tecnico abre em outra loja": {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: 2, permite_abertura_manual: true},
+        "diretoria abre em outra loja": {id: 2, nome: "Falha de Rede", tipo_itil: "Incidente", sla_horas: 2, permite_abertura_manual: true}
       }
     } as $categoria
 
@@ -143,19 +155,23 @@ function "service_desk/abrir_chamado_manual" {
           field_value = $ativo.id
           lock = true
           mock = {
-            "cria chamado manual"             : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1}
-            "administrador abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2}
-          }
+        "cria chamado manual": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 1},
+        "administrador abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2},
+        "tecnico abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2},
+        "diretoria abre em outra loja": {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", lojas_id: 2}
+      }
         } as $ativo_atual
 
-        precondition ($ativo_atual != null && $ativo_atual.lojas_id != null && ($usuario.role == "administrador" || $ativo_atual.lojas_id == $usuario.lojas_id)) {
+        precondition ($ativo_atual != null && $ativo_atual.lojas_id != null && ($escopo_global || $ativo_atual.lojas_id == $usuario.lojas_id)) {
           error_type = "accessdenied"
           error = "Acesso não autorizado."
         }
 
         var $criado_em {
           value = now
-          mock = {"cria chamado manual": 1780000000000}
+          mock = {
+        "cria chamado manual": 1780000000000
+      }
         }
 
         db.query historico_vinculos_totem_loja {
@@ -163,9 +179,11 @@ function "service_desk/abrir_chamado_manual" {
           sort = {historico_vinculos_totem_loja.efetivado_em: "desc"}
           return = {type: "single"}
           mock = {
-            "cria chamado manual"             : {id: 1, loja_destino_id: 1, tipo: "criacao", efetivado_em: 1779999999999}
-            "administrador abre em outra loja": {id: 2, loja_destino_id: 2, tipo: "criacao", efetivado_em: 1779999999999}
-          }
+        "cria chamado manual": {id: 1, loja_destino_id: 1, tipo: "criacao", efetivado_em: 1779999999999},
+        "administrador abre em outra loja": {id: 2, loja_destino_id: 2, tipo: "criacao", efetivado_em: 1779999999999},
+        "tecnico abre em outra loja": {id: 2, loja_destino_id: 2, tipo: "criacao", efetivado_em: 1779999999999},
+        "diretoria abre em outra loja": {id: 2, loja_destino_id: 2, tipo: "criacao", efetivado_em: 1779999999999}
+      }
         } as $ultimo_vinculo
 
         conditional {
@@ -200,9 +218,11 @@ function "service_desk/abrir_chamado_manual" {
           }
 
           mock = {
-            "cria chamado manual"             : {id: 101, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 8, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1}
-            "administrador abre em outra loja": {id: 102, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 12, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1}
-          }
+        "cria chamado manual": {id: 101, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 8, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1},
+        "administrador abre em outra loja": {id: 102, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 12, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1},
+        "tecnico abre em outra loja": {id: 102, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 12, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1},
+        "diretoria abre em outra loja": {id: 102, titulo: "Falha observada", descricao: "Totem não conecta", status: "Novo", prioridade: "Alta", origem: "manual", criador_sistema: null, criado_em: 1780000000000, ultima_atualizacao_em: 1780000000000, sla_horas_aplicado: 2, solicitante_id: 12, tecnico_id: null, categorias_servico_id: 2, ativos_referencia_id: 1}
+      }
         } as $novo_chamado
 
         precondition ($novo_chamado.ativos_referencia_id == $ativo_atual.id && $novo_chamado.categorias_servico_id == $categoria.id) {
@@ -441,5 +461,51 @@ function "service_desk/abrir_chamado_manual" {
     }
   }
 
+
+  test "tecnico abre em outra loja" {
+    input = {
+      usuarios_id          : 12
+      ativos_referencia_id : 1
+      categorias_servico_id: 2
+      prioridade           : "Alta"
+      titulo               : "Falha observada"
+      descricao            : "Totem não conecta"
+    }
+
+    expect.to_equal ($response.chamado.solicitante.id) {
+      value = 12
+    }
+
+    expect.to_equal ($response.chamado.ativo.id) {
+      value = 1
+    }
+
+    expect.to_equal ($response.chamado.origem) {
+      value = "manual"
+    }
+  }
+
+  test "diretoria abre em outra loja" {
+    input = {
+      usuarios_id          : 12
+      ativos_referencia_id : 1
+      categorias_servico_id: 2
+      prioridade           : "Alta"
+      titulo               : "Falha observada"
+      descricao            : "Totem não conecta"
+    }
+
+    expect.to_equal ($response.chamado.solicitante.id) {
+      value = 12
+    }
+
+    expect.to_equal ($response.chamado.ativo.id) {
+      value = 1
+    }
+
+    expect.to_equal ($response.chamado.origem) {
+      value = "manual"
+    }
+  }
   guid = "uIIQIaF1GWw4rvly1S-uzf1sK50"
 }

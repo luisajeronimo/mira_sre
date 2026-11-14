@@ -45,11 +45,6 @@ function "service_desk/listar_chamados_tecnico" {
       }
     } as $usuario
 
-    precondition ($input.somente_atribuidos_a_mim != true || $usuario.role == "tecnico") {
-      error_type = "accessdenied"
-      error = "Acesso não autorizado."
-    }
-
     var $tecnico_id_normalizado {
       value = $input.somente_atribuidos_a_mim == true ? $usuario.id : null
     }

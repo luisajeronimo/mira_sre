@@ -37,10 +37,6 @@ function "service_desk/salvar_preferencia_fila_tecnica" {
         }
       }
     }
-    precondition ($input.escopo != "atribuidos_a_mim" || $usuario.role == "tecnico") {
-          error_type = "accessdenied"
-          error = "Acesso não autorizado."
-        }
     var $status_normalizados { value = [] }
     foreach ($input.status ?? []) {
       each as $s {

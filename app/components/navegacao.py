@@ -45,7 +45,7 @@ ITENS_NAVEGACAO = (
         "Indicadores",
         "/indicadores/disponibilidade",
         "chart-no-axes-combined",
-        frozenset({"diretoria"}),
+        frozenset({"tecnico", "diretoria", "administrador"}),
         frozenset({"/indicadores/disponibilidade"}),
     ),
     ItemNavegacao(

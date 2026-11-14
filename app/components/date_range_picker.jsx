@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
+import { ptBR } from "react-day-picker/locale";
+import { ChevronDown } from "lucide-react";
 import "react-day-picker/style.css";
 
 const paraData = (valor) =>
@@ -72,7 +74,10 @@ export function SeletorPeriodoCalendario({
       return;
     }
     const limite = evento.currentTarget.getBoundingClientRect();
-    definirPosicao({ left: limite.left, top: limite.bottom + 8 });
+    definirPosicao({
+      left: Math.max(16, Math.min(limite.left, window.innerWidth - 336)),
+      top: Math.max(16, Math.min(limite.bottom + 8, window.innerHeight - 396)),
+    });
     definirAberto(true);
   };
 
@@ -89,11 +94,12 @@ export function SeletorPeriodoCalendario({
         aria-expanded={aberto}
         disabled={disabled}
         onClick={alternarCalendario}
+        className="mira-date-trigger"
         style={{
           alignItems: "center",
           background: "#FFFFFF",
-          border: "1px solid #E8E4EC",
-          borderRadius: "10px",
+          border: "1px solid #DCE0E9",
+          borderRadius: "8px",
           color: "#172033",
           cursor: disabled ? "not-allowed" : "pointer",
           display: "flex",
@@ -105,12 +111,10 @@ export function SeletorPeriodoCalendario({
           width: "100%",
         }}
       >
-        <span style={{ color: "#6B7280", fontSize: "0.875rem" }}>
-          Período · De {textoData(inicio)} &nbsp; Até {textoData(fim)}
+        <span style={{ color: "#626C7D", fontSize: "0.75rem", lineHeight: 1.5 }}>
+          De {textoData(inicio)} &nbsp; Até {textoData(fim)}
         </span>
-        <span aria-hidden="true" style={{ color: "#BE123C", fontWeight: 700 }}>
-          ▾
-        </span>
+        <ChevronDown aria-hidden="true" size={16} style={{ color: "#626C7D", flexShrink: 0 }} />
       </button>
       {aberto &&
         createPortal(
@@ -120,11 +124,17 @@ export function SeletorPeriodoCalendario({
           style={{
             ...estiloCalendarioRose,
             background: "#FFFFFF",
-            border: "1px solid #E8E4EC",
+            border: "1px solid #E6E8F0",
             borderRadius: "14px",
             boxShadow: "0 12px 30px rgba(35, 25, 45, 0.16)",
             marginTop: "0.5rem",
             padding: "0.75rem",
+            width: "20rem",
+            maxWidth: "calc(100vw - 2rem)",
+            maxHeight: "calc(100vh - 2rem)",
+            overflowY: "auto",
+            fontFamily: '"Plus Jakarta Sans", "Segoe UI", sans-serif',
+            color: "#172033",
             left: posicao.left,
             position: "fixed",
             top: posicao.top,
@@ -132,6 +142,7 @@ export function SeletorPeriodoCalendario({
           }}
         >
           <DayPicker
+            locale={ptBR}
             mode="range"
             selected={selecionado}
             onSelect={selecionar}

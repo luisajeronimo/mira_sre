@@ -40,8 +40,7 @@ validações locais reversíveis não exigem novo gate.
 
 Antes de alterar código ou documentação relevante, consulte o que se aplicar:
 
-- `DESIGN.md` e o PNG relacionado em `docs/design/references/` para alterações
-  de UI; PNG é referência visual e não define funcionalidade;
+- `DESIGN.md` e os componentes existentes para alterações de UI;
 - `openspec/config.yaml` — restrições globais e orientação do processo OpenSpec;
 - `docs/project-overview.md` — visão do produto, arquitetura e escopo atual/futuro;
 - `docs/domain-model.md` — conceitos, entidades, relacionamentos e invariantes do domínio;
@@ -74,7 +73,7 @@ Se houver conflito real entre fontes autoritativas, pare e reporte a inconsistê
 - `simulator/` — geração de telemetria para ativos existentes.
 - `fiscal/` — suporte operacional à verificação de heartbeat.
 - `tests/` — testes automatizados e harnesses.
-- `docs/` — documentação de produto, arquitetura e domínio.
+- `docs/` — somente `project-overview.md` e `domain-model.md`.
 - `openspec/specs/` — specs consolidadas.
 - `openspec/changes/` — changes ativas.
 - `openspec/changes/archive/` — histórico de changes concluídas.
@@ -169,6 +168,10 @@ Validações que dependem do Xano Developer MCP só podem ser feitas em sessão 
 - archive — histórico.
 
 Evite duplicar a mesma regra em vários arquivos. Se documentação e código divergirem, reporte a deriva antes de “corrigir” uma fonte por inferência.
+
+Mantenha em `docs/` somente `project-overview.md` e `domain-model.md`.
+Propostas, decisões e evidências de entrega pertencem à change OpenSpec;
+não crie guias ou relatórios adicionais nessa pasta.
 
 ## Idioma
 

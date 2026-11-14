@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import reflex as rx
 
+from app.components.breadcrumbs import breadcrumbs_pagina
 from app.components.navegacao import ITENS_NAVEGACAO, ItemNavegacao
 from app.components.visual import (
     BORDA,
@@ -78,7 +79,7 @@ def _link_navegacao(item: ItemNavegacao) -> rx.Component:
         rx.link(
             rx.hstack(
                 rx.icon(item.icone, size=18),
-                rx.text(item.rotulo, weight="medium"),
+                rx.text(item.rotulo, weight=rx.cond(ativo, "bold", "medium")),
                 spacing="3",
                 width="100%",
                 align="center",
@@ -91,9 +92,10 @@ def _link_navegacao(item: ItemNavegacao) -> rx.Component:
             background=rx.cond(ativo, "var(--accent-3)", "transparent"),
             color=rx.cond(ativo, "var(--accent-11)", TEXTO),
             text_decoration="none",
-            border_left=rx.cond(ativo, "3px solid var(--accent-9)", "3px solid transparent"),
-            _hover={"background": SUPERFICIE_SUAVE},
+            border_left=rx.cond(ativo, "1px solid var(--accent-9)", "1px solid transparent"),
+            _hover={"background": rx.cond(ativo, "var(--accent-4)", SUPERFICIE_SUAVE)},
             _focus_visible=FOCO_VISIVEL,
+            class_name="mira-nav-link",
         ),
         rx.fragment(),
     )
@@ -109,7 +111,7 @@ def _marca() -> rx.Component:
         ),
         rx.vstack(
             rx.text("MIRA", weight="bold", size="4", color=TEXTO),
-            rx.text("Service Desk e Observabilidade", size="1", color=TEXTO_SECUNDARIO),
+            rx.text("Service Desk e Observabilidade", size="1", color=TEXTO_SECUNDARIO, line_height="1.5"),
             align="start",
             spacing="0",
         ),
@@ -132,15 +134,18 @@ def _sidebar_desktop() -> rx.Component:
         _marca(),
         _itens_navegacao(),
         rx.spacer(),
-        width="17.5rem",
+        width="15.5rem",
+        flex_shrink="0",
+        height="100vh",
         min_height="100vh",
-        padding="1.5rem 1rem",
+        padding="1.75rem 1rem",
         border_right=f"1px solid {BORDA}",
         background=SUPERFICIE,
         align="start",
-        spacing="5",
+        spacing="7",
         position="sticky",
         top="0",
+        class_name="mira-sidebar",
     )
 
 
@@ -148,7 +153,7 @@ def _topbar_desktop(evento_sair=AuthState.logout) -> rx.Component:
     return rx.hstack(
         rx.spacer(),
         rx.hstack(
-            rx.avatar(name=AuthState.nome, size="2", variant="soft"),
+            rx.avatar(fallback=AuthState.nome[:1].upper(), aria_label=AuthState.nome, size="2", variant="soft"),
             rx.vstack(
                 rx.text(AuthState.nome, size="2", weight="medium", color=TEXTO),
                 rx.text(
@@ -167,6 +172,7 @@ def _topbar_desktop(evento_sair=AuthState.logout) -> rx.Component:
                 "Sair",
                 on_click=evento_sair,
                 color_scheme="ruby",
+                variant="soft",
                 size="2",
             ),
             spacing="3",
@@ -177,6 +183,7 @@ def _topbar_desktop(evento_sair=AuthState.logout) -> rx.Component:
         border_bottom=f"1px solid {BORDA}",
         background=SUPERFICIE,
         min_height="4.25rem",
+        class_name="mira-topbar",
     )
 
 
@@ -211,16 +218,24 @@ def casca_conteudo(
             _topbar_desktop(evento_sair or AuthState.logout),
             rx.box(
                 rx.box(
+                    breadcrumbs_pagina(),
                     conteudo,
+                    display="flex",
+                    flex_direction="column",
+                    gap="1.25rem",
                     width="100%",
                     max_width="104rem",
                     margin="0 auto",
+                    min_width="0",
                 ),
                 width="100%",
-                padding="2rem 2.5rem 3rem",
+                padding="2rem 2rem 3rem",
                 background=CANVAS,
+                min_width="0",
+                class_name="mira-workspace",
             ),
             width="100%",
+            min_width="0",
             min_height="100vh",
             spacing="0",
             align="start",
@@ -229,4 +244,5 @@ def casca_conteudo(
         min_height="100vh",
         spacing="0",
         align="start",
+        class_name="mira-shell",
     )

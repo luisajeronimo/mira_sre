@@ -466,8 +466,8 @@ def erro(mensagem: rx.Var) -> rx.Component:
 
 def cabecalho(titulo: str, descricao: str) -> rx.Component:
     return rx.vstack(
-        rx.heading(titulo, size="8", color=TEXTO, letter_spacing="-0.03em"),
-        rx.text(descricao, color=TEXTO_SECUNDARIO, size="3", max_width="46rem"),
+        rx.heading(titulo, size="7", color=TEXTO, letter_spacing="-0.03em"),
+        rx.text(descricao, color=TEXTO_SECUNDARIO, size="2", max_width="46rem", line_height="1.7"),
         align="start",
         spacing="2",
         width="100%",
@@ -476,7 +476,7 @@ def cabecalho(titulo: str, descricao: str) -> rx.Component:
 
 def botao_criar_chamado() -> rx.Component:
     return rx.link(
-        rx.button("Criar chamado", color_scheme="ruby"),
+        rx.button(rx.icon("plus", size=17), "Criar chamado", color_scheme="ruby"),
         href="/chamados/novo",
     )
 
@@ -488,6 +488,6 @@ def cabecalho_lista_chamados(
         rx.box(cabecalho(titulo, descricao), flex="1", min_width="0"),
         acao,
         justify="between",
-        align="start",
+        align="center",
         width="100%",
     )

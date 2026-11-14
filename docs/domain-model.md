@@ -98,6 +98,12 @@ Identificar quem acessa o sistema, seu papel e o escopo de atuação permitido.
 - não acessa chamados de outras Lojas;
 - pode comentar nos chamados da própria Loja, inclusive terminais, e rejeitar a solução de um chamado `Resolvido` com justificativa pública; não altera diretamente o status por outros meios. O aceite pelo solicitante permanece na visão futura.
 
+Técnico, Diretoria e Administrador compartilham os mesmos acessos a chamados,
+consumo de SLA na fila/detalhe, abertura manual global, monitoramento e
+indicadores. Gestão e seus contratos administrativos são exclusivos do
+Administrador. Essa igualdade não muda quem pode ser responsável: somente
+usuários com perfil Técnico são elegíveis.
+
 #### Técnico
 
 - possui escopo global sobre os chamados;
@@ -115,7 +121,7 @@ Identificar quem acessa o sistema, seu papel e o escopo de atuação permitido.
 
 #### Administrador do Sistema
 
-- possui todas as capacidades dos demais papéis;
+- possui os mesmos acessos operacionais de Técnico e Diretoria, além da Gestão administrativa exclusiva;
 - possui escopo global;
 - cadastra e mantém Lojas, Totens e usuários;
 - ao cadastrar um Gerente, deve associá-lo a uma Loja;
@@ -369,7 +375,7 @@ Na abertura manual, o Gerente escolhe diretamente a prioridade. O MIRA não util
 - assumir não altera automaticamente o status `Novo`;
 - repetir a assunção pelo mesmo Técnico não cria uma nova atribuição;
 - Técnico, Diretoria e Administrador podem atribuir ou reatribuir Chamados não `Encerrado` e não `Cancelado`;
-- Diretoria e Administrador podem liberar qualquer atribuição; Técnico pode retirar somente a própria atribuição;
+- Técnico, Diretoria e Administrador podem liberar qualquer atribuição pelos contratos operacionais autorizados;
 - a ação `Assumir` é aplicável quando o Chamado não possui responsável;
 - retirar atribuição mantém o status atual, inclusive quando estiver `Em Atendimento`;
 - toda atribuição, reatribuição ou liberação deve gerar registro no histórico.

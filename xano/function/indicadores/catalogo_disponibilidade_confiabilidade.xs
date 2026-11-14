@@ -8,16 +8,16 @@ function "indicadores/catalogo_disponibilidade_confiabilidade" {
 
   stack {
     function.run "autorizacao/exigir_perfil" {
-      input = {usuarios_id: $input.usuarios_id, diretoria: true}
+      input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
       mock = {
         "diretoria consulta catalogo": {id: 4, role: "diretoria", deve_trocar_senha: false}
         "gerente negado": {id: 8, role: "gerente", deve_trocar_senha: false}
-        "tecnico negado": {id: 3, role: "tecnico", deve_trocar_senha: false}
-        "administrador negado": {id: 2, role: "administrador", deve_trocar_senha: false}
+        "tecnico autorizado": {id: 3, role: "tecnico", deve_trocar_senha: false}
+        "administrador autorizado": {id: 2, role: "administrador", deve_trocar_senha: false}
         "troca pendente negada": {id: 4, role: "diretoria", deve_trocar_senha: true}
       }
     } as $diretoria
-    precondition ($diretoria.role == "diretoria" && $diretoria.deve_trocar_senha == false) {
+    precondition (($diretoria.role == "tecnico" || $diretoria.role == "diretoria" || $diretoria.role == "administrador") && $diretoria.deve_trocar_senha == false) {
       error_type = "accessdenied"
       error = "Acesso não autorizado."
     }
@@ -26,7 +26,9 @@ function "indicadores/catalogo_disponibilidade_confiabilidade" {
       sort = {lojas.nome: "asc"}
       return = {type: "list"}
       mock = {
-        "diretoria consulta catalogo": [{id: 1, nome: "Loja A"}, {id: 2, nome: "Loja B"}]
+        "diretoria consulta catalogo": [{id: 1, nome: "Loja A"}, {id: 2, nome: "Loja B"}],
+        "administrador autorizado": [],
+        "tecnico autorizado": []
       }
     } as $lojas
 
@@ -34,7 +36,9 @@ function "indicadores/catalogo_disponibilidade_confiabilidade" {
       sort = {ativos_referencia.id: "asc"}
       return = {type: "list"}
       mock = {
-        "diretoria consulta catalogo": [{id: 17, nome_ativo: "Totem transferido", lojas_id: 2}]
+        "diretoria consulta catalogo": [{id: 17, nome_ativo: "Totem transferido", lojas_id: 2}],
+        "administrador autorizado": [],
+        "tecnico autorizado": []
       }
     } as $ativos
 
@@ -66,15 +70,17 @@ function "indicadores/catalogo_disponibilidade_confiabilidade" {
     expect.to_throw { exception = "Acesso não autorizado." }
   }
 
-  test "tecnico negado" {
+  test "tecnico autorizado" {
     input = {usuarios_id: 3}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.lojas) { value = [] }
   }
 
-  test "administrador negado" {
+
+  test "administrador autorizado" {
     input = {usuarios_id: 2}
-    expect.to_throw { exception = "Acesso não autorizado." }
+    expect.to_equal ($response.lojas) { value = [] }
   }
+
 
   test "troca pendente negada" {
     input = {usuarios_id: 4}

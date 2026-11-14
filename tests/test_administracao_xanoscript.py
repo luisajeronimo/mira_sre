@@ -130,11 +130,11 @@ def test_opcoes_lojas_aplicam_gate_admin_e_retornam_apenas_id_e_nome():
     assert 'test "exigir perfil bloqueia diretoria"' in PERFIL
 
 
-def test_leitura_geral_de_lojas_preserva_permissoes_anteriores():
+def test_leitura_geral_de_lojas_equivale_perfis_e_preserva_gerente():
     assert 'query lojas verb=GET' in LOJAS_GERAL
     assert 'query "lojas/{lojas_id}" verb=GET' in LOJA_POR_ID
-    assert "administrador" not in LOJAS_GERAL
-    assert "administrador" not in LOJA_POR_ID
+    assert "administrador: true" in LOJAS_GERAL
+    assert "administrador: true" in LOJA_POR_ID
     assert "gerente: true" in LOJAS_GERAL
     assert "diretoria: true" in LOJAS_GERAL
     assert "diretoria: true" in LOJA_POR_ID

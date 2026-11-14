@@ -12,7 +12,9 @@ query "lojas/{lojas_id}" verb=GET {
       input = {
         usuarios_id: $auth.id,
         lojas_id: $input.lojas_id,
-        diretoria: true
+        diretoria: true,
+        tecnico: true,
+        administrador: true
       }
     } as $usuario
 

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import pytest
 from importlib import import_module
 
 from app.chamados.administrador import AberturaAdminState
 from app.chamados.gerente.pages import formulario_abertura
-from app.services.xano import TotemAdministrativoXano
 from app.states.auth import AuthState
 
 modulo = import_module("app.chamados.administrador")
@@ -34,15 +34,11 @@ class ClienteFalso:
         self.aberturas = []
         self.consultas = []
 
-    async def listar_totens_administracao(self, token):
-        self.consultas.append("totens")
-        return (TotemAdministrativoXano(17, "T-17", "Totem Outra Loja", 7, None),)
+    async def opcoes_abertura_global(self, token):
+        self.consultas.append("abertura")
+        return {"ativos": [{"id": 17, "nome": "Totem Outra Loja"}], "categorias": [{"id": 2, "nome": "Rede"}]}
 
-    async def listar_categorias_administracao(self, token):
-        self.consultas.append("categorias")
-        return ({"id": 2, "nome": "Rede"},)
-
-    async def abrir_chamado_administrativo(self, token, **dados):
+    async def abrir_chamado_global(self, token, **dados):
         self.aberturas.append((token, dados))
         return {"id": 91}
 
@@ -51,11 +47,12 @@ async def guard_falso(self, *_args):
     yield None
 
 
-def test_administrador_carrega_totem_global_e_abre_chamado_com_formulario_compartilhado(monkeypatch):
+@pytest.mark.parametrize("role", ["tecnico", "diretoria", "administrador"])
+def test_perfis_operacionais_abrem_com_formulario_compartilhado(monkeypatch, role):
     cliente = ClienteFalso()
-    monkeypatch.setattr(modulo, "criar_cliente_xano", lambda: cliente)
+    monkeypatch.setattr(modulo, "criar_cliente_service_desk", lambda: cliente)
     monkeypatch.setattr(AberturaAdminState, "_executar_guard", guard_falso)
-    atual = estado()
+    atual = estado(role)
 
     coletar(AberturaAdminState.carregar_formulario, atual)
     assert atual.ativos_formulario == [{"id": 17, "nome": "Totem Outra Loja"}]
@@ -78,9 +75,9 @@ def test_administrador_carrega_totem_global_e_abre_chamado_com_formulario_compar
 
 def test_perfil_indevido_nao_consulta_nem_abre(monkeypatch):
     cliente = ClienteFalso()
-    monkeypatch.setattr(modulo, "criar_cliente_xano", lambda: cliente)
+    monkeypatch.setattr(modulo, "criar_cliente_service_desk", lambda: cliente)
     monkeypatch.setattr(AberturaAdminState, "_executar_guard", guard_falso)
-    atual = estado("tecnico")
+    atual = estado("gerente")
     coletar(AberturaAdminState.carregar_formulario, atual)
     coletar(AberturaAdminState.abrir_chamado, atual)
     assert cliente.consultas == []

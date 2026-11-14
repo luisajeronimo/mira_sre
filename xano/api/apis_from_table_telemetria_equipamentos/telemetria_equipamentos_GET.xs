@@ -19,7 +19,8 @@ query telemetria_equipamentos verb=GET {
         usuarios_id: $auth.id,
         gerente: true,
         tecnico: true,
-        diretoria: true
+        diretoria: true,
+        administrador: true
       }
     } as $usuario
 
@@ -36,7 +37,7 @@ query telemetria_equipamentos verb=GET {
           where: $db.telemetria_equipamentos.ativos_referencia_id == $db.ativo.id
         }
       }
-      where = $db.telemetria_equipamentos.ativos_referencia_id == $input.ativos_referencia_id && ($usuario.role == "tecnico" || $usuario.role == "diretoria" || ($usuario.role == "gerente" && $db.ativo.lojas_id == $usuario.lojas_id))
+      where = $db.telemetria_equipamentos.ativos_referencia_id == $input.ativos_referencia_id && ($usuario.role == "tecnico" || ($usuario.role == "tecnico" || $usuario.role == "diretoria" || $usuario.role == "administrador") || ($usuario.role == "gerente" && $db.ativo.lojas_id == $usuario.lojas_id))
       sort = {telemetria_equipamentos.evento_timestamp: "desc"}
       return = {type: "list"}
       output = [

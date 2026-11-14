@@ -6,28 +6,28 @@ function "service_desk/obter_preferencia_fila_tecnica" {
   stack {
     function.run "autorizacao/exigir_perfil" { input = {usuarios_id: $input.usuarios_id, tecnico: true, diretoria: true, administrador: true}
       mock = {
-        "legado converte escalares": {id: 12, role: "tecnico", lojas_id: null}
-        "snapshot vazio vence legado": {id: 12, role: "tecnico", lojas_id: null}
-        "json invalido nao restaura legado": {id: 12, role: "tecnico", lojas_id: null}
-        "sem preferencia retorna vazio": {id: 12, role: "tecnico", lojas_id: null}
+        "legado converte escalares": {id: 12, role: "tecnico", lojas_id: null},
+        "snapshot vazio vence legado": {id: 12, role: "tecnico", lojas_id: null},
+        "json invalido nao restaura legado": {id: 12, role: "tecnico", lojas_id: null},
+        "sem preferencia retorna vazio": {id: 12, role: "tecnico", lojas_id: null},
+        "diretoria consulta propria preferencia pessoal": {id: 12, role: "diretoria", lojas_id: null},
+        "administrador consulta propria preferencia pessoal": {id: 12, role: "administrador", lojas_id: null}
       }
     } as $usuario
     precondition ($input.escopo == "todos" || $input.escopo == "atribuidos_a_mim") {
           error_type = "inputerror"
           error = "Escopo inválido."
         }
-    precondition ($input.escopo != "atribuidos_a_mim" || $usuario.role == "tecnico") {
-          error_type = "accessdenied"
-          error = "Acesso não autorizado."
-        }
     db.query preferencias_fila_chamados {
       where = $db.preferencias_fila_chamados.usuarios_id == $usuario.id && $db.preferencias_fila_chamados.escopo == $input.escopo
       return = {type: "single"}
       mock = {
-        "legado converte escalares": {status: "Novo", ativos_referencia_id: 7, filtros_multiplos: null}
-        "snapshot vazio vence legado": {status: "Novo", ativos_referencia_id: 7, filtros_multiplos: {status: [], ativo_ids: [], loja_ids: [], prioridades: [], responsavel_ids: [], incluir_nao_atribuido: false}}
-        "json invalido nao restaura legado": {status: "Novo", filtros_multiplos: {status: "Novo"}}
-        "sem preferencia retorna vazio": null
+        "legado converte escalares": {status: "Novo", ativos_referencia_id: 7, filtros_multiplos: null},
+        "snapshot vazio vence legado": {status: "Novo", ativos_referencia_id: 7, filtros_multiplos: {status: [], ativo_ids: [], loja_ids: [], prioridades: [], responsavel_ids: [], incluir_nao_atribuido: false}},
+        "json invalido nao restaura legado": {status: "Novo", filtros_multiplos: {status: "Novo"}},
+        "sem preferencia retorna vazio": null,
+        "diretoria consulta propria preferencia pessoal": null,
+        "administrador consulta propria preferencia pessoal": null
       }
     } as $salva
     var $multiplos { value = {status: [], ativo_ids: [], loja_ids: [], prioridades: [], responsavel_ids: [], incluir_nao_atribuido: false} }
@@ -104,6 +104,16 @@ function "service_desk/obter_preferencia_fila_tecnica" {
     input = {usuarios_id: 12, escopo: "todos"}
     expect.to_equal ($response.preferencia.status) { value = [] }
     expect.to_equal ($response.preferencia.ativo_ids) { value = [] }
+  }
+
+  test "diretoria consulta propria preferencia pessoal" {
+    input = {usuarios_id: 12, escopo: "atribuidos_a_mim"}
+    expect.to_equal ($response.preferencia.status) { value = [] }
+  }
+
+  test "administrador consulta propria preferencia pessoal" {
+    input = {usuarios_id: 12, escopo: "atribuidos_a_mim"}
+    expect.to_equal ($response.preferencia.status) { value = [] }
   }
   guid = "miraObterPrefFila01"
 }

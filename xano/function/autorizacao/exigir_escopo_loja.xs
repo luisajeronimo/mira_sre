@@ -8,82 +8,77 @@ function "autorizacao/exigir_escopo_loja" {
     int? lojas_id
     bool tecnico?
     bool diretoria?
+    bool administrador?
   }
 
   stack {
     function.run "autorizacao/obter_identidade" {
       input = {usuarios_id: $input.usuarios_id}
       mock = {
-        "autoriza loja do gerente"          : ```
-          {
+        "autoriza loja do gerente": {
             id: 8,
             nome: "Thiago Pereira",
             email: "thiago@example.test",
             role: "gerente",
             lojas_id: 1,
             deve_trocar_senha: false
-          }
-          ```
-        "nega outra loja ao gerente"        : ```
-          {
+          },
+        "nega outra loja ao gerente": {
             id: 8,
             nome: "Thiago Pereira",
             email: "thiago@example.test",
             role: "gerente",
             lojas_id: 1,
             deve_trocar_senha: false
-          }
-          ```
-        "nega gerente sem loja"             : ```
-          {
+          },
+        "nega gerente sem loja": {
             id: 8,
             nome: "Thiago Pereira",
             email: "thiago@example.test",
             role: "gerente",
             lojas_id: null,
             deve_trocar_senha: false
-          }
-          ```
-        "autoriza loja da segunda gerente"  : ```
-          {
+          },
+        "autoriza loja da segunda gerente": {
             id: 10,
             nome: "Isabelly Garcia",
             email: "isabelly@example.test",
             role: "gerente",
             lojas_id: 2,
             deve_trocar_senha: false
-          }
-          ```
-        "isola lojas entre gerentes"        : ```
-          {
+          },
+        "isola lojas entre gerentes": {
             id: 10,
             nome: "Isabelly Garcia",
             email: "isabelly@example.test",
             role: "gerente",
             lojas_id: 2,
             deve_trocar_senha: false
-          }
-          ```
-        "autoriza tecnico quando previsto"  : ```
-          {
+          },
+        "autoriza tecnico quando previsto": {
             id: 1,
             nome: "Técnico",
             email: "tecnico@example.test",
             role: "tecnico",
             lojas_id: null,
             deve_trocar_senha: false
-          }
-          ```
-        "autoriza diretoria quando prevista": ```
-          {
+          },
+        "autoriza diretoria quando prevista": {
             id: 2,
             nome: "Diretoria",
             email: "diretoria@example.test",
             role: "diretoria",
             lojas_id: null,
             deve_trocar_senha: false
+          },
+        "autoriza administrador quando previsto": {
+            id: 2,
+            nome: "Diretoria",
+            email: "diretoria@example.test",
+            role: "administrador",
+            lojas_id: null,
+            deve_trocar_senha: false
           }
-          ```
       }
     } as $usuario
 
@@ -93,7 +88,7 @@ function "autorizacao/exigir_escopo_loja" {
     }
   
     var $permitido {
-      value = ($usuario.role == "gerente" && $usuario.lojas_id != null && $input.lojas_id != null && $usuario.lojas_id == $input.lojas_id) || ($usuario.role == "tecnico" && $input.tecnico) || ($usuario.role == "diretoria" && $input.diretoria)
+      value = ($usuario.role == "gerente" && $usuario.lojas_id != null && $input.lojas_id != null && $usuario.lojas_id == $input.lojas_id) || ($usuario.role == "tecnico" && $input.tecnico) || ($usuario.role == "diretoria" && $input.diretoria) || ($usuario.role == "administrador" && $input.administrador)
     }
   
     precondition ($permitido) {
@@ -160,5 +155,10 @@ function "autorizacao/exigir_escopo_loja" {
     }
   }
 
+
+  test "autoriza administrador quando previsto" {
+    input = {usuarios_id: 2, lojas_id: null, administrador: true}
+    expect.to_equal ($response.role) { value = "administrador" }
+  }
   guid = "8RkIpuYOBlIun3fpt4Zu236YbaY"
 }

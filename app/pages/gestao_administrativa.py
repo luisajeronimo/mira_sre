@@ -785,9 +785,9 @@ def _card_modulo(titulo: str, subtitulo: str, icone: str, total: rx.Var,
                           rx.spacer(), rx.text(total, size="5", weight="bold", color=TEXTO), width="100%"),
                 rx.separator(size="4"),
                 rx.grid(*[
-                    rx.vstack(rx.text(rotulo, size="1", weight="bold", color=TEXTO_SECUNDARIO),
+                    rx.vstack(rx.text(rotulo.capitalize(), size="1", weight="bold", color=TEXTO_SECUNDARIO, line_height="1.5"),
                               rx.text(valor, size="4", weight="bold", color=TEXTO),
-                              spacing="1", align="start")
+                              spacing="1", align="start", min_width="0")
                     for rotulo, valor in indicadores
                 ], columns="2" if len(indicadores) > 1 else "1", gap="0.75rem", width="100%"),
                 spacing="3", width="100%"), background=SUPERFICIE_SUAVE,
@@ -807,9 +807,8 @@ def _card_modulo(titulo: str, subtitulo: str, icone: str, total: rx.Var,
 
 def gestao_administrativa() -> rx.Component:
     conteudo = rx.vstack(
-        rx.vstack(rx.text("ADMINISTRAÇÃO", size="1", weight="bold", color="var(--accent-11)", letter_spacing="0.08em"),
-                  rx.heading("Gestão do sistema", size="7", color=TEXTO),
-                  rx.text("Cadastros, unidades e equipamentos da operação MIRA.", color=TEXTO_SECUNDARIO),
+        rx.vstack(rx.heading("Gestão do sistema", size="7", color=TEXTO),
+                  rx.text("Cadastros, unidades e equipamentos da operação MIRA.", size="2", color=TEXTO_SECUNDARIO, line_height="1.7"),
                   spacing="2", align="start", width="100%"),
         rx.cond(GestaoAdministrativaState.sucesso != "",
                 rx.callout(GestaoAdministrativaState.sucesso, color_scheme="green", width="100%")),

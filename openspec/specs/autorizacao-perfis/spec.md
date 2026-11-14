@@ -148,29 +148,6 @@ O sistema DEVE (MUST) autorizar Administrador a consultar globalmente fila e det
 - **WHEN** Administrador autenticado envia comentário Interno não vazio para chamado terminal
 - **THEN** o Xano cria o comentário sem reabrir nem editar campos funcionais
 
-### Requirement: Preferências globais de fila são autorizadas pelo dono autenticado
-O Xano DEVE (MUST) autorizar leitura e escrita de preferências da fila global
-somente para Técnico, Diretoria e Administrador autenticados, usando o usuário
-da sessão como único dono do registro. Gerente não possui esse contrato;
-Diretoria e Administrador só podem usar o escopo `Todos`.
-
-#### Scenario: Identificador de usuário forjado
-- **WHEN** cliente tenta indicar outro usuário ao ler ou salvar preferência
-- **THEN** o contrato ignora ou rejeita o identificador e usa exclusivamente a
-  identidade autenticada, sem expor preferência alheia
-
-#### Scenario: Perfil autorizado usa a própria preferência
-- **WHEN** Técnico, Diretoria ou Administrador autenticado usa escopo permitido
-- **THEN** o Xano lê ou grava somente o registro pertencente àquela identidade
-
-#### Scenario: Escopo enumerado é proibido ao perfil
-- **WHEN** Diretoria ou Administrador solicita `Atribuídos a mim`
-- **THEN** o Xano responde HTTP 403 sem expor ou alterar preferência
-
-#### Scenario: Gerente tenta preferência global
-- **WHEN** Gerente autenticado chama leitura ou save de preferências globais
-- **THEN** o Xano responde HTTP 403 sem expor ou alterar registro
-
 ### Requirement: Consulta de monitoramento possui contrato global autorizado
 O Xano DEVE (MUST) fornecer contrato dedicado de consulta de monitoramento de
 Totens somente para Técnico, Diretoria e Administrador autenticados. O contrato
@@ -195,7 +172,7 @@ alterar o contrato existente de ativos genéricos.
 - **THEN** seu comportamento e escopo permanecem inalterados por esta capacidade
 
 ### Requirement: Leituras genéricas de interações não expõem registros internos ao Gerente
-Os GETs genéricos de coleção e por ID de `interacoes_chamado` DEVEM (MUST) permitir somente Técnico autenticado a receber o registro bruto. Gerente DEVE (MUST) consultar comentários pela rota funcional pública já autorizada; esta restrição NÃO DEVE (MUST NOT) ampliar permissões de outros perfis.
+Os GETs genéricos de coleção e por ID de `interacoes_chamado` DEVEM (MUST) permitir Técnico, Diretoria e Administrador autenticados a receber o registro bruto. Gerente DEVE (MUST) consultar comentários pela rota funcional pública já autorizada; esses acessos NÃO DEVEM (MUST NOT) conceder mutações genéricas ou Gestão.
 
 #### Scenario: Técnico consulta interação genérica
 - **WHEN** Técnico autenticado chama o GET genérico de coleção ou de ID
@@ -211,7 +188,7 @@ Os GETs genéricos de coleção e por ID de `interacoes_chamado` DEVEM (MUST) pe
 
 #### Scenario: Outro perfil solicita GET genérico
 - **WHEN** Diretoria ou Administrador chama um dos dois GETs genéricos de interações
-- **THEN** a operação continua sem permissão genérica adicional nesta change
+- **THEN** o Xano autoriza a mesma leitura global permitida ao Técnico, sem conceder mutação genérica
 
 ### Requirement: Contratos administrativos específicos exigem Administrador
 O Xano DEVE (MUST) autorizar somente Administrador autenticado e sem troca pendente a listar, consultar, criar, editar, transferir ou excluir Usuários, Lojas e Totens pelos contratos administrativos específicos. CRUDs genéricos DEVEM (MUST) continuar bloqueados.
@@ -323,3 +300,45 @@ O Xano DEVE (MUST) autorizar a rejeição de solução somente ao usuário auten
 #### Scenario: Gerente tenta alterar status pelo Save
 - **WHEN** um Gerente chama o Save operacional ou um endpoint genérico de alteração
 - **THEN** o Xano continua negando a operação
+
+### Requirement: Perfis operacionais compartilham os mesmos acessos
+Técnico, Diretoria e Administrador DEVEM (MUST) ter os mesmos acessos operacionais, incluindo SLA na fila/detalhe, indicadores, monitoramento, abertura manual global e escopos de consulta. Gestão administrativa e seus contratos de Usuários, Lojas e Totens DEVEM (MUST) continuar exclusivos do Administrador. Autenticação e primeiro acesso continuam obrigatórios.
+
+#### Scenario: Matriz operacional comum
+- **WHEN** qualquer um dos três perfis operacionais consulta uma funcionalidade operacional com sessão concluída
+- **THEN** recebe os mesmos contratos e ações, sujeitos às mesmas validações
+
+#### Scenario: Gestão continua exclusiva
+- **WHEN** Técnico ou Diretoria tenta acessar Gestão ou contratos administrativos diretamente
+- **THEN** o acesso é negado; somente Administrador tem essa permissão
+
+#### Scenario: Acesso não muda elegibilidade de responsável
+- **WHEN** Diretoria ou Administrador abre um chamado ou consulta atribuições
+- **THEN** continua podendo selecionar apenas Técnicos como responsáveis; o perfil da sessão não é reescrito
+
+#### Scenario: Leituras genéricas operacionais
+- **WHEN** um perfil operacional consulta Loja, Totem, telemetria ou interações pelos contratos de leitura existentes
+- **THEN** recebe o mesmo escopo global dos outros perfis operacionais, sem ganhar mutações genéricas
+
+### Requirement: Preferências operacionais são isoladas por identidade e escopo
+O Xano DEVE (MUST) autorizar leitura e escrita de preferências da fila global
+somente para Técnico, Diretoria e Administrador autenticados, usando o usuário
+da sessão como único dono do registro. Gerente não possui esse contrato;
+Os três perfis podem usar `Todos` e `Atribuídos a mim`, com preferência própria por usuário e escopo.
+
+#### Scenario: Identificador de usuário forjado
+- **WHEN** cliente tenta indicar outro usuário ao ler ou salvar preferência
+- **THEN** o contrato ignora ou rejeita o identificador e usa exclusivamente a
+  identidade autenticada, sem expor preferência alheia
+
+#### Scenario: Perfil autorizado usa a própria preferência
+- **WHEN** Técnico, Diretoria ou Administrador autenticado usa escopo permitido
+- **THEN** o Xano lê ou grava somente o registro pertencente àquela identidade
+
+#### Scenario: Escopo pessoal acessível aos perfis operacionais
+- **WHEN** Diretoria ou Administrador solicita `Atribuídos a mim`
+- **THEN** a consulta e a preferência são autorizadas para a própria identidade; sem atribuições correspondentes, a consulta retorna vazia
+
+#### Scenario: Gerente tenta preferência global
+- **WHEN** Gerente autenticado chama leitura ou save de preferências globais
+- **THEN** o Xano responde HTTP 403 sem expor ou alterar registro

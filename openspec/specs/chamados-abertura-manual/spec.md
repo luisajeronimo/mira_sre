@@ -418,23 +418,8 @@ O detalhe autorizado do chamado DEVE (MUST) retornar a Loja histórica demonstr�
 - **WHEN** o Gerente consulta chamado comprovadamente aberto em outra Loja
 - **THEN** o Xano mantém a negação sem retornar resumo do Totem
 
-### Requirement: Administrador inicia abertura manual no Início
-O Reflex DEVE (MUST) oferecer ao Administrador, em `/inicio`, a ação de abrir chamado com a mesma apresentação e posição do botão usado pelo Gerente, além da mesma composição de formulário em `/chamados/novo`. O Gerente DEVE (MUST) conservar seu fluxo e escopo de Loja; o Administrador DEVE (MUST) escolher Totem globalmente. A apresentação compartilhada NÃO DEVE (MUST NOT) deslocar autorização ou regras de negócio do Xano para o Reflex. A gestão administrativa NÃO DEVE (MUST NOT) apresentar o formulário de chamado.
-
-#### Scenario: Administrador parte do Início
-- **WHEN** Administrador autenticado aciona Criar chamado em `/inicio`
-- **THEN** abre o formulário compartilhado em `/chamados/novo`, com Totens globais elegíveis
-
-#### Scenario: Gerente conserva a abertura
-- **WHEN** Gerente autenticado aciona Criar chamado em `/inicio`
-- **THEN** abre o mesmo formulário visual com Totens limitados pela própria Loja no Xano
-
-#### Scenario: Perfil sem permissão de abertura
-- **WHEN** Técnico ou Diretoria tenta abrir `/chamados/novo`
-- **THEN** o Reflex não apresenta o formulário e o Xano não recebe mutação
-
 ### Requirement: Administrador pode abrir chamado manual para qualquer Totem
-A abertura manual DEVE (MUST) aceitar Administrador autenticado em escopo global com os mesmos campos e validações funcionais do Gerente. O solicitante DEVE (MUST) ser o Administrador autenticado, e a Loja DEVE (MUST) corresponder ao vínculo do Totem no momento da abertura.
+A abertura manual DEVE (MUST) aceitar Técnico, Diretoria e Administrador autenticados em escopo global com os mesmos campos e validações funcionais do Gerente. O solicitante DEVE (MUST) ser o usuário operacional autenticado, e a Loja DEVE (MUST) corresponder ao vínculo do Totem no momento da abertura.
 
 #### Scenario: Abertura global válida
 - **WHEN** Administrador informa título, descrição, Totem, Categoria elegível e prioridade válidos
@@ -458,3 +443,18 @@ Um chamado com Loja de abertura demonstrável DEVE (MUST) continuar atribuído a
 #### Scenario: Loja Inativa na abertura
 - **WHEN** Totem já vinculado a Loja `Inativa` recebe abertura manual elegível por perfil autorizado
 - **THEN** a situação cadastral da Loja não bloqueia o chamado nem altera suas validações existentes
+
+### Requirement: Perfis operacionais iniciam abertura manual no Início
+O Reflex DEVE (MUST) oferecer a Técnico, Diretoria e Administrador, em `/inicio`, a ação de abrir chamado com a mesma apresentação e posição do botão usado pelo Gerente, além da mesma composição de formulário em `/chamados/novo`. O Gerente DEVE (MUST) conservar seu fluxo e escopo de Loja; os três perfis operacionais DEVEM (MUST) escolher Totem globalmente. A apresentação compartilhada NÃO DEVE (MUST NOT) deslocar autorização ou regras de negócio do Xano para o Reflex. A gestão administrativa NÃO DEVE (MUST NOT) apresentar o formulário de chamado.
+
+#### Scenario: Administrador parte do Início
+- **WHEN** Administrador autenticado aciona Criar chamado em `/inicio`
+- **THEN** abre o formulário compartilhado em `/chamados/novo`, com Totens globais elegíveis
+
+#### Scenario: Gerente conserva a abertura
+- **WHEN** Gerente autenticado aciona Criar chamado em `/inicio`
+- **THEN** abre o mesmo formulário visual com Totens limitados pela própria Loja no Xano
+
+#### Scenario: Técnico e Diretoria também abrem chamados
+- **WHEN** Técnico ou Diretoria abre `/chamados/novo` com sessão concluída
+- **THEN** recebe o mesmo formulário e contrato operacional global do Administrador, sem acessar Gestão

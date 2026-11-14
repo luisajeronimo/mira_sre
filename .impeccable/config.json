@@ -1,0 +1,15 @@
+{
+  "buildPath": "comp",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-11-14T03:56:23.933Z",
+        "reason": "Agente: DESIGN.md, seção Identidade, cor e tipografia, define Plus Jakarta Sans como família principal; a solicitação atual pede preservar a identidade existente."
+      }
+    ]
+  }
+}

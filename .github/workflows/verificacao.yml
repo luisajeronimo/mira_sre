@@ -1,29 +1,121 @@
-# Verificação em Linux: testes e compilação Reflex completa (com assets
-# compartilhados), que no Windows exige permissão de symlink.
-# Reutiliza os alvos do Makefile; não usa segredos nem acessa o Xano.
-name: Verificação
+name: MIRA - Verificacao e deploy
 
 on:
   workflow_dispatch:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
+concurrency:
+  group: mira-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    name: Testar e compilar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
         with:
-          python-version: "3.13"
-
-      - name: Preparar ambiente (.env a partir de .env.example)
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Preparar dependencias do MIRA
         run: make setup
-
-      - name: Testes e compilação Reflex completa
+      - name: Executar testes e verificar Reflex
         run: make check
+
+      - name: Compilar frontend e criar release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          REFLEX_API_URL: ${{ vars.MIRA_PUBLIC_URL }}
+          REFLEX_DEPLOY_URL: ${{ vars.MIRA_PUBLIC_URL }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$REFLEX_API_URL"
+          case "$REFLEX_API_URL" in
+            https://*.sslip.io) ;;
+            *) echo 'MIRA_PUBLIC_URL deve ser https://...sslip.io'; exit 1;;
+          esac
+          .venv/bin/reflex export --frontend-only --no-zip
+          test -s .web/build/client/index.html
+          package="$(mktemp -d)"
+          git archive "$GITHUB_SHA" | tar -xf - -C "$package"
+          mkdir -p "$package/public" "$package/.web"
+          cp -a .web/build/client/. "$package/public/"
+          if [ -d .web/backend ]; then
+            cp -a .web/backend "$package/.web/"
+          fi
+          .venv/bin/python -m pip freeze > "$package/requirements-deploy.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$package/REVISION"
+          tar -czf mira.tar.gz -C "$package" .
+
+      - uses: actions/upload-artifact@v7
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: mira-release
+          path: mira.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  deploy:
+    name: Publicar no Lightsail
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: mira-release
+      - name: Preparar WireGuard e publicar release pelo SSH privado
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_WG_PRIVATE_KEY: ${{ secrets.DEPLOY_WG_PRIVATE_KEY }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_WG_PUBLIC_KEY: ${{ vars.DEPLOY_WG_PUBLIC_KEY }}
+          DEPLOY_WG_ENDPOINT: ${{ vars.DEPLOY_WG_ENDPOINT }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          for name in DEPLOY_WG_PRIVATE_KEY DEPLOY_SSH_KEY DEPLOY_WG_PUBLIC_KEY DEPLOY_WG_ENDPOINT DEPLOY_KNOWN_HOSTS; do
+            test -n "${!name}" || { echo "Faltando: $name"; exit 1; }
+          done
+          latest="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo 'A main avancou; deploy antigo nao sera aplicado.'
+            exit 0
+          fi
+          command -v wg-quick >/dev/null || {
+            sudo apt-get update
+            sudo apt-get install -y wireguard-tools
+          }
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/mira-runner-ssh"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/mira-known-hosts"
+          cat > "$RUNNER_TEMP/wg-mira.conf" <<EOF
+          [Interface]
+          Address = 10.79.0.2/30
+          PrivateKey = $DEPLOY_WG_PRIVATE_KEY
+
+          [Peer]
+          PublicKey = $DEPLOY_WG_PUBLIC_KEY
+          Endpoint = $DEPLOY_WG_ENDPOINT
+          AllowedIPs = 10.79.0.1/32
+          PersistentKeepalive = 25
+          EOF
+          sudo wg-quick up "$RUNNER_TEMP/wg-mira.conf"
+          ssh -T -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/mira-known-hosts" \
+            -o ConnectTimeout=20 \
+            -i "$RUNNER_TEMP/mira-runner-ssh" \
+            mira@10.79.0.1 < mira.tar.gz

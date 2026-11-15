@@ -377,20 +377,22 @@ def test_detalhe_e_linha_do_tempo_usam_campos_e_badges_compactos():
     composicao = inspect.getsource(visual.composicao_detalhe_chamado)
 
     assert '"Origem",' in fonte
-    assert "badge_visibilidade(item[\"visibilidade_texto\"])" in fonte
-    assert "item[\"criado_em_texto\"]" in fonte
-    timeline = fonte[fonte.index('rx.heading("Linha do tempo"'):]
-    cabecalho_timeline = timeline[:timeline.index('item["conteudo"] != ""')]
-    assert timeline.count('item["criado_em_texto"]') == 1
-    assert 'item["comentario_criado_em_texto"]' not in timeline
-    assert cabecalho_timeline.index('item["criado_em_texto"]') < cabecalho_timeline.index('badge_visibilidade(item["visibilidade_texto"])')
-    assert 'item["comentario_conteudo"] != ""' in cabecalho_timeline
-    assert 'badge_visibilidade(item["comentario_visibilidade_texto"])' in cabecalho_timeline
+    evento = inspect.getsource(paginas_chamados._evento_timeline)
+    comentario = inspect.getsource(paginas_chamados._composicao_comentario)
+    assert 'badge_visibilidade(item["visibilidade_texto"])' in evento
+    assert 'item["criado_em_texto"]' in evento
+    assert 'item["mostrar_autor_comentario"]' in evento
+    assert 'item["comentario_criado_em_texto"] != item["criado_em_texto"]' in evento
+    assert 'item["comentario_conteudo"] != ""' in evento
+    assert 'badge_visibilidade(item["comentario_visibilidade_texto"])' in evento
+    assert '_evento_timeline' in fonte
+    assert '_composicao_comentario()' in fonte
+    assert comentario.index('rotulo_campo("Visibilidade")') < comentario.index('rx.text_area(')
     assert "composicao_detalhe_chamado" in fonte
     assert "cabecalho_detalhe_chamado" in fonte
     assert 'text_transform="uppercase"' in fonte
-    assert "ESTILO_CAMPO_COMENTARIO" in fonte
-    assert 'columns="2"' in fonte
+    assert "ESTILO_CAMPO_COMENTARIO" in comentario
+    assert 'columns="2"' in evento
     assert '"Chamado #" + identificador + " - " + titulo' in cabecalho_detalhe
     assert 'rx.text("Detalhe do Totem", weight="bold")' in cabecalho_detalhe
     assert composicao.index("painel_detalhe(dados)") < composicao.index(
@@ -1339,6 +1341,7 @@ def test_timeline_agrupa_por_id_estruturado_e_lista_todos_os_diffs():
     assert estado.timeline[0]["comentario_conteudo"] == "Ação validada."
     assert estado.timeline[0]["comentario_visibilidade_texto"] == "Público"
     assert estado.timeline[0]["comentario_autor_nome"] == "Técnico 9"
+    assert estado.timeline[0]["mostrar_autor_comentario"] is True
     assert estado.timeline[0]["autor_nome"] == "Técnico 10"
     assert estado.timeline[0]["comentario_criado_em_texto"] != estado.timeline[0]["criado_em_texto"]
     assert estado.timeline[0]["alteracoes_detalhadas"] == [
@@ -1465,6 +1468,7 @@ def test_detalhe_tecnico_usa_um_unico_grid_sem_acao_separada_de_comentario():
         (
             inspect.getsource(paginas_chamados._fila_tecnico),
             inspect.getsource(paginas_chamados._detalhe_tecnico),
+            inspect.getsource(paginas_chamados._composicao_comentario),
         )
     ).casefold()
 
@@ -1573,3 +1577,38 @@ def test_multiplos_rascunho_aplicar_e_limpar_substituem_snapshot(monkeypatch):
     assert estado.status_aplicado == estado.filtro_status == []
     assert cliente.preferencias_salvas[-1][1]["responsavel_ids"] == []
     assert cliente.preferencias_salvas[-1][1]["incluir_nao_atribuido"] is False
+
+
+@pytest.mark.parametrize("autor_evento,autor_comentario,mesmo_nome,mostrar", [
+    (9, 9, True, False),
+    (9, 10, False, True),
+    (9, 10, True, True),
+    (None, None, True, False),
+    (None, 10, False, True),
+])
+def test_timeline_deduplica_autoria_por_identidade(autor_evento, autor_comentario, mesmo_nome, mostrar):
+    def pessoa(identificador, nome):
+        return ReferenciaUsuario(id=identificador, nome=nome) if identificador is not None else None
+    nome_evento = "Camila Santos"
+    nome_comentario = nome_evento if mesmo_nome else "Beatriz Souza"
+    comentario = EventoTimelineChamado(
+        id=70, tipo="comentario", conteudo="Diagnóstico registrado.", visibilidade="publica",
+        criado_em=1780000003000, autor=pessoa(autor_comentario, nome_comentario),
+        tecnico_anterior=None, tecnico_novo=None,
+    )
+    evento = EventoTimelineChamado(
+        id=71, tipo="alteracao_chamado", conteudo=None, visibilidade=None,
+        criado_em=1780000003000, autor=pessoa(autor_evento, nome_evento),
+        tecnico_anterior=None, tecnico_novo=None,
+        alteracoes={"comentario_interacao_id": 70, "status": {"anterior": "Novo", "resultante": "Em Atendimento"}},
+    )
+    e = novo_estado_tecnico()
+    e._atualizar_detalhe(DetalheChamadoTecnico(chamado=detalhe_tecnico(), timeline=[evento, comentario], tecnicos=[]))
+    assert len(e.timeline) == 1
+    registro = e.timeline[0]
+    assert registro["mostrar_autor_comentario"] is mostrar
+    assert registro["comentario_conteudo"] == comentario.conteudo
+    assert registro["visibilidade_texto"] == ""
+    assert registro["comentario_visibilidade_texto"] == "Público"
+    assert registro["autor_nome"] == (nome_evento if autor_evento is not None else "Não informado")
+    assert registro["comentario_autor_nome"] == (nome_comentario if autor_comentario is not None else "Não informado")

@@ -341,3 +341,28 @@ def test_acesso_direto_da_rota_respeita_perfil(monkeypatch, perfil, autorizado):
 
     monkeypatch.setattr(IndicadoresDiretoriaState, "_revalidar", revalidacao)
     assert executar(estado._validar_acesso()) == (None if autorizado else "/inicio")
+
+
+def test_catalogo_exibe_nomes_sem_id_e_preserva_opcoes_homonimas(monkeypatch):
+    from app.indicadores.contrato import ler_catalogo
+    e = novo_estado()
+    e.data_inicio = e.data_fim = "2026-10-14"
+    e.periodo_rapido = "personalizado"
+    e.consulta_geracao = 1
+    e.loja_id, e.totem_id = "1", "17"
+    chamadas = []
+    class Cliente:
+        async def catalogo_indicadores_disponibilidade(self, token):
+            return ler_catalogo({"lojas": [{"id": 1, "nome": "Loja — Centro"}], "totens": [
+                {"id": 17, "nome": "Totem — Balcão"}, {"id": 18, "nome": "Totem — Balcão"}]})
+        async def consultar_indicadores_disponibilidade(self, token, **filtros):
+            chamadas.append(filtros)
+            return ler_resultado(resposta(t0=filtros["t0"], t1=filtros["t1"], loja=1, totem=17))
+    monkeypatch.setattr(modulo_estado, "criar_cliente_service_desk", Cliente)
+    executar(e._consultar(carregar_catalogo=True, geracao=1))
+    assert e.lojas_opcoes[1] == {"value": "1", "label": "Loja — Centro"}
+    assert e.totens_opcoes[1:] == [
+        {"value": "17", "label": "Totem — Balcão"}, {"value": "18", "label": "Totem — Balcão"}]
+    assert chamadas[0]["ativos_referencia_id"] == 17
+    assert chamadas[0]["lojas_id"] == 1
+    assert e.totem_id == "17"

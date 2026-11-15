@@ -298,6 +298,7 @@ def evento_timeline_para_dict(
         "comentario_visibilidade_texto": "",
         "comentario_autor_nome": "",
         "comentario_criado_em_texto": "",
+        "mostrar_autor_comentario": False,
     }
 
 
@@ -430,6 +431,7 @@ class TimelineView(TypedDict):
     comentario_visibilidade_texto: str
     comentario_autor_nome: str
     comentario_criado_em_texto: str
+    mostrar_autor_comentario: bool
 
 
 class TecnicoOpcaoView(TypedDict):

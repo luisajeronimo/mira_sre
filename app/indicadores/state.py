@@ -262,14 +262,14 @@ class IndicadoresDiretoriaState(AuthState):
         fim = datetime.fromtimestamp(resultado.observado_ate / 1000, FUSO)
         self.causas_periodo_texto = f"Aberturas de {inicio:%d/%m/%Y %H:%M} até {fim:%d/%m/%Y %H:%M} · horário de Brasília"
         nomes = []
-        for identificador, opcoes, geral in (
-            (resultado.lojas_id, self.lojas_opcoes, "Todas as Lojas"),
-            (resultado.ativos_referencia_id, self.totens_opcoes, "Todos os Totens"),
-            (resultado.categorias_servico_id, self.categorias_opcoes, "Todas as Categorias"),
+        for identificador, opcoes, geral, ausente in (
+            (resultado.lojas_id, self.lojas_opcoes, "Todas as Lojas", "Loja não listada"),
+            (resultado.ativos_referencia_id, self.totens_opcoes, "Todos os Totens", "Totem não listado"),
+            (resultado.categorias_servico_id, self.categorias_opcoes, "Todas as Categorias", f"ID {resultado.categorias_servico_id}"),
         ):
             nomes.append(geral if identificador is None else next(
                 (opcao["label"] for opcao in opcoes if opcao["value"] == str(identificador)),
-                f"ID {identificador}",
+                ausente,
             ))
         self.causas_recorte_texto = " · ".join(nomes)
         self.causas_elegiveis = resultado.base["elegiveis"]
@@ -461,7 +461,7 @@ class IndicadoresDiretoriaState(AuthState):
                     {"value": str(item.id), "label": item.nome} for item in catalogo.lojas
                 ]
                 self.totens_opcoes = [{"value": "todos", "label": "Todos os Totens"}] + [
-                    {"value": str(item.id), "label": f"{item.id} — {item.nome}"} for item in catalogo.totens
+                    {"value": str(item.id), "label": item.nome} for item in catalogo.totens
                 ]
             resultado = await cliente.consultar_indicadores_disponibilidade(
                 self._auth_token, t0=t0, t1=t1, lojas_id=loja, ativos_referencia_id=totem,
@@ -570,7 +570,7 @@ class IndicadoresDiretoriaState(AuthState):
                                              ("totens_opcoes", catalogo.totens, "Todos os Totens"),
                                              ("categorias_opcoes", catalogo.categorias, "Todas as Categorias")):
                     setattr(self, campo, [{"value": "todos" if campo == "totens_opcoes" else "todas", "label": geral}]
-                            + [{"value": str(x.id), "label": f"{x.id} — {x.nome}" if campo == "totens_opcoes" else x.nome} for x in itens])
+                            + [{"value": str(x.id), "label": x.nome} for x in itens])
                 self.causas_catalogo_carregado = True
             resultado = await cliente.consultar_indicadores_causas(
                 self._auth_token, t0=t0, t1=t1, lojas_id=loja, ativos_referencia_id=totem,

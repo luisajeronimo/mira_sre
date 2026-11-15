@@ -140,6 +140,11 @@
 .mira-monitoring-history .rt-TabsTrigger { font-size: 0.8125rem; }
 .mira-history-count { background: #f0f2f6; color: #626c7d; border-radius: 5px; margin-left: 0.375rem; padding: 0.1rem 0.375rem; font-size: 0.6875rem; font-variant-numeric: tabular-nums; }
 .rt-TabsTrigger[data-state="active"] .mira-history-count { background: #ffe4ec; color: #b91c46; }
+.radix-themes .mira-comment-composer .rt-SelectTrigger { height: 2rem; }
+.mira-timeline-event { overflow-wrap: anywhere; }
+.mira-timeline-body { max-width: 75ch; overflow-wrap: anywhere; line-height: 1.7; }
+.mira-timeline-time { font-variant-numeric: tabular-nums; }
+.mira-timeline-row + .mira-timeline-row { border-top: 1px solid #e6e8f0; }
 .mira-availability-event + .mira-availability-event,
 .mira-heartbeat-incident + .mira-heartbeat-incident { border-top: 1px solid #e6e8f0; }
 .mira-monitoring :is(.rt-TableCell, .rt-TableColumnHeaderCell) { font-size: 0.75rem; padding: 0.75rem 0.5rem; }

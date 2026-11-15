@@ -9,6 +9,7 @@ from app.components.visual import (
     BORDA,
     BORDA_ROSE_SUAVE,
     ESTILO_CAMPO_COMENTARIO,
+    FOCO_VISIVEL,
     RAIO_CONTROLE,
     RAIO_SUPERFICIE,
     SOMBRA_BAIXA,
@@ -114,6 +115,7 @@ def _fila_tecnico() -> rx.Component:
                             ChamadosTecnicoState.alterar_filtro_responsavel,
                             "Responsável",
                             ChamadosTecnicoState.carregando_fila,
+                            ocultar_id=True,
                         ),
                     ),
                     campo_rotulado(
@@ -124,6 +126,7 @@ def _fila_tecnico() -> rx.Component:
                             ChamadosTecnicoState.alterar_filtro_ativo,
                             "Totem",
                             ChamadosTecnicoState.carregando_fila,
+                            ocultar_id=True,
                         ),
                     ),
                     campo_rotulado(
@@ -134,6 +137,7 @@ def _fila_tecnico() -> rx.Component:
                             ChamadosTecnicoState.alterar_filtro_loja,
                             "Loja",
                             ChamadosTecnicoState.carregando_fila,
+                            ocultar_id=True,
                         ),
                     ),
                     periodo_rotulado(
@@ -278,6 +282,146 @@ def _fila_tecnico() -> rx.Component:
         ),
         spacing="5",
         width="100%",
+    )
+
+
+def _composicao_comentario() -> rx.Component:
+    return rx.vstack(
+        rx.hstack(
+            rotulo_campo("Comentário"),
+            rx.hstack(
+                rotulo_campo("Visibilidade"),
+                rx.cond(
+                    ChamadosTecnicoState.status_pendente_exige_comentario_publico,
+                    rx.hstack(
+                        rx.icon("lock-keyhole", size=13, color=TEXTO_SECUNDARIO, aria_hidden=True),
+                        badge_visibilidade("Público"),
+                        align="center", spacing="1", aria_label="Visibilidade pública obrigatória",
+                    ),
+                    rx.select.root(
+                        rx.select.trigger(
+                            width="8.5rem", aria_label="Visibilidade do comentário",
+                            _focus_visible=FOCO_VISIVEL,
+                        ),
+                        rx.select.content(
+                            rx.select.item("Público", value="publica"),
+                            rx.select.item("Interno", value="interna"),
+                        ),
+                        value=ChamadosTecnicoState.visibilidade_comentario_status_pendente,
+                        on_change=ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente,
+                        disabled=ChamadosTecnicoState.salvando_tratativa,
+                        size="1",
+                    ),
+                ),
+                align="center", spacing="2", flex_shrink="0",
+            ),
+            align="center", justify="between", flex_wrap="wrap", gap="0.75rem", width="100%",
+        ),
+        rx.text_area(
+            value=ChamadosTecnicoState.comentario_status_pendente,
+            on_change=ChamadosTecnicoState.alterar_comentario_status_pendente,
+            placeholder="Registre uma atualização para o chamado",
+            aria_label="Comentário do chamado",
+            disabled=ChamadosTecnicoState.salvando_tratativa,
+            width="100%", **ESTILO_CAMPO_COMENTARIO,
+        ),
+        align="start", spacing="2", width="100%", class_name="mira-comment-composer",
+    )
+
+
+def _alteracao_timeline(alteracao) -> rx.Component:
+    return rx.vstack(
+        rx.text(alteracao["campo"], size="1", weight="bold", color=TEXTO_SECUNDARIO),
+        rx.hstack(
+            rx.text(alteracao["anterior"], size="2", color=TEXTO_SECUNDARIO, overflow_wrap="anywhere"),
+            rx.icon("arrow-right", size=14, color=TEXTO_SECUNDARIO, flex_shrink="0", aria_hidden=True),
+            rx.text(alteracao["resultante"], size="2", weight="medium", color=TEXTO, overflow_wrap="anywhere"),
+            align="center", spacing="2", flex_wrap="wrap", width="100%",
+        ),
+        align="start", spacing="1", min_width="0", width="100%",
+        class_name="mira-timeline-change",
+    )
+
+
+def _evento_timeline(item) -> rx.Component:
+    return rx.card(
+        rx.vstack(
+            rx.hstack(
+                rx.vstack(
+                    rx.heading(item["titulo"], size="3", color=TEXTO),
+                    rx.text("Por: " + item["autor_nome"], size="1", color=TEXTO_SECUNDARIO,
+                            class_name="mira-timeline-author"),
+                    align="start", spacing="1", min_width="0",
+                ),
+                rx.vstack(
+                    rx.text(item["criado_em_texto"], size="1", color=TEXTO_SECUNDARIO,
+                            white_space="nowrap", class_name="mira-timeline-time"),
+                    rx.cond(
+                        (item["tipo"] == "comentario") & (item["visibilidade_texto"] != ""),
+                        badge_visibilidade(item["visibilidade_texto"]),
+                        rx.cond(
+                            (item["comentario_conteudo"] != "") & (item["comentario_visibilidade_texto"] != ""),
+                            rx.box(
+                                badge_visibilidade(item["comentario_visibilidade_texto"]),
+                                aria_label="Visibilidade do comentário",
+                            ),
+                            rx.fragment(),
+                        ),
+                    ),
+                    align="end", spacing="1", flex_shrink="0",
+                ),
+                justify="between", align="start", gap="1rem", width="100%",
+            ),
+            rx.cond(
+                item["conteudo"] != "",
+                rx.text(item["conteudo"], size="2", color=TEXTO, white_space="pre-wrap",
+                        class_name="mira-timeline-body"),
+                rx.fragment(),
+            ),
+            rx.cond(
+                item["alteracoes_detalhadas"].length() > 0,
+                rx.grid(
+                    rx.foreach(item["alteracoes_detalhadas"], _alteracao_timeline),
+                    columns="2", grid_template_columns="repeat(2, minmax(0, max-content))",
+                    gap="0.5rem 2rem", width="100%",
+                    class_name="mira-timeline-changes",
+                ),
+                rx.fragment(),
+            ),
+            rx.cond(
+                item["comentario_conteudo"] != "",
+                rx.vstack(
+                    rx.hstack(
+                        rx.text("Comentário", size="2", weight="medium", color=TEXTO),
+                        rx.cond(
+                            item["comentario_criado_em_texto"] != item["criado_em_texto"],
+                            rx.text(item["comentario_criado_em_texto"], size="1", color=TEXTO_SECUNDARIO),
+                            rx.fragment(),
+                        ),
+                        justify="between", align="center", gap="1rem", width="100%",
+                    ),
+                    rx.cond(
+                        item["mostrar_autor_comentario"],
+                        rx.text("Por: " + item["comentario_autor_nome"], size="1", color=TEXTO_SECUNDARIO,
+                                class_name="mira-timeline-author"),
+                        rx.fragment(),
+                    ),
+                    rx.text(item["comentario_conteudo"], size="2", color=TEXTO, white_space="pre-wrap",
+                            class_name="mira-timeline-body"),
+                    align="start", spacing="1", width="100%", class_name="mira-timeline-comment",
+                ),
+                rx.fragment(),
+            ),
+            rx.cond(item["tecnico_anterior_nome"] != "",
+                    rx.text("De: " + item["tecnico_anterior_nome"], size="2"), rx.fragment()),
+            rx.cond(item["tecnico_novo_nome"] != "",
+                    rx.text("Para: " + item["tecnico_novo_nome"], size="2"), rx.fragment()),
+            align="start", spacing="2", width="100%",
+        ),
+        width="100%", min_width="0", padding="1rem 1.125rem",
+        border=f"1px solid {BORDA}", border_radius=RAIO_SUPERFICIE,
+        box_shadow="none", background=SUPERFICIE,
+        class_name="mira-timeline-event", role="listitem", aria_label=item["titulo"],
     )
 
 
@@ -433,35 +577,7 @@ def _detalhe_tecnico() -> rx.Component:
                     ),
                     ChamadosTecnicoState.chamado["descricao"],
                     rx.vstack(
-                        rx.vstack(
-                            rotulo_campo("Comentário"),
-                            rx.text_area(
-                                value=ChamadosTecnicoState.comentario_status_pendente,
-                                on_change=ChamadosTecnicoState.alterar_comentario_status_pendente,
-                                placeholder="Registre uma atualização para o chamado",
-                                disabled=ChamadosTecnicoState.salvando_tratativa,
-                                width="100%",
-                                **ESTILO_CAMPO_COMENTARIO,
-                            ),
-                            rotulo_campo("Visibilidade"),
-                            rx.cond(
-                                ChamadosTecnicoState.status_pendente_exige_comentario_publico,
-                                badge_visibilidade("Público"),
-                                rx.select.root(
-                                    rx.select.trigger(width="100%"),
-                                    rx.select.content(
-                                        rx.select.item("Público", value="publica"),
-                                        rx.select.item("Interno", value="interna"),
-                                    ),
-                                    value=ChamadosTecnicoState.visibilidade_comentario_status_pendente,
-                                    on_change=ChamadosTecnicoState.alterar_visibilidade_comentario_status_pendente,
-                                    disabled=ChamadosTecnicoState.salvando_tratativa,
-                                    width="100%",
-                                ),
-                            ),
-                            align="start",
-                            width="100%",
-                        ),
+                        _composicao_comentario(),
                         rx.hstack(
                             rx.button(
                                 "Descartar mudanças",
@@ -499,109 +615,8 @@ def _detalhe_tecnico() -> rx.Component:
                         icon="info",
                     ),
                     rx.vstack(
-                        rx.foreach(
-                            ChamadosTecnicoState.timeline,
-                            lambda item: rx.card(
-                                rx.vstack(
-                                    rx.hstack(
-                                        rx.vstack(
-                                            rx.heading(item["titulo"], size="3"),
-                                            rx.text("Por: " + item["autor_nome"], size="2", color=TEXTO_SECUNDARIO),
-                                            align="start",
-                                            spacing="1",
-                                        ),
-                                        rx.vstack(
-                                            rx.text(item["criado_em_texto"], size="1", color=TEXTO_SECUNDARIO),
-                                            rx.cond(
-                                                item["tipo"] == "comentario",
-                                                badge_visibilidade(item["visibilidade_texto"]),
-                                                rx.cond(
-                                                    item["comentario_conteudo"] != "",
-                                                    badge_visibilidade(item["comentario_visibilidade_texto"]),
-                                                    rx.fragment(),
-                                                ),
-                                            ),
-                                            align="end",
-                                            spacing="2",
-                                            flex_shrink="0",
-                                        ),
-                                        justify="between",
-                                        align="start",
-                                        width="100%",
-                                    ),
-                                    rx.cond(
-                                        item["conteudo"] != "",
-                                        rx.text(item["conteudo"], white_space="pre-wrap"),
-                                        rx.fragment(),
-                                    ),
-                                    rx.cond(
-                                        item["comentario_conteudo"] != "",
-                                        rx.vstack(
-                                            rx.vstack(
-                                                rx.text("Comentário", weight="bold"),
-                                                rx.text("Por: " + item["comentario_autor_nome"], size="1", color=TEXTO_SECUNDARIO),
-                                                align="start",
-                                                spacing="1",
-                                            ),
-                                            rx.text(item["comentario_conteudo"], white_space="pre-wrap"),
-                                            align="start",
-                                            spacing="1",
-                                            width="100%",
-                                        ),
-                                        rx.fragment(),
-                                    ),
-                                    rx.cond(
-                                        item["alteracoes_detalhadas"].length() > 0,
-                                        rx.vstack(
-                                            rx.text("Alterações realizadas", weight="bold"),
-                                            rx.grid(
-                                                rx.foreach(
-                                                item["alteracoes_detalhadas"],
-                                                lambda alteracao: rx.vstack(
-                                                    rx.text(alteracao["campo"], weight="bold", size="2"),
-                                                    rx.text(alteracao["anterior"] + " → " + alteracao["resultante"], size="2"),
-                                                    align="start",
-                                                    spacing="0",
-                                                    border=f"1px solid {BORDA_ROSE_SUAVE}",
-                                                    border_radius=RAIO_CONTROLE,
-                                                    padding="0.625rem",
-                                                    width="100%",
-                                                ),
-                                            ),
-                                                columns="2",
-                                                gap="0.75rem",
-                                                width="100%",
-                                            ),
-                                            align="start",
-                                            spacing="2",
-                                            width="100%",
-                                        ),
-                                        rx.fragment(),
-                                    ),
-                                    rx.cond(
-                                        item["tecnico_anterior_nome"] != "",
-                                        rx.text("De: " + item["tecnico_anterior_nome"]),
-                                        rx.fragment(),
-                                    ),
-                                    rx.cond(
-                                        item["tecnico_novo_nome"] != "",
-                                        rx.text("Para: " + item["tecnico_novo_nome"]),
-                                        rx.fragment(),
-                                    ),
-                                    align="start",
-                                    spacing="2",
-                                    width="100%",
-                                ),
-                                width="100%",
-                                padding="1rem",
-                                border=f"1px solid {BORDA_ROSE_SUAVE}",
-                                border_radius=RAIO_SUPERFICIE,
-                                box_shadow="none",
-                                background=SUPERFICIE,
-                            ),
-                        ),
-                        spacing="3",
-                        width="100%",
+                        rx.foreach(ChamadosTecnicoState.timeline, _evento_timeline),
+                        spacing="3", width="100%", role="list", aria_label="Histórico do chamado",
                     ),
                 ),
                 spacing="5",

@@ -53,7 +53,7 @@ class SeletorPeriodoCalendario(NoSSRComponent):
 seletor_periodo_calendario = SeletorPeriodoCalendario.create
 
 
-def dropdown_multisselecao(opcoes, selecionados, ao_alternar, rotulo: str, disabled=False) -> rx.Component:
+def dropdown_multisselecao(opcoes, selecionados, ao_alternar, rotulo: str, disabled=False, *, ocultar_id: bool = False) -> rx.Component:
     """Seleção controlada; marcar opções não confirma os filtros da página."""
     return rx.popover.root(
         rx.popover.trigger(
@@ -76,7 +76,11 @@ def dropdown_multisselecao(opcoes, selecionados, ao_alternar, rotulo: str, disab
                 rx.foreach(
                     opcoes,
                     lambda opcao: rx.checkbox(
-                        opcao,
+                        rx.cond(
+                            opcao.contains(" — "),
+                            opcao.split(" — ")[1:].join(" — "),
+                            opcao,
+                        ) if ocultar_id else opcao,
                         checked=selecionados.contains(opcao),
                         on_change=lambda _: ao_alternar(opcao),
                         disabled=disabled,

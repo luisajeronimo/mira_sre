@@ -822,7 +822,7 @@ def indicadores_disponibilidade() -> rx.Component:
                     _cabecalho("disponibilidade"),
                     rx.hstack(
                         rx.icon("info", size=16, color=TEXTO_SECUNDARIO),
-                        rx.text("Ambiente acadêmico com dados simulados. O histórico fictício usa os Totens 1 e 2 (TOT-PAU-001 e TOT-PAU-002), preservando os filtros selecionados.", size="2", color=TEXTO_SECUNDARIO),
+                        rx.text("Ambiente acadêmico com dados simulados. O histórico fictício usa os Totens TOT-PAU-001 e TOT-PAU-002, preservando os filtros selecionados.", size="2", color=TEXTO_SECUNDARIO),
                         align="start", spacing="2", width="100%",
                     ),
                     _filtros("disponibilidade"),

@@ -269,6 +269,10 @@ class ChamadosTecnicoState(AuthState):
             for evento in detalhe.timeline
         ]
         comentarios = {item["id"]: item for item in eventos if item["tipo"] == "comentario"}
+        autores = {
+            evento.id: evento.autor.id if evento.autor is not None else None
+            for evento in detalhe.timeline
+        }
         comentarios_agrupados = {
             item["comentario_interacao_id"]
             for item in eventos
@@ -283,6 +287,7 @@ class ChamadosTecnicoState(AuthState):
                 item["comentario_visibilidade_texto"] = comentario["visibilidade_texto"]
                 item["comentario_autor_nome"] = comentario["autor_nome"]
                 item["comentario_criado_em_texto"] = comentario["criado_em_texto"]
+                item["mostrar_autor_comentario"] = autores[item["id"]] != autores[comentario_id]
         self.timeline = [
             item
             for item in eventos

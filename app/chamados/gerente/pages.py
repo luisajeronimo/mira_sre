@@ -73,6 +73,7 @@ def _lista() -> rx.Component:
                             ChamadosGerenteState.alterar_filtro_ativo,
                             "Totem",
                             ChamadosGerenteState.carregando_chamados,
+                            ocultar_id=True,
                         ),
                         coluna="span 4",
                     ),
@@ -685,11 +686,19 @@ def _detalhe() -> rx.Component:
                             ChamadosGerenteState.historico_status.length() == 0,
                             rx.text("Nenhuma transição registrada."),
                             rx.vstack(
-                                rx.foreach(ChamadosGerenteState.historico_status, lambda item: rx.card(
-                                    rx.text(item["status_anterior"] + " → " + item["status_resultante"], weight="medium"),
-                                    rx.text(item["criado_em_texto"] + " • " + item["autor_nome"] + " " + item["autor_perfil"], size="2"),
-                                    width="100%",
-                                )), width="100%",
+                                rx.foreach(
+                                    ChamadosGerenteState.historico_status,
+                                    lambda item: rx.vstack(
+                                        rx.text(item["status_anterior"] + " → " + item["status_resultante"], weight="medium", size="2"),
+                                        rx.hstack(
+                                            rx.text(item["autor_nome"] + " " + item["autor_perfil"], size="1", color=TEXTO_SECUNDARIO),
+                                            rx.text(item["criado_em_texto"], size="1", color=TEXTO_SECUNDARIO),
+                                            justify="between", flex_wrap="wrap", gap="0.5rem", width="100%",
+                                        ),
+                                        align="start", spacing="1", width="100%", padding_y="0.75rem",
+                                        class_name="mira-timeline-row",
+                                    ),
+                                ), width="100%",
                             ),
                         ),
                     ),
@@ -739,7 +748,7 @@ def _detalhe() -> rx.Component:
                                     ),
                                     width="100%",
                                     padding="1rem",
-                                    border=f"1px solid {BORDA_ROSE_SUAVE}",
+                                    border=f"1px solid {BORDA}",
                                     border_radius=RAIO_SUPERFICIE,
                                     box_shadow="none",
                                     background=SUPERFICIE,

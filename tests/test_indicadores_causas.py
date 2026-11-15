@@ -134,14 +134,20 @@ def test_state_aplica_todos_os_recortes(monkeypatch):
     chamadas = []
 
     class Cliente:
+        async def catalogo_indicadores_causas(self, token):
+            return ler_catalogo_causas({"lojas": [{"id": 1, "nome": "Loja A"}],
+                "totens": [{"id": 7, "nome": "Totem — Balcão"}], "categorias": [{"id": 2, "nome": "Rede"}]})
         async def consultar_indicadores_causas(self, token, **filtros):
             chamadas.append(filtros)
             return ler_resultado_causas(resposta(loja=1, totem=7, categoria=2))
 
     monkeypatch.setattr(modulo_estado, "criar_cliente_service_desk", Cliente)
-    asyncio.run(e._consultar_causas(carregar_catalogo=False, geracao=1, agora=INSTANTE))
+    asyncio.run(e._consultar_causas(carregar_catalogo=True, geracao=1, agora=INSTANTE))
     assert e.tem_causas
     assert chamadas[0] == {"t0": T0, "t1": T1, "lojas_id": 1, "ativos_referencia_id": 7, "categorias_servico_id": 2, "visao": "hoje"}
+
+    assert e.lojas_opcoes[1] == {"value": "1", "label": "Loja A"}
+    assert e.totens_opcoes[1] == {"value": "7", "label": "Totem — Balcão"}
 
 
 @pytest.mark.parametrize("erro,destino", [(XanoIndisponivel, None), (XanoNaoAutenticado, "/login"), (XanoNaoAutorizado, "/inicio")])

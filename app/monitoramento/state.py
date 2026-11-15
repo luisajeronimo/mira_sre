@@ -14,6 +14,7 @@ from app.services.xano import (
     XanoNaoAutenticado,
     XanoNaoAutorizado,
     XanoNaoEncontrado,
+    XanoConflito,
 )
 
 
@@ -61,6 +62,7 @@ class DetalheTotemView(TypedDict, total=False):
     tipo: str
     loja_nome: str
     status_atual: str
+    telemetria_simulada_ativa: bool | None
     tem_ultima_telemetria: bool
     ultima_telemetria: TelemetriaTotemView
     telemetrias: list[TelemetriaTotemView]
@@ -85,6 +87,11 @@ class MonitoramentoState(AuthState):
     carregando_detalhe: bool = False
     mensagem_erro: str = ""
     mensagem_erro_detalhe: str = ""
+    mensagem_retomada: str = ""
+    erro_retomada: str = ""
+    confirmacao_retomada_id: int | None = None
+    retomando_telemetria: bool = False
+    _versao_selecao: int = 0
 
     PERFIS_AUTORIZADOS: ClassVar[frozenset[str]] = frozenset(
         {"tecnico", "diretoria", "administrador"}
@@ -111,6 +118,82 @@ class MonitoramentoState(AuthState):
     @rx.var
     def detalhe_carregado(self) -> bool:
         return bool(self.detalhe_totem)
+
+    @rx.var(cache=False)
+    def pode_retomar_telemetria(self) -> bool:
+        return (
+            self.sessao_confirmada and not self.deve_trocar_senha
+            and self.role in self.PERFIS_AUTORIZADOS
+            and self.detalhe_totem.get("status_atual") == "offline"
+            and self.detalhe_totem.get("telemetria_simulada_ativa") is False
+            and self.detalhe_totem.get("id") == self.totem_selecionado_id
+            and not self.carregando_detalhe
+        )
+
+    @rx.var
+    def confirmando_retomada(self) -> bool:
+        return self.confirmacao_retomada_id is not None
+
+    @rx.var
+    def envio_ja_autorizado(self) -> bool:
+        return (
+            self.detalhe_totem.get("status_atual") == "offline"
+            and self.detalhe_totem.get("telemetria_simulada_ativa") is True
+        )
+
+    @rx.event
+    def abrir_confirmacao_retomada(self):
+        if self.pode_retomar_telemetria and not self.retomando_telemetria:
+            self.confirmacao_retomada_id = self.totem_selecionado_id
+            self.erro_retomada = ""
+
+    @rx.event
+    def definir_confirmacao_retomada(self, aberta: bool):
+        if not aberta and not self.retomando_telemetria:
+            self.confirmacao_retomada_id = None
+
+    @rx.event
+    async def confirmar_retomada(self):
+        alvo = self.confirmacao_retomada_id
+        if self.retomando_telemetria or not self.pode_retomar_telemetria or alvo != self.totem_selecionado_id:
+            return
+        self.retomando_telemetria = True
+        self.erro_retomada = self.mensagem_retomada = ""
+        versao = self._versao_selecao
+        token = self._auth_token
+        yield
+        try:
+            destino = await self._validar_acesso_monitoramento()
+            if destino is not None:
+                self.confirmacao_retomada_id = None
+                yield rx.redirect(destino)
+                return
+            if versao != self._versao_selecao or token != self._auth_token:
+                return
+            cliente = criar_cliente_service_desk()
+            await cliente.retomar_telemetria(token, alvo)
+            if versao != self._versao_selecao or token != self._auth_token:
+                return
+            self.confirmacao_retomada_id = None
+            self.mensagem_retomada = "Envio de telemetria autorizado. Aguarde os próximos ciclos."
+            await self._carregar()
+            resultado = await cliente.obter_detalhe_ativo_monitoramento(token, alvo)
+            if versao == self._versao_selecao and token == self._auth_token:
+                self._atualizar_detalhe(resultado)
+        except XanoConflito:
+            if versao == self._versao_selecao and token == self._auth_token:
+                self.erro_retomada = "O estado do Totem mudou. Atualize o detalhe antes de tentar novamente."
+                self.confirmacao_retomada_id = None
+        except Exception as erro:
+            if versao == self._versao_selecao and token == self._auth_token:
+                destino = self._registrar_erro_detalhe(erro)
+                if destino is not None:
+                    self.confirmacao_retomada_id = None
+                    yield rx.redirect(destino)
+                else:
+                    self.erro_retomada = self.mensagem_erro_detalhe
+        finally:
+            self.retomando_telemetria = False
 
     @staticmethod
     def _timestamp_para_texto(valor: int | None) -> str:
@@ -150,6 +233,7 @@ class MonitoramentoState(AuthState):
                 else "Loja não informada"
             ),
             "status_atual": resultado.totem.status_atual or "Sem telemetria",
+            "telemetria_simulada_ativa": resultado.totem.telemetria_simulada_ativa,
             "tem_ultima_telemetria": ultima is not None,
             "ultima_telemetria": (
                 self._telemetria_para_dict(ultima) if ultima is not None else {}
@@ -192,11 +276,14 @@ class MonitoramentoState(AuthState):
         self.totem_selecionado_id = resultado.totem.id
 
     async def _carregar(self):
+        token = self._auth_token
         try:
             cliente = criar_cliente_service_desk()
             resultado = await cliente.listar_ativos_monitoramento(
-                self._auth_token
+                token
             )
+            if token != self._auth_token:
+                return None
             self.ativos = [
                 {
                     "id": item.id,
@@ -297,6 +384,9 @@ class MonitoramentoState(AuthState):
     async def selecionar_totem(self, ativos_referencia_id: int):
         if self.carregando_detalhe:
             return
+        self._versao_selecao += 1
+        self.confirmacao_retomada_id = None
+        self.mensagem_retomada = self.erro_retomada = ""
         self.carregando_detalhe = True
         self.mensagem_erro_detalhe = ""
         yield

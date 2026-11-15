@@ -312,6 +312,47 @@ def _historicos() -> rx.Component:
     )
 
 
+def _retomada_telemetria() -> rx.Component:
+    return rx.vstack(
+        rx.cond(
+            MonitoramentoState.envio_ja_autorizado,
+            rx.text("Envio já autorizado. A recuperação depende dos próximos ciclos de telemetria e verificação.", size="2", color=TEXTO_SECUNDARIO),
+        ),
+        rx.cond(MonitoramentoState.mensagem_retomada != "", rx.callout(MonitoramentoState.mensagem_retomada, icon="check", color_scheme="green", width="100%")),
+        rx.cond(MonitoramentoState.erro_retomada != "", rx.callout(MonitoramentoState.erro_retomada, icon="triangle-alert", color_scheme="red", width="100%")),
+        rx.dialog.root(
+            rx.cond(
+                MonitoramentoState.pode_retomar_telemetria,
+                rx.dialog.trigger(rx.button(
+                    rx.icon("play", size=16), "Retomar telemetria",
+                    on_click=MonitoramentoState.abrir_confirmacao_retomada,
+                    disabled=MonitoramentoState.retomando_telemetria,
+                    variant="soft", color_scheme="ruby",
+                )),
+            ),
+            rx.dialog.content(
+                rx.dialog.title("Retomar telemetria deste Totem?"),
+                rx.dialog.description("A telemetria simulada voltará a ser enviada nos próximos ciclos. A retomada não resolve nem encerra chamados."),
+                rx.vstack(
+                    rx.text(MonitoramentoState.detalhe_totem["nome_ativo"], weight="bold"),
+                    rx.text(MonitoramentoState.detalhe_totem["loja_nome"], size="2", color=TEXTO_SECUNDARIO),
+                    align="start", spacing="1", margin_y="4",
+                ),
+                rx.cond(MonitoramentoState.erro_retomada != "", rx.callout(MonitoramentoState.erro_retomada, color_scheme="red", margin_bottom="4")),
+                rx.hstack(
+                    rx.button("Cancelar", variant="soft", color_scheme="gray", disabled=MonitoramentoState.retomando_telemetria, on_click=MonitoramentoState.definir_confirmacao_retomada(False)),
+                    rx.button(rx.cond(MonitoramentoState.retomando_telemetria, "Autorizando...", "Retomar telemetria"), disabled=MonitoramentoState.retomando_telemetria, on_click=MonitoramentoState.confirmar_retomada),
+                    justify="end", spacing="3",
+                ),
+                max_width="30rem",
+            ),
+            open=MonitoramentoState.confirmando_retomada,
+            on_open_change=MonitoramentoState.definir_confirmacao_retomada,
+        ),
+        align="start", spacing="3", width="100%",
+    )
+
+
 def _painel_detalhe() -> rx.Component:
     return rx.vstack(
         rx.cond(
@@ -342,7 +383,7 @@ def _painel_detalhe() -> rx.Component:
                         justify="between", align="center", width="100%", flex_wrap="wrap", gap="1rem",
                     ),
                     rx.separator(width="100%", color_scheme="gray"),
-                    _telemetria_atual(), _historicos(),
+                    _retomada_telemetria(), _telemetria_atual(), _historicos(),
                     align="start", width="100%", spacing="5",
                 ),
                 rx.center(

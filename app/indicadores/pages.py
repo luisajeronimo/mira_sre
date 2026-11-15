@@ -350,9 +350,9 @@ def _grafico() -> rx.Component:
             ),
             rx.box(
                 rx.recharts.area_chart(
-                    rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),
-                    rx.recharts.x_axis(data_key="dia", min_tick_gap=36, tick_line=False, axis_line=False),
-                    rx.recharts.y_axis(unit=" h", width=56, tick_line=False, axis_line=False),
+                    rx.recharts.cartesian_grid(stroke=BORDA, stroke_dasharray="3 3", vertical=False),
+                    rx.recharts.x_axis(data_key="dia", min_tick_gap=36, tick_line=False, axis_line=False, tick={"fill": TEXTO_SECUNDARIO, "fontSize": 11}),
+                    rx.recharts.y_axis(unit=" h", width=56, tick_line=False, axis_line=False, tick={"fill": TEXTO_SECUNDARIO, "fontSize": 11}),
                     _tooltip_grafico(),
                     rx.recharts.area(
                         data_key="mttd_horas",
@@ -820,6 +820,11 @@ def indicadores_disponibilidade() -> rx.Component:
             rx.tabs.content(
                 rx.vstack(
                     _cabecalho("disponibilidade"),
+                    rx.hstack(
+                        rx.icon("info", size=16, color=TEXTO_SECUNDARIO),
+                        rx.text("Ambiente acadêmico com dados simulados. O histórico fictício usa os Totens 1 e 2 (TOT-PAU-001 e TOT-PAU-002), preservando os filtros selecionados.", size="2", color=TEXTO_SECUNDARIO),
+                        align="start", spacing="2", width="100%",
+                    ),
                     _filtros("disponibilidade"),
                     rx.cond(
                         IndicadoresDiretoriaState.mensagem_erro_indicadores != "",

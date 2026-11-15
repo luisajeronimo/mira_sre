@@ -12,6 +12,7 @@ table ativos_referencia {
     text? identificacao? filters=trim
     text tipo? filters=trim
     text status_atual? filters=trim
+    bool? telemetria_simulada_ativa?
     int lojas_id? {
       table = "lojas"
     }

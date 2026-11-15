@@ -163,6 +163,13 @@ Ser o elemento monitorado pelo sistema e o ponto de associação entre Loja, tel
 - um Totem já `Offline` não deve gerar nova ação automática de indisponibilidade apenas pela continuidade da ausência de heartbeat;
 - o recebimento posterior de telemetria pode permitir que o Totem volte a `Online`.
 
+O controle `telemetria_simulada_ativa` é independente da disponibilidade:
+`null` indica ausência de registro no controle remoto, `false` indica envio
+silenciado e `true` autoriza envio contínuo para os participantes configurados
+no Simulator. Retomar esse controle exige confirmação de um perfil operacional
+e não muda disponibilidade nem chamados. A recuperação continua sendo decidida
+pelo Xano na fiscalização normal.
+
 ## 6. Telemetria
 
 ### Descrição

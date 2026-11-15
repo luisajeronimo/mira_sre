@@ -8,7 +8,7 @@ import pytest
 import app.monitoramento.state as monitoramento_module
 from app.monitoramento.state import MonitoramentoState
 from app.services.service_desk import XanoServiceDeskCliente
-from app.services.xano import XanoContratoInvalido, XanoIndisponivel
+from app.services.xano import XanoContratoInvalido, XanoIndisponivel, XanoConflito, XanoNaoAutenticado
 
 
 BASE_URL = "https://xano.example/api:mira-service-desk"
@@ -111,6 +111,8 @@ def test_cliente_mapeia_resumo_e_detalhe_operacional_limitado():
     ativos = executar(cliente.listar_ativos_monitoramento("token"))
     detalhe = executar(cliente.obter_detalhe_ativo_monitoramento("token", 1))
 
+    assert ativos[0].status_atual == "online"
+    assert detalhe.totem.status_atual == "online"
     assert ativos[0].loja is not None
     assert ativos[0].loja.nome == "Loja Centro"
     assert ativos[0].ultima_telemetria_em == 1780000030000
@@ -119,6 +121,19 @@ def test_cliente_mapeia_resumo_e_detalhe_operacional_limitado():
     assert detalhe.transicoes_disponibilidade[0].detectado_em == 1780000040000
     assert detalhe.incidentes_automaticos[0].categoria.nome == "Totem Offline / Sem Heartbeat"
     assert str(requisicoes[1].url) == f"{BASE_URL}/monitoramento/ativos/1"
+
+
+@pytest.mark.parametrize("detalhe", [False, True])
+def test_status_ausente_na_resposta_nao_vira_badge_sem_telemetria(detalhe):
+    dados = resposta_detalhe()
+    dados["totem"].pop("status_atual")
+    corpo = dados if detalhe else {"items": [dados["totem"]]}
+    cliente = XanoServiceDeskCliente(
+        BASE_URL, transport=httpx.MockTransport(lambda _: httpx.Response(200, json=corpo))
+    )
+    with pytest.raises(XanoContratoInvalido, match="Estado do Totem ausente"):
+        executar(cliente.obter_detalhe_ativo_monitoramento("token", 1) if detalhe
+                 else cliente.listar_ativos_monitoramento("token"))
 
 
 def test_detalhe_preserva_loja_historica_de_telemetria_e_disponibilidade():
@@ -233,6 +248,93 @@ def novo_estado() -> MonitoramentoState:
     return MonitoramentoState(_reflex_internal_init=True)
 
 
+def estado_para_retomada():
+    from app.states.auth import AuthState
+    estado = MonitoramentoState(parent_state=AuthState(_reflex_internal_init=True), _reflex_internal_init=True)
+    estado._auth_token = "token"
+    estado.role = "tecnico"
+    estado.sessao_confirmada = True
+    estado.totem_selecionado_id = 1
+    estado.detalhe_totem = {"id": 1, "nome_ativo": "Totem 01", "loja_nome": "Loja Centro", "status_atual": "offline", "telemetria_simulada_ativa": False}
+    return estado
+
+
+def test_cancelar_dialogo_nao_envia_e_preserva_estado():
+    estado = estado_para_retomada()
+    MonitoramentoState.abrir_confirmacao_retomada.fn(estado)
+    assert estado.confirmacao_retomada_id == 1
+    MonitoramentoState.definir_confirmacao_retomada.fn(estado, False)
+    assert estado.confirmacao_retomada_id is None
+    assert executar_evento(MonitoramentoState.confirmar_retomada, estado) == []
+    assert estado.detalhe_totem["status_atual"] == "offline"
+
+
+def test_cliente_confirma_id_e_mapeia_conflito_sem_expor_chave():
+    chamadas = []
+    def responder(req):
+        chamadas.append(req)
+        return httpx.Response(200, json={"id": 1, "envio_autorizado": True, "status_atual": "offline"})
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(responder))
+    executar(cliente.retomar_telemetria("token", 1))
+    assert chamadas[0].method == "POST"
+    assert chamadas[0].url.path.endswith("/1/retomar-telemetria")
+    assert "X-MIRA-Simulator-Key" not in chamadas[0].headers
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(lambda _: httpx.Response(409, json={})))
+    with pytest.raises(XanoConflito):
+        executar(cliente.retomar_telemetria("token", 1))
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"id": 2, "envio_autorizado": True, "status_atual": "offline"})))
+    with pytest.raises(XanoContratoInvalido):
+        executar(cliente.retomar_telemetria("token", 1))
+
+
+@pytest.mark.parametrize("trocar_selecao", [False, True])
+def test_retomada_unica_e_resposta_tardia(monkeypatch, trocar_selecao):
+    from dataclasses import replace
+    estado = estado_para_retomada()
+    posts = []
+    async def validar(self):
+        return None
+    class Cliente:
+        async def retomar_telemetria(self, token, alvo):
+            posts.append(alvo)
+            await asyncio.sleep(0)
+            if trocar_selecao:
+                estado._versao_selecao += 1
+                estado.totem_selecionado_id = 2
+                estado.detalhe_totem = {"id": 2, "status_atual": "online"}
+                estado.confirmacao_retomada_id = None
+        async def listar_ativos_monitoramento(self, token):
+            return []
+        async def obter_detalhe_ativo_monitoramento(self, token, alvo):
+            resultado = resultado_detalhe_para_estado()
+            return replace(resultado, totem=replace(resultado.totem, status_atual="offline", telemetria_simulada_ativa=True))
+    monkeypatch.setattr(MonitoramentoState, "_validar_acesso_monitoramento", validar)
+    monkeypatch.setattr(monitoramento_module, "criar_cliente_service_desk", Cliente)
+    MonitoramentoState.abrir_confirmacao_retomada.fn(estado)
+    async def rodar():
+        async def consumir():
+            return [e async for e in MonitoramentoState.confirmar_retomada.fn(estado)]
+        await asyncio.gather(consumir(), consumir())
+    executar(rodar())
+    assert posts == [1]
+    assert not estado.retomando_telemetria
+    if trocar_selecao:
+        assert estado.detalhe_totem == {"id": 2, "status_atual": "online"}
+        assert estado.mensagem_retomada == ""
+    else:
+        assert estado.detalhe_totem["status_atual"] == "offline"
+        assert estado.detalhe_totem["telemetria_simulada_ativa"] is True
+        assert "autorizado" in estado.mensagem_retomada
+
+
+def test_controle_invalido_no_detalhe_e_negado():
+    dados = resposta_detalhe()
+    dados["totem"]["telemetria_simulada_ativa"] = "false"
+    cliente = XanoServiceDeskCliente(BASE_URL, transport=httpx.MockTransport(lambda _: httpx.Response(200, json=dados)))
+    with pytest.raises(XanoContratoInvalido):
+        executar(cliente.obter_detalhe_ativo_monitoramento("token", 1))
+
+
 def test_state_seleciona_totem_e_preserva_colecoes_vazias(monkeypatch):
     estado = novo_estado()
     object.__setattr__(estado, "_auth_token", "token")
@@ -265,3 +367,32 @@ def test_state_mantem_ultimo_detalhe_valido_ao_falhar_consulta(monkeypatch):
     assert estado.totem_selecionado_id == 1
     assert estado.detalhe_totem["nome_ativo"] == "Totem anterior"
     assert estado.mensagem_erro_detalhe
+
+
+@pytest.mark.parametrize("erro", [XanoConflito("mudou"), XanoNaoAutenticado("expirou")])
+def test_retomada_trata_conflito_e_expiracao_sem_online_otimista(monkeypatch, erro):
+    estado = estado_para_retomada()
+    async def validar(self):
+        return None
+    class Cliente:
+        async def retomar_telemetria(self, token, alvo):
+            raise erro
+    monkeypatch.setattr(MonitoramentoState, "_validar_acesso_monitoramento", validar)
+    monkeypatch.setattr(monitoramento_module, "criar_cliente_service_desk", Cliente)
+    MonitoramentoState.abrir_confirmacao_retomada.fn(estado)
+    eventos = executar_evento(MonitoramentoState.confirmar_retomada, estado)
+    assert not estado.retomando_telemetria
+    assert estado.confirmacao_retomada_id is None
+    assert estado.detalhe_totem["status_atual"] == "offline"
+    if isinstance(erro, XanoConflito):
+        assert "mudou" in estado.erro_retomada
+    else:
+        assert eventos
+
+
+@pytest.mark.parametrize("controle", [None, True])
+def test_controle_ausente_ou_ja_ativo_nao_permite_retomar(controle):
+    estado = estado_para_retomada()
+    estado.detalhe_totem = {**estado.detalhe_totem, "telemetria_simulada_ativa": controle}
+    MonitoramentoState.abrir_confirmacao_retomada.fn(estado)
+    assert estado.confirmacao_retomada_id is None

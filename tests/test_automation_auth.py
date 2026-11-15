@@ -209,6 +209,8 @@ def test_simulator_separa_posts_por_intervalo_configuravel(monkeypatch):
     )
     enviados = []
     esperas = []
+    monkeypatch.setattr(simulator, "obter_controles", lambda: {1: True, 2: True})
+    monkeypatch.setattr(simulator.time, "monotonic", lambda: 0)
     monkeypatch.setattr(
         simulator,
         "gerar_telemetria",
@@ -221,6 +223,83 @@ def test_simulator_separa_posts_por_intervalo_configuravel(monkeypatch):
 
     assert enviados == [{"ativos_referencia_id": 1}, {"ativos_referencia_id": 2}]
     assert esperas == [4]
+
+
+def test_controle_agrupado_e_retomada_continua_ignoram_silencio_local(monkeypatch):
+    simulator = carregar_modulo(monkeypatch, SIMULATOR_PATH, "simulator_retomada", ambiente_simulator(SIMULATOR_ATIVO_SILENCIADO="1"))
+    chamadas = []
+    ciclo = [False, True, True]
+
+    class Resposta:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"items": [{"id": 1, "telemetria_simulada_ativa": ciclo.pop(0)}, {"id": 2, "telemetria_simulada_ativa": None}]}
+
+    def consultar(url, **kwargs):
+        chamadas.append((url, kwargs))
+        return Resposta()
+
+    enviados = []
+    monkeypatch.setattr(simulator.requests, "get", consultar)
+    monkeypatch.setattr(simulator, "enviar_telemetria", lambda p: enviados.append(p["ativos_referencia_id"]))
+    monkeypatch.setattr(simulator.time, "sleep", lambda _: None)
+    for _ in range(3):
+        simulator.executar_ciclo()
+    assert enviados == [1, 1]
+    assert len(chamadas) == 3
+    assert all(c[0].endswith("/simulator/controle-telemetria") for c in chamadas)
+    assert chamadas[0][1]["headers"] == {"X-MIRA-Simulator-Key": "simulator-segredo-de-teste"}
+    assert chamadas[0][1]["params"] == {"ativos_referencia_ids": "[1, 2]"}
+
+
+@pytest.mark.parametrize("dados", [{}, {"items": "erro"}, {"items": [{"id": 1, "telemetria_simulada_ativa": 1}]}, {"items": [{"id": 1}]}, {"items": [{"id": 99, "telemetria_simulada_ativa": True}]}])
+def test_resposta_de_controle_invalida_nao_envia(monkeypatch, dados):
+    simulator = carregar_modulo(monkeypatch, SIMULATOR_PATH, "simulator_invalido", ambiente_simulator())
+    class Resposta:
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return dados
+    monkeypatch.setattr(simulator.requests, "get", lambda *a, **kw: Resposta())
+    enviados = []
+    monkeypatch.setattr(simulator, "enviar_telemetria", enviados.append)
+    simulator.executar_ciclo()
+    assert enviados == []
+
+
+def test_falha_de_controle_nao_reutiliza_snapshot_e_tenta_no_proximo_ciclo(monkeypatch):
+    simulator = carregar_modulo(monkeypatch, SIMULATOR_PATH, "simulator_timeout", ambiente_simulator())
+    snapshots = [{1: True}, simulator.requests.Timeout(), {1: True}]
+    def ler():
+        valor = snapshots.pop(0)
+        if isinstance(valor, Exception):
+            raise valor
+        return valor
+    enviados = []
+    monkeypatch.setattr(simulator, "obter_controles", ler)
+    monkeypatch.setattr(simulator, "enviar_telemetria", lambda p: enviados.append(p["ativos_referencia_id"]))
+    monkeypatch.setattr(simulator.time, "sleep", lambda _: None)
+    for _ in range(3):
+        simulator.executar_ciclo()
+    assert enviados == [1, 1]
+
+
+@pytest.mark.parametrize("quantidade", [15, 17])
+def test_janelas_e_espacamento_preservados_entre_ciclos(monkeypatch, quantidade):
+    simulator = carregar_modulo(monkeypatch, SIMULATOR_PATH, "simulator_janelas", ambiente_simulator(SIMULATOR_ATIVOS=",".join(map(str, range(1, quantidade + 1)))))
+    relogio = [0.0]
+    instantes = []
+    monkeypatch.setattr(simulator, "obter_controles", lambda: dict.fromkeys(simulator.ATIVOS, True))
+    monkeypatch.setattr(simulator.time, "monotonic", lambda: relogio[0])
+    monkeypatch.setattr(simulator.time, "sleep", lambda s: relogio.__setitem__(0, relogio[0] + s))
+    monkeypatch.setattr(simulator, "enviar_telemetria", lambda p: instantes.append(relogio[0]))
+    simulator.executar_ciclo()
+    simulator.executar_ciclo()
+    assert len(instantes) == quantidade * 2
+    assert all(b - a >= 3 for a, b in zip(instantes, instantes[1:]))
+    assert max(sum(t <= ponto < t + 20 for ponto in instantes) for t in instantes) <= 7
 
 
 @pytest.mark.parametrize(

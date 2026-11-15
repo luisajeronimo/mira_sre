@@ -39,7 +39,7 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
       eval = {loja_id: $db.loja.id, loja_nome: $db.loja.nome}
       return = {type: "single"}
       mock = {
-        "detalhe completo" : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", loja_id: 3, loja_nome: "Loja Centro"}
+        "detalhe completo" : {id: 1, nome_ativo: "Totem 01", tipo: "Totem", status_atual: "online", telemetria_simulada_ativa: false, loja_id: 3, loja_nome: "Loja Centro"}
         "colecoes vazias"  : {id: 2, nome_ativo: "Totem 02", tipo: "Totem", status_atual: "offline", loja_id: null, loja_nome: null}
         "totem inexistente": null
       }
@@ -104,11 +104,12 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
 
     var $totem {
       value = {
-        id          : $ativo.id
-        nome_ativo  : $ativo.nome_ativo
-        tipo        : $ativo.tipo
-        loja        : ($ativo.loja_id != null && $ativo.loja_id != 0) ? {id: $ativo.loja_id, nome: $ativo.loja_nome} : null
-        status_atual: $ativo.status_atual
+        id: $ativo.id,
+        nome_ativo: $ativo.nome_ativo,
+        tipo: $ativo.tipo,
+        loja: ($ativo.loja_id != null && $ativo.loja_id != 0) ? {id: $ativo.loja_id, nome: $ativo.loja_nome} : null,
+        status_atual: $ativo.status_atual,
+        telemetria_simulada_ativa: $ativo.telemetria_simulada_ativa
       }
     }
 
@@ -214,13 +215,7 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
     input = {usuarios_id: 12, ativos_referencia_id: 1}
 
     expect.to_equal ($response.totem) {
-      value = {
-        id          : 1
-        nome_ativo  : "Totem 01"
-        tipo        : "Totem"
-        loja        : {id: 3, nome: "Loja Centro"}
-        status_atual: "online"
-      }
+      value = {id: 1, nome_ativo: "Totem 01", tipo: "Totem", loja: {id: 3, nome: "Loja Centro"}, status_atual: "online", telemetria_simulada_ativa: false}
     }
 
     expect.to_equal ($response.ultima_telemetria.id) {
@@ -251,6 +246,8 @@ function "service_desk/obter_detalhe_ativo_monitoramento" {
   test "colecoes vazias" {
     input = {usuarios_id: 12, ativos_referencia_id: 2}
 
+    expect.to_equal ($response.totem.status_atual) { value = "offline" }
+    expect.to_be_null ($response.totem.telemetria_simulada_ativa)
     expect.to_be_null ($response.ultima_telemetria)
     expect.to_be_empty ($response.telemetrias)
     expect.to_be_empty ($response.transicoes_disponibilidade)

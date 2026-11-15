@@ -66,6 +66,7 @@ class AtivoMonitoramento:
     status_atual: str | None
     ultima_telemetria_em: int | None
     ultima_transicao_disponibilidade_em: int | None
+    telemetria_simulada_ativa: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -425,6 +426,11 @@ def _referencia_loja(valor: Any) -> ReferenciaLoja | None:
 
 def _ativo_monitoramento(dados: Any, campo: str = "totem") -> AtivoMonitoramento:
     ativo = _objeto(dados, campo)
+    if "status_atual" not in ativo:
+        raise XanoContratoInvalido("Estado do Totem ausente na resposta do serviço.")
+    controle = ativo.get("telemetria_simulada_ativa")
+    if controle is not None and type(controle) is not bool:
+        raise XanoContratoInvalido("Controle de telemetria inválido.")
     return AtivoMonitoramento(
         id=_inteiro(ativo.get("id"), f"{campo}.id"),
         nome_ativo=_texto(ativo.get("nome_ativo"), f"{campo}.nome_ativo"),
@@ -439,6 +445,7 @@ def _ativo_monitoramento(dados: Any, campo: str = "totem") -> AtivoMonitoramento
             ativo.get("ultima_transicao_disponibilidade_em"),
             f"{campo}.ultima_transicao_disponibilidade_em",
         ),
+        telemetria_simulada_ativa=controle,
     )
 
 
@@ -1092,6 +1099,20 @@ class XanoServiceDeskCliente(XanoCliente):
             token=token,
         )
         return _detalhe_monitoramento(dados)
+
+    async def retomar_telemetria(self, token: str, ativos_referencia_id: int) -> None:
+        dados = await self._requisitar(
+            "POST",
+            f"/monitoramento/ativos/{ativos_referencia_id}/retomar-telemetria",
+            token=token,
+        )
+        if (
+            type(dados.get("id")) is not int
+            or dados["id"] != ativos_referencia_id
+            or dados.get("envio_autorizado") is not True
+            or dados.get("status_atual") not in {"online", "offline"}
+        ):
+            raise XanoContratoInvalido("A retomada de telemetria não pôde ser confirmada.")
 
     async def listar_ativos_tecnico(
         self, token: str

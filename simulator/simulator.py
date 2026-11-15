@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import time
 from datetime import datetime, timezone
@@ -60,6 +61,37 @@ ATIVO_REDE_OFFLINE = ler_id_ativo(
 ATIVO_SILENCIADO = ler_id_ativo(
     "SIMULATOR_ATIVO_SILENCIADO"
 )
+
+# Espaçamento entre POSTs também na fronteira de ciclos demorados.
+_ultimo_envio_monotonico = None
+
+
+def obter_controles():
+    resposta = requests.get(
+        f"{XANO_BASE_URL.rstrip('/')}/simulator/controle-telemetria",
+        params={"ativos_referencia_ids": json.dumps(ATIVOS)},
+        headers={"X-MIRA-Simulator-Key": obter_chave_simulator()},
+        timeout=30,
+    )
+    resposta.raise_for_status()
+    dados = resposta.json()
+    if not isinstance(dados, dict) or not isinstance(dados.get("items"), list):
+        raise ValueError("Controle de telemetria incompatível")
+    controles = {}
+    for item in dados["items"]:
+        if not isinstance(item, dict):
+            raise ValueError("Controle de telemetria incompatível")
+        ativo_id = item.get("id")
+        ativa = item.get("telemetria_simulada_ativa")
+        if (
+            type(ativo_id) is not int or ativo_id not in ATIVOS
+            or ativo_id in controles
+            or "telemetria_simulada_ativa" not in item
+            or (ativa is not None and type(ativa) is not bool)
+        ):
+            raise ValueError("Controle de telemetria incompatível")
+        controles[ativo_id] = ativa
+    return controles
 
 
 # ============================================================
@@ -198,19 +230,25 @@ def imprimir_resultado(payload, cenarios, status_http="OK"):
 # ============================================================
 
 def executar_ciclo():
+    global _ultimo_envio_monotonico
     print()
     print("=" * 80)
     print("Novo ciclo de telemetria")
     print("=" * 80)
 
-    houve_requisicao = False
+    try:
+        controles = obter_controles()
+    except (requests.RequestException, ValueError, TypeError):
+        print("[ERRO] Consulta de controle indisponível; ciclo sem envios.")
+        return
+
     for ativo_id in ATIVOS:
 
         # ----------------------------------------------------
         # Silêncio
         # ----------------------------------------------------
 
-        if ativo_id == ATIVO_SILENCIADO:
+        if controles.get(ativo_id) is not True:
             print(
                 f"[SILENCIADO] Ativo {ativo_id} "
                 "não enviará telemetria neste ciclo."
@@ -218,15 +256,18 @@ def executar_ciclo():
 
             continue
 
-        if houve_requisicao:
-            time.sleep(INTERVALO_ENTRE_ATIVOS_SEGUNDOS)
-        houve_requisicao = True
+        agora = time.monotonic()
+        if _ultimo_envio_monotonico is not None:
+            espera = INTERVALO_ENTRE_ATIVOS_SEGUNDOS - (agora - _ultimo_envio_monotonico)
+            if espera > 0:
+                time.sleep(espera)
 
         try:
             payload, cenarios = gerar_telemetria(
                 ativo_id
             )
 
+            _ultimo_envio_monotonico = time.monotonic()
             enviar_telemetria(payload)
 
             imprimir_resultado(
@@ -319,7 +360,7 @@ def imprimir_configuracao():
     )
 
     print(
-        f"Silenciado: "
+        f"Silêncio na inicialização (controle atual consultado no Xano): "
         f"{ATIVO_SILENCIADO or '-'}"
     )
 

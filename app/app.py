@@ -26,6 +26,7 @@ from app.components.visual import CANVAS, FONTE_INTERFACE, TEXTO
 # `ruby` é o token Radix disponível mais próximo do rose definido no DESIGN.md.
 app = rx.App(
     html_lang="pt-BR",
+    head_components=[rx.el.link(rel="icon", type="image/svg+xml", href="/mira-logo.svg")],
     stylesheets=["/mira.css"],
     theme=rx.theme(appearance="light", accent_color="ruby"),
     style={

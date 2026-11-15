@@ -123,20 +123,17 @@ O escopo global do MIRA compreende:
 
 Os dados mestres permanecem persistidos no Xano. O Simulator não recria lojas ou totens a cada execução.
 
-### 5.1 Situação do acompanhamento e retorno do solicitante (Sprint 3)
+### 5.1 Estado de fechamento do produto
 
-> Os registros abaixo descrevem o estado em 08/11/2026. Em 11/11/2026, as sete changes foram arquivadas e suas specs consolidadas. A interface própria do solicitante foi retirada da aplicação no fechamento autorizado; os contratos de leitura permanecem no Xano. A prova E0.3 de rollback não foi executada no runtime do plano Free, conforme limitação aceita e registrada nas tasks arquivadas.
+Em 15/11/2026, o usuário confirmou o funcionamento de telemetria, indicadores e dos cinco roteiros essenciais de integração envolvendo Gerente, Técnico, Diretoria e Administrador. O escopo funcional foi considerado concluído por esse aceite humano. A margem de 30/11 a 01/12/2026 fica reservada à entrega e a eventuais correções expressamente aprovadas, sem nova capacidade estrutural.
 
-- **Já implementado:** lista, detalhe, filtros múltiplos e preferências do Gerente pela própria loja; comentário público do Gerente em qualquer chamado da loja, inclusive encerrado ou cancelado; visibilidade Pública/Interna exclusiva de comentários; timeline operacional restrita a Técnico, Diretoria e Administrador.
-- **Aprovado para a Sprint 3:** acompanhamento somente leitura dos chamados pelo solicitante associado, em interface própria e independente da loja atual; histórico público de status projetado das alterações já registradas pelo Save operacional, exibido na interface após validação; bloqueio do acesso do Gerente às consultas genéricas de interações; confirmação de publicação de comentário independente da atualização do detalhe; rejeição de solução pelo Gerente da loja com destino `Solução Rejeitada`; contagem de SLA em tempo corrido; encerramento automático após 72 horas corridas em `Resolvido`, sem encerramento em massa de chamados já resolvidos, com comentário público de sistema.
-- **Bloqueado por risco técnico:** novas operações que gravem mais de um registro de forma dependente (rejeição, encerramento automático) e a gravação de um evento de status de tipo próprio, até prova verificável, em ambiente isolado autorizado, de que o Xano Free desfaz escritas anteriores quando uma operação falha. A projeção do histórico e o cálculo de SLA são somente leitura, não dependem dessa prova e não a comprovam. O plano Free não oferece ambiente isolado utilizável sem alterar o workspace compartilhado; um pacote de prova pronto, validado apenas estaticamente, aguarda autorização de ambiente.
-- **Publicado no Xano em 07/11/2026, com autorização:** bloqueio do Gerente nas consultas genéricas de interações (Pacote A); contratos de leitura do solicitante e do histórico público de status (Pacote B). Testes nativos XanoScript e validação HTTP parcial foram executados; o caminho com chamado do próprio solicitante e da própria Loja do Gerente não foi executado por falta de dados de teste.
-- **Implementado localmente, não publicado (07/11/2026):** interface do solicitante e seção de histórico no detalhe do Gerente e do solicitante; confirmação de publicação de comentário; cálculo do consumo de SLA em tempo corrido como função interna (publicada em 08/11), ainda sem consulta que o exponha; a exposição por perfil foi decidida na DE-8 (08/11) e não está implementada. A interface do solicitante e a seção de histórico estão no repositório desde 08/11/2026, desligadas por configuração (`MIRA_ACOMPANHAMENTO_SOLICITANTE_PUBLICADO=false`); os contratos que consomem foram validados por HTTP autenticado, e ligar a configuração depende da liberação condicionada K-B.
-- **Não definido:** aceitação explícita da solução; fórmulas finais dos indicadores (em proposta), exceto o consumo de SLA e suas faixas, já sustentados pelo domínio.
-- **Loja histórica (publicada no Xano; regularização no repositório em andamento pela change `regularizar-loja-historica-totem`, 07/11/2026):** a Loja de um chamado é a do vínculo histórico do Totem no instante da abertura. Sem vínculo, a Loja é nula e o Gerente não acessa o chamado; não há vínculo retroativo nem uso da Loja atual como substituta. Chamados novos de Totem sem histórico registram marco somente quando há Loja atual. A abertura manual sem Loja atual é rejeitada; o heartbeat pode criar o incidente sem marco, mantendo sua Loja histórica nula e sem acesso para Gerentes. Em 07/11/2026 nenhum vínculo existia, então os chamados existentes estavam fora da jornada do Gerente (decisão DL-1 pendente na change `regularizar-loja-historica-totem`).
-- **Consultas genéricas de interações:** a versão publicada já negava o Gerente; o Pacote A, publicado em 07/11/2026, passou a autorizar antes de qualquer leitura e corrigiu o erro 500 para identificador inexistente.
+O estado consolidado inclui acompanhamento do Gerente por Loja histórica, comentários públicos e internos conforme o perfil, Save operacional, histórico público de status, rejeição de solução, consumo de SLA, verificação de encerramento e as três visões de indicadores. As fórmulas e os acessos vigentes estão nas [specs consolidadas](../openspec/specs/), incluindo a igualdade de acessos operacionais entre Técnico, Diretoria e Administrador e a Gestão exclusiva do Administrador.
 
-O estado de implementação, teste, validação e publicação de cada item está no [README](../README.md#estado-da-sprint-3-2610-a-08112026).
+Os contratos de leitura do solicitante permanecem no Xano; a interface própria do solicitante foi retirada no fechamento autorizado e não integra a aplicação entregue. A aceitação explícita da solução pelo solicitante permanece fora do escopo. A rejeição pelo Gerente é a operação específica descrita na seção 6.7.
+
+Continuam declarados os limites de comprovação de concorrência forte e de rollback por falha provocada no único workspace Xano Free. A prova E0.3 não foi executada em runtime, conforme decisão anteriormente aceita; o aceite funcional não transforma essa prova em teste executado.
+
+O aceite, sua origem e a reconciliação das tarefas históricas estão registrados na change `fechamento-integrado-entrega`, em [openspec/changes/](../openspec/changes/). As changes arquivadas preservam os resultados e limites de cada entrega na época, sem reescrita retroativa dos seus checkboxes.
 
 ---
 
@@ -172,8 +169,8 @@ Quando necessário, o Xano pode marcar o Totem como Offline e criar um incidente
 
 Transições efetivas entre Online e Offline são preservadas como histórico de
 disponibilidade, com a telemetria de referência, o instante de detecção e o
-limite de heartbeat aplicado. O histórico registra fatos para indicadores
-futuros, sem antecipar dashboard ou métricas derivadas.
+limite de heartbeat aplicado. O histórico registra os fatos usados pelos
+indicadores consolidados de disponibilidade e confiabilidade.
 
 Para evitar duplicidade, um novo incidente automático não deve ser criado quando já existir chamado da mesma categoria para o mesmo Totem em estado não terminal. Chamados `Encerrados` e `Cancelados` não bloqueiam a criação de um novo incidente futuro.
 
@@ -244,7 +241,7 @@ Toda atribuição, reatribuição ou liberação deve fazer parte do histórico 
 
 ### 6.7 Ciclo de vida dos chamados
 
-Os status previstos para o domínio do MIRA são:
+Os status canônicos do MIRA são:
 
 - `Novo`;
 - `Em Atendimento`;
@@ -272,7 +269,7 @@ Após 72 horas corridas em `Resolvido`, sem rejeição da solução, um comando 
 
 Quando o problema persiste, o Gerente da loja à qual o chamado pertence pode rejeitar a resolução de um chamado `Resolvido`. A rejeição é uma operação específica, autorizada no Xano, que exige justificativa obrigatória registrada como comentário público e altera o status para `Solução Rejeitada`, sem alterar os demais dados do chamado. O solicitante permanece somente leitura. A contagem de SLA retoma o saldo anterior, sem contabilizar o período em `Resolvido`.
 
-Situação em 11/11/2026: a rejeição e a verificação manual de encerramento foram versionadas; a prova E0.3 de rollback permanece não comprovada em runtime no plano Free, com limitação aceita nas changes arquivadas. A aceitação explícita da solução não está definida. `Solução Rejeitada` integra a lista canônica do Save operacional, das listagens, dos filtros e das preferências.
+A aceitação explícita da solução pelo solicitante permanece fora do escopo. `Solução Rejeitada` integra a lista canônica do Save operacional, das listagens, dos filtros e das preferências.
 
 O status `Aguardando Solicitante` é definido por Técnico, Diretoria ou Administrador e exige comentário público. O comentário posterior do solicitante atualiza o chamado, mas não muda automaticamente seu status.
 
@@ -331,7 +328,7 @@ O detalhamento técnico de armazenamento dessas preferências pertence à especi
 
 Técnico, Diretoria e Administrador têm acesso às mesmas visões consolidadas e interativas para acompanhamento da operação.
 
-Os dashboards previstos incluem:
+Os indicadores consolidados incluem:
 
 - **Disponibilidade Geral da Rede** — acompanhamento do tempo em que os Totens permaneceram Online e Offline;
 - **Evolução de MTTD versus MTTR**;
@@ -341,7 +338,7 @@ Os dashboards previstos incluem:
 - **Maiores Causas de Indisponibilidade**, utilizando a categoria do chamado como referência de causa;
 - **Análise de Recorrência**, considerando repetição de chamados com base na categoria.
 
-Para viabilizar esses indicadores, o domínio precisa preservar informações temporais e relacionamentos suficientes para identificar, conforme cada métrica:
+Os cálculos usam informações temporais e relacionamentos persistidos para identificar, conforme cada métrica:
 
 - Totem;
 - Loja;
@@ -356,7 +353,7 @@ Para viabilizar esses indicadores, o domínio precisa preservar informações te
 - retorno do Totem a Online;
 - períodos de disponibilidade.
 
-O cálculo exato e os recortes de cada indicador devem ser formalizados nas specs das respectivas funcionalidades de dashboard, evitando antecipar detalhes desnecessários no contexto global.
+As fórmulas e os recortes estão definidos em [indicadores operacionais](../openspec/specs/indicadores-operacionais/spec.md), [disponibilidade e confiabilidade](../openspec/specs/dashboard-disponibilidade-confiabilidade/spec.md), [Chamados e SLA](../openspec/specs/dashboard-operacao-sla/spec.md) e [causas e recorrência](../openspec/specs/dashboard-causas-recorrencia/spec.md). A visão global não substitui esses contratos.
 
 ---
 

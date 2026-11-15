@@ -509,12 +509,12 @@ Permitir acompanhamento do tempo consumido e identificação de risco de violaç
 - ao entrar em `Solução Rejeitada`, a contagem retoma a partir do saldo acumulado imediatamente antes de `Resolvido`, sem contabilizar o período em `Resolvido`;
 - `Encerrado` e `Cancelado` interrompem a contagem sem retomada;
 - para o indicador de risco, o percentual consumido compara tempo contabilizado com o SLA aplicado;
-- referência acadêmica inicial de visualização: abaixo de 70% = normal; de 70% a 90% = risco; acima de 90% = crítico; acima de 100% = violado;
-- regras adicionais de apresentação ou comportamento devem ser definidas nas specs dos dashboards e da tratativa.
+- faixas consolidadas de consumo: abaixo de 70% = normal; de 70% a 90% inclusive = risco; acima de 90% até 100% inclusive = crítico; acima de 100% = violado;
+- apresentação e comportamento seguem as specs consolidadas de [indicadores operacionais](../openspec/specs/indicadores-operacionais/spec.md), [Chamados e SLA](../openspec/specs/dashboard-operacao-sla/spec.md) e [tratativa](../openspec/specs/tratativa-operacional-chamados/spec.md).
 
 ## 13. Dados necessários para indicadores
 
-Esta seção registra somente os **conceitos e dados mínimos necessários** para viabilizar indicadores futuros. A composição visual, filtros e comportamento dos dashboards pertencem ao `project-overview.md` e às respectivas specs.
+Esta seção registra os **conceitos e dados mínimos** usados pelos indicadores consolidados. A composição visual, os filtros e o comportamento dos dashboards são descritos no `project-overview.md` e nas respectivas specs vigentes.
 
 ### Disponibilidade Geral da Rede
 
@@ -543,7 +543,7 @@ O MTTD usa o intervalo entre a última telemetria referenciada pelo evento Offli
 
 ### MTTR — Tempo Médio de Recuperação
 
-No MIRA, MTTR será tratado como **tempo médio de recuperação do Totem**, e não como tempo de encerramento do Chamado.
+No MIRA, MTTR representa o **tempo médio de recuperação do Totem**. O encerramento do Chamado possui seus próprios marcos e regras.
 
 Dados mínimos:
 
@@ -610,7 +610,7 @@ Dados mínimos:
 - data de criação;
 - identificação do Chamado.
 
-A recorrência usa janela de 30 dias corridos, mesmo Totem e mesma Categoria. Participam somente Incidentes não cancelados; Requisições e chamados Cancelados não entram na base nem servem de predecessor. Um chamado anterior ao período de análise pode ser predecessor se estiver dentro da janela. Os detalhes verificáveis estão na change `indicadores-governanca-formulas`; a apresentação pertence à spec futura do dashboard, sem necessidade de nova entidade de "causa".
+A recorrência usa janela de 30 dias corridos, mesmo Totem e mesma Categoria. Participam somente Incidentes não cancelados; Requisições e chamados Cancelados não entram na base nem servem de predecessor. Um chamado anterior ao período de análise pode ser predecessor se estiver dentro da janela. As regras verificáveis estão nas specs de [indicadores operacionais](../openspec/specs/indicadores-operacionais/spec.md) e [causas e recorrência](../openspec/specs/dashboard-causas-recorrencia/spec.md), sem necessidade de nova entidade de "causa".
 
 ## 14. Relações consolidadas do domínio-alvo
 

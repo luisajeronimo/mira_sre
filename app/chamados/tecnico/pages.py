@@ -54,15 +54,18 @@ def _fila_tecnico() -> rx.Component:
                         on_click=ChamadosTecnicoState.selecionar_escopo_rapido("todos"),
                         disabled=ChamadosTecnicoState.carregando_fila,
                     ),
-                    rx.button(
-                        "Atribuídos a mim",
-                        variant=rx.cond(
-                            ChamadosTecnicoState.escopo_rapido == "atribuidos_a_mim",
-                            "solid",
-                            "outline",
+                    rx.cond(
+                        AuthState.role == "tecnico",
+                        rx.button(
+                            "Atribuídos a mim",
+                            variant=rx.cond(
+                                ChamadosTecnicoState.escopo_rapido == "atribuidos_a_mim",
+                                "solid",
+                                "outline",
+                            ),
+                            on_click=ChamadosTecnicoState.selecionar_escopo_rapido("atribuidos_a_mim"),
+                            disabled=ChamadosTecnicoState.carregando_fila,
                         ),
-                        on_click=ChamadosTecnicoState.selecionar_escopo_rapido("atribuidos_a_mim"),
-                        disabled=ChamadosTecnicoState.carregando_fila,
                     ),
                     spacing="2",
                 ),
@@ -107,15 +110,19 @@ def _fila_tecnico() -> rx.Component:
                             ChamadosTecnicoState.carregando_fila,
                         ),
                     ),
-                    campo_rotulado(
-                        "Responsável",
-                        dropdown_multisselecao(
-                            ChamadosTecnicoState.responsaveis_filtro,
-                            ChamadosTecnicoState.filtro_responsavel,
-                            ChamadosTecnicoState.alterar_filtro_responsavel,
+                    rx.cond(
+                        (AuthState.role != "tecnico")
+                        | (ChamadosTecnicoState.escopo_rapido != "atribuidos_a_mim"),
+                        campo_rotulado(
                             "Responsável",
-                            ChamadosTecnicoState.carregando_fila,
-                            ocultar_id=True,
+                            dropdown_multisselecao(
+                                ChamadosTecnicoState.responsaveis_filtro,
+                                ChamadosTecnicoState.filtro_responsavel,
+                                ChamadosTecnicoState.alterar_filtro_responsavel,
+                                "Responsável",
+                                ChamadosTecnicoState.carregando_fila,
+                                ocultar_id=True,
+                            ),
                         ),
                     ),
                     campo_rotulado(
